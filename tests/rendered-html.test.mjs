@@ -40,7 +40,8 @@ test("server-renders the BKK Air forecast product", async () => {
   assert.match(html, /กำลังโหลดข้อมูลจริง/);
   assert.match(html, /D\+(?:<!-- -->)?1/);
   assert.match(html, /D\+(?:<!-- -->)?5/);
-  assert.match(html, /ความเชื่อมั่นของโมเดล/);
+  assert.match(html, /ค่าฝุ่นเฉลี่ย กทม\./);
+  assert.doesNotMatch(html, /ความเชื่อมั่นของโมเดล/);
   assert.match(html, /พื้นผิว IDW/);
   assert.match(html, /IDW power 2/);
   assert.doesNotMatch(html, /codex-preview|Building your site|react-loading-skeleton/i);

@@ -399,14 +399,18 @@ export default function ForecastDashboard() {
       </section>
 
       <section className="hero" id="top">
-        <div>
+        <div className="hero-copy">
+          <span className="hero-kicker">LIVE SPATIAL FORECAST</span>
           <p className="eyebrow">พยากรณ์ PM2.5 กรุงเทพฯ ล่วงหน้า 1–5 วัน</p>
           <h1>เห็นวันที่เสี่ยง<br /><em>ก่อนฝุ่นจะมา</em></h1>
+          <p className="hero-deck">ข้อมูลสถานี AirBKK ผสานแนวโน้ม CAMS แล้วแปลงเป็นพื้นผิวพยากรณ์รายพื้นที่ภายในกรุงเทพฯ</p>
         </div>
-        <div className="hero-summary">
-          <p>ค่ากลางสูงสุดในช่วง 5 วัน</p>
-          <strong>D+{peakDayIndex + 1} · {dailyMeans[peakDayIndex]} µg/m³</strong>
-          <span>คำนวณจาก AirBKK {stations.length} สถานี และ CAMS Global; กดแต่ละวันเพื่อดูพื้นที่เสี่ยง</span>
+        <div className="hero-visual" role="img" aria-label="ภาพสรุปแผนที่พยากรณ์ PM2.5 กรุงเทพฯ">
+          <div className="hero-summary">
+            <p>ค่าเฉลี่ยสูงสุดในช่วง 5 วัน</p>
+            <strong>D+{peakDayIndex + 1} · {dailyMeans[peakDayIndex]} <small>µg/m³</small></strong>
+            <span>AirBKK {stations.length} สถานี · CAMS Global</span>
+          </div>
         </div>
       </section>
 
@@ -478,11 +482,21 @@ export default function ForecastDashboard() {
         </div>
 
         <aside className="insights">
-          <div className="confidence-card">
-            <div className="confidence-ring" style={{ "--progress": `${day.confidence * 3.6}deg` } as React.CSSProperties}>
-              <span>{day.confidence}<small>%</small></span>
+          <div className="average-card">
+            <div
+              className="average-ring"
+              style={{
+                "--progress": `${Math.min(100, (mean / 75) * 100) * 3.6}deg`,
+                "--metric-color": meanLevel.color,
+              } as React.CSSProperties}
+            >
+              <span>{mean}<small>µg/m³</small></span>
             </div>
-            <div><p>ความเชื่อมั่นของโมเดล</p><strong>{day.confidence >= 80 ? "สูง" : day.confidence >= 65 ? "ปานกลาง" : "ควรติดตามใกล้ชิด"}</strong></div>
+            <div>
+              <p>ค่าฝุ่นเฉลี่ย กทม.</p>
+              <strong style={{ color: meanLevel.color }}>{meanLevel.label}</strong>
+              <em>เฉลี่ยจาก {stations.length} สถานี · D+{day.lead}</em>
+            </div>
           </div>
 
           <div className="weather-card">
