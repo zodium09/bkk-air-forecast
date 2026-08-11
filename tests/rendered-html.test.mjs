@@ -42,6 +42,7 @@ test("server-renders the BKK Air forecast product", async () => {
   assert.match(html, /D\+(?:<!-- -->)?1/);
   assert.match(html, /D\+(?:<!-- -->)?5/);
   assert.match(html, /ค่าฝุ่นเฉลี่ย กทม\./);
+  assert.match(html, /แนวโน้ม 5 วัน/);
   assert.doesNotMatch(html, /ความเชื่อมั่นของโมเดล/);
   assert.match(html, /ชั้นสีค่าฝุ่น/);
   assert.match(html, /กำลังโหลดขอบเขตกรุงเทพฯ/);

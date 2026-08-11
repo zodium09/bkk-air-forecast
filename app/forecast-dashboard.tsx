@@ -369,6 +369,13 @@ export default function ForecastDashboard() {
     () => [...stations].sort((a, b) => b.values[selectedDay] - a.values[selectedDay]).slice(0, 5),
     [selectedDay, stations],
   );
+  const dailyMeans = useMemo(
+    () => days.map((_, index) => average(stations.map((station) => station.values[index]))),
+    [days, stations],
+  );
+  const trendMin = Math.min(...dailyMeans);
+  const trendMax = Math.max(...dailyMeans);
+  const trendRange = trendMax - trendMin;
   const highestStation = sortedStations[0];
 
   return (
@@ -477,6 +484,31 @@ export default function ForecastDashboard() {
             <p>สภาพอากาศ</p>
             <div><span aria-hidden="true">↗</span><b>{day.wind}</b></div>
             <div><span aria-hidden="true">◌</span><b>{day.weather}</b></div>
+          </div>
+
+          <div className="trend-card">
+            <div className="trend-heading">
+              <p>แนวโน้ม 5 วัน</p>
+              <span>ค่าเฉลี่ย กทม.</span>
+            </div>
+            <div className="trend-chart" role="group" aria-label="กราฟแนวโน้มค่าฝุ่นเฉลี่ย 5 วัน">
+              {dailyMeans.map((value, index) => {
+                const height = trendRange === 0 ? 68 : 36 + ((value - trendMin) / trendRange) * 64;
+                return (
+                  <button
+                    key={days[index]?.lead ?? index}
+                    className={selectedDay === index ? "active" : ""}
+                    onClick={() => setSelectedDay(index)}
+                    aria-label={`D+${index + 1} ค่าเฉลี่ย ${value} ไมโครกรัมต่อลูกบาศก์เมตร`}
+                    aria-pressed={selectedDay === index}
+                  >
+                    <span>{value}</span>
+                    <i style={{ height: `${height}%`, background: getLevel(value).color }} />
+                    <small>D+{index + 1}</small>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="watch-card">
