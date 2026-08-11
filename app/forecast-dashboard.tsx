@@ -188,6 +188,10 @@ export default function ForecastDashboard() {
   const boundaryLayerRef = useRef<import("leaflet").GeoJSON | null>(null);
 
   useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
+  useEffect(() => {
     let active = true;
     fetch("/api/forecast")
       .then((response) => {
