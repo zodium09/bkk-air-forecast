@@ -450,7 +450,7 @@ export default function ForecastDashboard() {
             </div>
             <div className={`surface-status ${boundaryState}`}>
               <b>IDW · power 2</b>
-              <span>กริดประมาณ 1.5–2 กม.</span>
+              <span>พื้นผิวต่อเนื่อง · ไม่ใช่ความละเอียดเชิงความแม่นยำ</span>
               <em>{boundaryState === "official" ? "ขอบเขต 50 เขตจาก BMA GIS" : boundaryState === "fallback" ? "กำลังใช้ขอบเขตสำรอง" : "กำลังโหลดขอบเขต กทม."}</em>
             </div>
             <div className="legend" aria-label="คำอธิบายระดับ PM2.5">
