@@ -21,13 +21,13 @@ export async function generateMetadata(): Promise<Metadata> {
       title,
       description,
       type: "website",
-      images: [{ url: `${origin}/og-design-v2.png`, width: 1536, height: 1024, alt: "BKK Air Outlook live PM2.5 forecast map" }],
+      images: [{ url: `${origin}/og.png`, width: 1536, height: 1024, alt: "BKK Air Outlook live PM2.5 forecast map" }],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [`${origin}/og-design-v2.png`],
+      images: [`${origin}/og.png`],
     },
   };
 }
