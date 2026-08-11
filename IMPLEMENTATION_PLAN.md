@@ -113,7 +113,10 @@ station metadata ─────> validation ─> canonical station registry
 ## 6. การสร้างแผนที่
 
 - แสดงจุดสถานีเป็นค่าพยากรณ์ ณ สถานี ไม่ใช่ค่าตรวจวัดปัจจุบัน
-- พื้นผิวกริดใช้ residual interpolation ระหว่างสถานี ผสมกับ CAMS background
+- ต้นแบบปัจจุบันใช้ IDW power 2 สร้างพื้นผิวต่อเนื่องจากจุดสถานี และ rasterize เป็นภาพโปร่งใส
+- mask ของ raster สร้างจาก polygon 50 เขตของ BMA GIS จึงไม่แสดงค่านอกขอบเขตกรุงเทพฯ
+- รุ่น operational จะเปรียบเทียบ IDW กับ residual kriging และเลือกด้วย spatial cross-validation
+- พื้นผิวกริดจริงควรใช้ residual interpolation ระหว่างสถานี ผสมกับ CAMS background
 - mask ผลลัพธ์เฉพาะกรุงเทพฯ และไม่ extrapolate ไกลเกิน coverage ที่กำหนด
 - ความละเอียดแสดงผลเริ่มต้น 1–2 กม. แต่ห้ามสื่อว่าความแม่นยำจริงละเอียดเท่าขนาด pixel
 - เมื่อข้อมูลขาด ให้ซ่อนชั้นพยากรณ์หรือแสดงสถานะ degraded ห้ามใช้ค่ารอบเก่าโดยไม่ติดป้าย

@@ -18,6 +18,149 @@ type ForecastPayload = {
   stations: ForecastStation[];
 };
 
+type Coordinate = [number, number];
+type PolygonCoordinates = Coordinate[][];
+type BoundaryFeature = {
+  type: "Feature";
+  properties: Record<string, unknown>;
+  geometry: {
+    type: "Polygon" | "MultiPolygon";
+    coordinates: PolygonCoordinates | PolygonCoordinates[];
+  };
+};
+type BoundaryCollection = {
+  type: "FeatureCollection";
+  features: BoundaryFeature[];
+};
+
+const fallbackBoundary: BoundaryCollection = {
+  type: "FeatureCollection",
+  features: [{
+    type: "Feature",
+    properties: { NAME_T: "กรุงเทพมหานคร (ขอบเขตสำรอง)" },
+    geometry: {
+      type: "Polygon",
+      coordinates: [[
+        [100.327, 13.652], [100.376, 13.615], [100.47, 13.63], [100.568, 13.645],
+        [100.668, 13.638], [100.759, 13.69], [100.875, 13.735], [100.915, 13.816],
+        [100.895, 13.925], [100.801, 13.956], [100.703, 13.951], [100.622, 13.934],
+        [100.533, 13.961], [100.442, 13.914], [100.348, 13.861], [100.327, 13.779],
+        [100.327, 13.652],
+      ]],
+    },
+  }],
+};
+
+const colorStops = [
+  { value: 0, color: [56, 189, 248] },
+  { value: 15, color: [56, 189, 248] },
+  { value: 25, color: [52, 211, 153] },
+  { value: 37.5, color: [250, 204, 21] },
+  { value: 75, color: [251, 146, 60] },
+  { value: 120, color: [244, 63, 94] },
+];
+
+function getPolygons(boundary: BoundaryCollection): PolygonCoordinates[] {
+  return boundary.features.flatMap((feature) =>
+    feature.geometry.type === "Polygon"
+      ? [feature.geometry.coordinates as PolygonCoordinates]
+      : feature.geometry.coordinates as PolygonCoordinates[],
+  );
+}
+
+function getBoundaryBounds(boundary: BoundaryCollection) {
+  const coordinates = getPolygons(boundary).flat(2);
+  const lngs = coordinates.map(([lng]) => lng);
+  const lats = coordinates.map(([, lat]) => lat);
+  return {
+    minLng: Math.min(...lngs),
+    maxLng: Math.max(...lngs),
+    minLat: Math.min(...lats),
+    maxLat: Math.max(...lats),
+  };
+}
+
+function interpolateColor(value: number) {
+  const upperIndex = colorStops.findIndex((stop) => value <= stop.value);
+  if (upperIndex <= 0) return colorStops[0].color;
+  if (upperIndex === -1) return colorStops[colorStops.length - 1].color;
+  const lower = colorStops[upperIndex - 1];
+  const upper = colorStops[upperIndex];
+  const ratio = (value - lower.value) / (upper.value - lower.value || 1);
+  return lower.color.map((channel, index) => Math.round(channel + (upper.color[index] - channel) * ratio));
+}
+
+function interpolateIdw(lng: number, lat: number, stations: ForecastStation[], dayIndex: number) {
+  const longitudeScale = Math.cos((lat * Math.PI) / 180);
+  let weightedValue = 0;
+  let totalWeight = 0;
+
+  for (const station of stations) {
+    const dx = (lng - station.lng) * longitudeScale;
+    const dy = lat - station.lat;
+    const distanceSquared = dx * dx + dy * dy;
+    if (distanceSquared < 0.0000002) return station.values[dayIndex];
+    const weight = 1 / distanceSquared;
+    weightedValue += station.values[dayIndex] * weight;
+    totalWeight += weight;
+  }
+
+  return weightedValue / totalWeight;
+}
+
+function createIdwSurface(boundary: BoundaryCollection, stations: ForecastStation[], dayIndex: number) {
+  const bounds = getBoundaryBounds(boundary);
+  const width = 460;
+  const height = Math.max(320, Math.round(width * (bounds.maxLat - bounds.minLat) / (bounds.maxLng - bounds.minLng)));
+  const maskCanvas = document.createElement("canvas");
+  maskCanvas.width = width;
+  maskCanvas.height = height;
+  const maskContext = maskCanvas.getContext("2d", { willReadFrequently: true })!;
+  maskContext.fillStyle = "#fff";
+
+  for (const polygon of getPolygons(boundary)) {
+    maskContext.beginPath();
+    for (const ring of polygon) {
+      ring.forEach(([lng, lat], index) => {
+        const x = ((lng - bounds.minLng) / (bounds.maxLng - bounds.minLng)) * width;
+        const y = ((bounds.maxLat - lat) / (bounds.maxLat - bounds.minLat)) * height;
+        if (index === 0) maskContext.moveTo(x, y);
+        else maskContext.lineTo(x, y);
+      });
+      maskContext.closePath();
+    }
+    maskContext.fill("evenodd");
+  }
+
+  const mask = maskContext.getImageData(0, 0, width, height).data;
+  const surfaceCanvas = document.createElement("canvas");
+  surfaceCanvas.width = width;
+  surfaceCanvas.height = height;
+  const surfaceContext = surfaceCanvas.getContext("2d")!;
+  const image = surfaceContext.createImageData(width, height);
+
+  for (let y = 0; y < height; y += 1) {
+    const lat = bounds.maxLat - ((y + 0.5) / height) * (bounds.maxLat - bounds.minLat);
+    for (let x = 0; x < width; x += 1) {
+      const pixelIndex = (y * width + x) * 4;
+      if (mask[pixelIndex + 3] === 0) continue;
+      const lng = bounds.minLng + ((x + 0.5) / width) * (bounds.maxLng - bounds.minLng);
+      const value = interpolateIdw(lng, lat, stations, dayIndex);
+      const [red, green, blue] = interpolateColor(value);
+      image.data[pixelIndex] = red;
+      image.data[pixelIndex + 1] = green;
+      image.data[pixelIndex + 2] = blue;
+      image.data[pixelIndex + 3] = 168;
+    }
+  }
+
+  surfaceContext.putImageData(image, 0, 0);
+  return {
+    url: surfaceCanvas.toDataURL("image/png"),
+    bounds: [[bounds.minLat, bounds.minLng], [bounds.maxLat, bounds.maxLng]] as [[number, number], [number, number]],
+  };
+}
+
 function average(values: number[]) {
   return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
 }
@@ -29,9 +172,16 @@ export default function ForecastDashboard() {
   const [issuedAt, setIssuedAt] = useState(bundledIssuedAt);
   const [dataState, setDataState] = useState<"loading" | "demo" | "fallback">("loading");
   const [showRange, setShowRange] = useState(false);
+  const [showSurface, setShowSurface] = useState(true);
+  const [showStations, setShowStations] = useState(true);
+  const [boundary, setBoundary] = useState<BoundaryCollection | null>(null);
+  const [boundaryState, setBoundaryState] = useState<"loading" | "official" | "fallback">("loading");
+  const [mapReady, setMapReady] = useState(false);
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<import("leaflet").Map | null>(null);
   const stationLayerRef = useRef<import("leaflet").LayerGroup | null>(null);
+  const surfaceLayerRef = useRef<import("leaflet").ImageOverlay | null>(null);
+  const boundaryLayerRef = useRef<import("leaflet").GeoJSON | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -49,6 +199,28 @@ export default function ForecastDashboard() {
       })
       .catch(() => {
         if (active) setDataState("fallback");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/bangkok-boundary")
+      .then((response) => {
+        if (!response.ok) throw new Error("boundary unavailable");
+        return response.json() as Promise<BoundaryCollection>;
+      })
+      .then((payload) => {
+        if (!active) return;
+        setBoundary(payload);
+        setBoundaryState("official");
+      })
+      .catch(() => {
+        if (!active) return;
+        setBoundary(fallbackBoundary);
+        setBoundaryState("fallback");
       });
     return () => {
       active = false;
@@ -74,8 +246,14 @@ export default function ForecastDashboard() {
         maxZoom: 19,
       }).addTo(map);
 
+      map.createPane("surfacePane").style.zIndex = "350";
+      map.getPane("surfacePane")!.style.pointerEvents = "none";
+      map.createPane("boundaryPane").style.zIndex = "420";
+      map.getPane("boundaryPane")!.style.pointerEvents = "none";
+      map.createPane("stationPane").style.zIndex = "450";
       stationLayerRef.current = L.layerGroup().addTo(map);
       mapInstanceRef.current = map;
+      setMapReady(true);
       window.setTimeout(() => map.invalidateSize(), 80);
     });
 
@@ -85,15 +263,15 @@ export default function ForecastDashboard() {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
         stationLayerRef.current = null;
+        surfaceLayerRef.current = null;
+        boundaryLayerRef.current = null;
+        setMapReady(false);
       }
     };
   }, []);
 
   useEffect(() => {
-    if (!stationLayerRef.current) {
-      const retry = window.setTimeout(() => setSelectedDay((day) => day), 120);
-      return () => window.clearTimeout(retry);
-    }
+    if (!mapReady || !stationLayerRef.current) return;
 
     let cancelled = false;
     import("leaflet").then((leafletModule) => {
@@ -101,42 +279,76 @@ export default function ForecastDashboard() {
       const L = leafletModule.default;
       stationLayerRef.current.clearLayers();
 
+      if (!showStations) return;
       stations.forEach((station) => {
         const value = station.values[selectedDay];
         const level = getLevel(value);
-        const radius = 18 + value * 0.32;
-
         L.circleMarker([station.lat, station.lng], {
-          radius,
-          color: level.color,
-          weight: 1,
-          opacity: 0.86,
+          pane: "stationPane",
+          radius: 6,
+          color: "#fff",
+          weight: 2,
           fillColor: level.color,
-          fillOpacity: 0.34,
+          fillOpacity: 1,
         })
           .bindTooltip(`${station.district} · ${value} µg/m³`, {
             direction: "top",
             className: "forecast-tooltip",
           })
           .bindPopup(
-            `<div class="map-popup"><strong>${station.district}</strong><span>${station.label}</span><b>${value} µg/m³</b><small>${level.label}</small></div>`,
+            `<div class="map-popup"><strong>${station.district}</strong><span>${station.label}</span><b>${value} µg/m³</b><small>${level.label} · จุดตั้งต้น IDW</small></div>`,
           )
           .addTo(stationLayerRef.current!);
-
-        L.circleMarker([station.lat, station.lng], {
-          radius: 5,
-          color: "#fff",
-          weight: 2,
-          fillColor: level.color,
-          fillOpacity: 1,
-        }).addTo(stationLayerRef.current!);
       });
     });
 
     return () => {
       cancelled = true;
     };
-  }, [selectedDay, stations]);
+  }, [mapReady, selectedDay, showStations, stations]);
+
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current || !boundary) return;
+    let cancelled = false;
+
+    import("leaflet").then((leafletModule) => {
+      if (cancelled || !mapInstanceRef.current) return;
+      const L = leafletModule.default;
+      const map = mapInstanceRef.current;
+
+      if (surfaceLayerRef.current) map.removeLayer(surfaceLayerRef.current);
+      if (boundaryLayerRef.current) map.removeLayer(boundaryLayerRef.current);
+
+      if (showSurface) {
+        const surface = createIdwSurface(boundary, stations, selectedDay);
+        surfaceLayerRef.current = L.imageOverlay(surface.url, surface.bounds, {
+          pane: "surfacePane",
+          opacity: 0.78,
+          interactive: false,
+        }).addTo(map);
+      } else {
+        surfaceLayerRef.current = null;
+      }
+
+      boundaryLayerRef.current = L.geoJSON(boundary as GeoJSON.GeoJsonObject, {
+        pane: "boundaryPane",
+        style: {
+          color: "#173c2b",
+          weight: 1.05,
+          opacity: 0.72,
+          fillOpacity: 0,
+        },
+      }).addTo(map);
+
+      if (boundaryState === "official") {
+        map.fitBounds(boundaryLayerRef.current.getBounds(), { padding: [14, 14], animate: false });
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [boundary, boundaryState, mapReady, selectedDay, showSurface, stations]);
 
   const day = days[selectedDay];
   const values = useMemo(
@@ -209,14 +421,23 @@ export default function ForecastDashboard() {
         <div className="map-card">
           <div className="map-heading">
             <div>
-              <p>ค่ากลางรายวัน · D+{day.lead}</p>
+              <p>พื้นผิว IDW interpolation · D+{day.lead}</p>
               <h2>{day.weekday}ที่ {day.date} 2569</h2>
             </div>
-            <label className="range-toggle">
-              <input type="checkbox" checked={showRange} onChange={(event) => setShowRange(event.target.checked)} />
-              <span />
-              แสดงช่วงความไม่แน่นอน
-            </label>
+            <div className="map-controls" aria-label="ตัวเลือกชั้นข้อมูลแผนที่">
+              <label className="layer-toggle">
+                <input type="checkbox" checked={showSurface} onChange={(event) => setShowSurface(event.target.checked)} />
+                <span />พื้นผิว IDW
+              </label>
+              <label className="layer-toggle">
+                <input type="checkbox" checked={showStations} onChange={(event) => setShowStations(event.target.checked)} />
+                <span />จุดสถานี
+              </label>
+              <label className="range-toggle">
+                <input type="checkbox" checked={showRange} onChange={(event) => setShowRange(event.target.checked)} />
+                <span />ช่วงความไม่แน่นอน
+              </label>
+            </div>
           </div>
 
           <div className="map-wrap">
@@ -226,6 +447,11 @@ export default function ForecastDashboard() {
               <strong>{mean}<small>µg/m³</small></strong>
               <b style={{ color: meanLevel.color }}>{meanLevel.label}</b>
               {showRange && <em>ช่วงคาดการณ์ {Math.max(0, mean - day.uncertainty)}–{mean + day.uncertainty}</em>}
+            </div>
+            <div className={`surface-status ${boundaryState}`}>
+              <b>IDW · power 2</b>
+              <span>กริดประมาณ 1.5–2 กม.</span>
+              <em>{boundaryState === "official" ? "ขอบเขต 50 เขตจาก BMA GIS" : boundaryState === "fallback" ? "กำลังใช้ขอบเขตสำรอง" : "กำลังโหลดขอบเขต กทม."}</em>
             </div>
             <div className="legend" aria-label="คำอธิบายระดับ PM2.5">
               <span><i style={{ background: "#38bdf8" }} />0–15</span>
@@ -279,11 +505,11 @@ export default function ForecastDashboard() {
           <article><span>01</span><h3>รับค่าตรวจวัด</h3><p>AirBKK รายชั่วโมง พร้อมตรวจคุณภาพและความสดใหม่ของแต่ละสถานี</p></article>
           <article><span>02</span><h3>เติมสภาพอากาศ</h3><p>ลม ฝน ความชื้น และ CAMS PM2.5 ล่วงหน้า 5 วัน</p></article>
           <article><span>03</span><h3>ปรับค่าคลาดเคลื่อน</h3><p>เรียนรู้ bias แยกตามสถานี ฤดูกาล และระยะเวลาพยากรณ์</p></article>
-          <article><span>04</span><h3>สร้างแผนที่</h3><p>คำนวณค่ากลาง ช่วงความไม่แน่นอน และความเชื่อมั่นทุก 6 ชั่วโมง</p></article>
+          <article><span>04</span><h3>สร้างพื้นผิว IDW</h3><p>ประมาณค่าระหว่างจุดสถานี แล้วตัด raster ให้แสดงเฉพาะภายในขอบเขต 50 เขตของกรุงเทพฯ</p></article>
         </div>
         <div className="source-row">
           <span>แหล่งข้อมูลที่ออกแบบไว้</span>
-          <b>AirBKK</b><b>CAMS</b><b>TMD</b><b>พื้นที่ 50 เขต กทม.</b>
+          <b>AirBKK</b><b>CAMS</b><b>TMD</b><b>BMA GIS · 50 เขต</b>
         </div>
       </section>
 

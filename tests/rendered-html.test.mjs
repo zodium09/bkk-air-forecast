@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const templateRoot = new URL("../", import.meta.url);
@@ -40,7 +41,16 @@ test("server-renders the BKK Air forecast product", async () => {
   assert.match(html, /D\+(?:<!-- -->)?1/);
   assert.match(html, /D\+(?:<!-- -->)?5/);
   assert.match(html, /ความเชื่อมั่นของโมเดล/);
+  assert.match(html, /พื้นผิว IDW/);
+  assert.match(html, /IDW · power 2/);
   assert.doesNotMatch(html, /codex-preview|Building your site|react-loading-skeleton/i);
+});
+
+test("boundary adapter uses the official BMA district layer", async () => {
+  const route = await readFile(new URL("../app/api/bangkok-boundary/route.ts", import.meta.url), "utf8");
+  assert.match(route, /bmagis\.bangkok\.go\.th\/arcgis\/rest\/services\/BMA\/DISTRICT\/MapServer\/0\/query/);
+  assert.match(route, /outSR=4326/);
+  assert.match(route, /s-maxage=86400/);
 });
 
 test("forecast API exposes an explicit demo contract", async () => {
