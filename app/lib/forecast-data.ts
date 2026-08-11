@@ -5,6 +5,9 @@ export type ForecastStation = {
   lat: number;
   lng: number;
   values: number[];
+  observed?: number;
+  observedAt?: string;
+  sourceType?: string;
 };
 
 export type ForecastDay = {
@@ -16,6 +19,9 @@ export type ForecastDay = {
   wind: string;
   weather: string;
   note: string;
+  year?: number;
+  sourceMode?: "cams" | "extrapolated" | "demo";
+  coverageHours?: number;
 };
 
 export const issuedAt = "11 ส.ค. 2569 · 10:00 น.";

@@ -37,12 +37,12 @@ test("server-renders the BKK Air forecast product", async () => {
   assert.match(html, /<html lang="th">/i);
   assert.match(html, /BKK Air Outlook/);
   assert.match(html, /พยากรณ์ PM2\.5 กรุงเทพฯ ล่วงหน้า 1–5 วัน/);
-  assert.match(html, /DEMO DATA/);
+  assert.match(html, /กำลังโหลดข้อมูลจริง/);
   assert.match(html, /D\+(?:<!-- -->)?1/);
   assert.match(html, /D\+(?:<!-- -->)?5/);
   assert.match(html, /ความเชื่อมั่นของโมเดล/);
   assert.match(html, /พื้นผิว IDW/);
-  assert.match(html, /IDW · power 2/);
+  assert.match(html, /IDW power 2/);
   assert.doesNotMatch(html, /codex-preview|Building your site|react-loading-skeleton/i);
 });
 
@@ -53,7 +53,7 @@ test("boundary adapter uses the official BMA district layer", async () => {
   assert.match(route, /s-maxage=86400/);
 });
 
-test("forecast API exposes an explicit demo contract", async () => {
+test("forecast API always exposes a safe five-day contract", async () => {
   const worker = await loadWorker();
   const response = await worker.fetch(
     new Request("http://localhost/api/forecast"),
@@ -63,10 +63,21 @@ test("forecast API exposes an explicit demo contract", async () => {
 
   assert.equal(response.status, 200);
   const payload = await response.json();
-  assert.equal(payload.status, "demo");
+  assert.ok(["live", "degraded", "fallback"].includes(payload.status));
   assert.equal(payload.days.length, 5);
   assert.ok(payload.stations.length >= 15);
-  assert.match(payload.disclaimer, /ข้อมูลจำลอง/);
+  assert.equal(typeof payload.disclaimer, "string");
+  assert.ok(payload.disclaimer.length > 20);
   assert.ok(payload.days.every((day) => day.confidence > 0 && day.confidence <= 100));
   assert.ok(payload.stations.every((station) => station.values.length === 5));
+});
+
+test("forecast adapter combines AirBKK and CAMS with explicit fallback", async () => {
+  const route = await readFile(new URL("../app/api/forecast/route.ts", import.meta.url), "utf8");
+  assert.match(route, /official\.airbkk\.com\/airbkk\/Api/);
+  assert.match(route, /air-quality-api\.open-meteo\.com/);
+  assert.match(route, /domains.*cams_global/s);
+  assert.match(route, /biasWeight/);
+  assert.match(route, /insufficient fresh AirBKK stations/);
+  assert.match(route, /X-Forecast-Status/);
 });

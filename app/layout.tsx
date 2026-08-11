@@ -8,7 +8,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const protocol = requestHeaders.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
   const origin = `${protocol}://${host}`;
   const title = "BKK Air Outlook — พยากรณ์ฝุ่นกรุงเทพฯ 1–5 วัน";
-  const description = "ต้นแบบแผนที่พยากรณ์ PM2.5 ล่วงหน้า 1–5 วัน พร้อมระดับความเชื่อมั่นและความไม่แน่นอน";
+  const description = "แผนที่ PM2.5 กรุงเทพฯ จาก AirBKK จริงและ CAMS Global ล่วงหน้า 1–5 วัน พร้อมระดับความเชื่อมั่น";
 
   return {
     title,
@@ -21,13 +21,13 @@ export async function generateMetadata(): Promise<Metadata> {
       title,
       description,
       type: "website",
-      images: [{ url: `${origin}/og.png`, width: 1733, height: 909, alt: "BKK Air Outlook PM2.5 forecast map" }],
+      images: [{ url: `${origin}/og-live.png`, width: 1733, height: 909, alt: "BKK Air Outlook live PM2.5 forecast map" }],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [`${origin}/og.png`],
+      images: [`${origin}/og-live.png`],
     },
   };
 }

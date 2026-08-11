@@ -182,4 +182,6 @@ station metadata ─────> validation ─> canonical station registry
 
 ## 10. สถานะของต้นแบบใน repository นี้
 
-หน้าเว็บปัจจุบันใช้ข้อมูลจำลองและ endpoint `/api/forecast` เพื่อยืนยัน data contract, interaction และรูปแบบการสื่อ uncertainty เท่านั้น ยังไม่มีการฝึกโมเดลหรือเชื่อมข้อมูล AirBKK/CAMS จริง จึงไม่ควรนำค่าตัวเลขไปใช้ตัดสินใจด้านสุขภาพ
+หน้าเว็บปัจจุบันเชื่อม AirBKK live observations, CAMS Global ผ่าน Open-Meteo, พยากรณ์ลม/ฝน และขอบเขต BMA GIS แล้ว โดย endpoint `/api/forecast` จะกรองสถานีที่ข้อมูลหายหรือเก่ากว่ารอบล่าสุดเกิน 6 ชั่วโมง จากนั้นปรับ CAMS ด้วย bias ปัจจุบันของ AirBKK แบบลดน้ำหนักตาม lead time และส่งผลไปทำ IDW ภายในขอบเขตกรุงเทพฯ
+
+นี่คือ operational baseline จากข้อมูลจริง ไม่ใช่โมเดล ML ที่ฝึกด้วยข้อมูลย้อนหลังและยังไม่ผ่าน backtest จึงต้องแสดง uncertainty, source mode และ fallback ทุกครั้ง และยังไม่ควรใช้เป็นคำเตือนสุขภาพอย่างเป็นทางการ

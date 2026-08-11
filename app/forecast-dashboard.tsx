@@ -14,6 +14,10 @@ import "leaflet/dist/leaflet.css";
 type ForecastPayload = {
   status: string;
   issuedAt: string;
+  model?: string;
+  disclaimer?: string;
+  sources?: string[];
+  dataQuality?: { acceptedStations?: number; observationAgeHours?: number; camsMinimumCoverageHours?: number };
   days: ForecastDay[];
   stations: ForecastStation[];
 };
@@ -170,7 +174,10 @@ export default function ForecastDashboard() {
   const [days, setDays] = useState(bundledDays);
   const [stations, setStations] = useState(bundledStations);
   const [issuedAt, setIssuedAt] = useState(bundledIssuedAt);
-  const [dataState, setDataState] = useState<"loading" | "demo" | "fallback">("loading");
+  const [dataState, setDataState] = useState<"loading" | "live" | "degraded" | "fallback">("loading");
+  const [modelName, setModelName] = useState("กำลังเชื่อม AirBKK และ CAMS");
+  const [disclaimer, setDisclaimer] = useState("กำลังตรวจสอบความสดใหม่ของข้อมูลจริง");
+  const [sourceNames, setSourceNames] = useState<string[]>([]);
   const [showRange, setShowRange] = useState(false);
   const [showSurface, setShowSurface] = useState(true);
   const [showStations, setShowStations] = useState(true);
@@ -195,7 +202,10 @@ export default function ForecastDashboard() {
         setDays(payload.days);
         setStations(payload.stations);
         setIssuedAt(payload.issuedAt);
-        setDataState("demo");
+        setDataState(payload.status === "live" ? "live" : payload.status === "degraded" ? "degraded" : "fallback");
+        setModelName(payload.model ?? "AirBKK + CAMS baseline");
+        setDisclaimer(payload.disclaimer ?? "โปรดตรวจสอบสถานะข้อมูลก่อนใช้งาน");
+        setSourceNames(payload.sources ?? []);
       })
       .catch(() => {
         if (active) setDataState("fallback");
@@ -296,7 +306,7 @@ export default function ForecastDashboard() {
             className: "forecast-tooltip",
           })
           .bindPopup(
-            `<div class="map-popup"><strong>${station.district}</strong><span>${station.label}</span><b>${value} µg/m³</b><small>${level.label} · จุดตั้งต้น IDW</small></div>`,
+            `<div class="map-popup"><strong>${station.district}</strong><span>${station.label}</span><b>${value} µg/m³</b><small>${level.label} · ค่าล่วงหน้า D+${selectedDay + 1}</small>${station.observed === undefined ? "" : `<em>AirBKK ล่าสุด ${station.observed} µg/m³<br>${station.observedAt ?? ""}</em>`}</div>`,
           )
           .addTo(stationLayerRef.current!);
       });
@@ -356,13 +366,16 @@ export default function ForecastDashboard() {
     [selectedDay, stations],
   );
   const mean = average(values);
-  const maximum = Math.max(...values);
-  const hottest = stations.find((station) => station.values[selectedDay] === maximum);
   const meanLevel = getLevel(mean);
   const sortedStations = useMemo(
     () => [...stations].sort((a, b) => b.values[selectedDay] - a.values[selectedDay]).slice(0, 5),
     [selectedDay, stations],
   );
+  const dailyMeans = useMemo(
+    () => days.map((_, index) => average(stations.map((station) => station.values[index]))),
+    [days, stations],
+  );
+  const peakDayIndex = dailyMeans.indexOf(Math.max(...dailyMeans));
 
   return (
     <main className="app-shell">
@@ -380,9 +393,9 @@ export default function ForecastDashboard() {
         </button>
       </header>
 
-      <section className="notice" role="status">
-        <b>ต้นแบบระบบ · DEMO DATA</b>
-        <span>ค่าบนแผนที่เป็นข้อมูลจำลองเพื่อทดสอบการใช้งาน ยังไม่ใช่คำเตือนคุณภาพอากาศจริง</span>
+      <section className={`notice ${dataState}`} role="status">
+        <b>{dataState === "live" ? "ข้อมูลจริง · LIVE BASELINE" : dataState === "degraded" ? "ข้อมูลจริง · DEGRADED" : dataState === "fallback" ? "ข้อมูลสำรอง · FALLBACK" : "กำลังโหลดข้อมูลจริง"}</b>
+        <span>{disclaimer}</span>
       </section>
 
       <section className="hero" id="top">
@@ -391,9 +404,9 @@ export default function ForecastDashboard() {
           <h1>เห็นวันที่เสี่ยง<br /><em>ก่อนฝุ่นจะมา</em></h1>
         </div>
         <div className="hero-summary">
-          <p>แนวโน้ม 5 วัน</p>
-          <strong>สูงสุดใน D+3</strong>
-          <span>พื้นที่ชั้นในและตอนเหนือควรเฝ้าระวังช่วงเช้า</span>
+          <p>ค่ากลางสูงสุดในช่วง 5 วัน</p>
+          <strong>D+{peakDayIndex + 1} · {dailyMeans[peakDayIndex]} µg/m³</strong>
+          <span>คำนวณจาก AirBKK {stations.length} สถานี และ CAMS Global; กดแต่ละวันเพื่อดูพื้นที่เสี่ยง</span>
         </div>
       </section>
 
@@ -411,7 +424,7 @@ export default function ForecastDashboard() {
               <span>D+{forecastDay.lead}</span>
               <b>{forecastDay.weekday} {forecastDay.date}</b>
               <i style={{ backgroundColor: getLevel(dailyMean).color }} />
-              <small>{dailyMean} µg/m³</small>
+              <small>{dailyMean} µg/m³ {forecastDay.sourceMode === "extrapolated" && <em>แนวโน้ม</em>}</small>
             </button>
           );
         })}
@@ -422,7 +435,7 @@ export default function ForecastDashboard() {
           <div className="map-heading">
             <div>
               <p>พื้นผิว IDW interpolation · D+{day.lead}</p>
-              <h2>{day.weekday}ที่ {day.date} 2569</h2>
+              <h2>{day.weekday}ที่ {day.date} {day.year ?? 2569}</h2>
             </div>
             <div className="map-controls" aria-label="ตัวเลือกชั้นข้อมูลแผนที่">
               <label className="layer-toggle">
@@ -449,8 +462,8 @@ export default function ForecastDashboard() {
               {showRange && <em>ช่วงคาดการณ์ {Math.max(0, mean - day.uncertainty)}–{mean + day.uncertainty}</em>}
             </div>
             <div className={`surface-status ${boundaryState}`}>
-              <b>IDW · power 2</b>
-              <span>พื้นผิวต่อเนื่อง · ไม่ใช่ความละเอียดเชิงความแม่นยำ</span>
+              <b>{dataState === "live" ? "LIVE · AirBKK + CAMS" : dataState === "degraded" ? "DEGRADED BASELINE" : dataState === "fallback" ? "FALLBACK DATA" : "LOADING"}</b>
+              <span>IDW power 2 · {day.sourceMode === "extrapolated" ? "ช่วงแนวโน้ม" : `CAMS ${day.coverageHours ?? "—"} ชม.`}</span>
               <em>{boundaryState === "official" ? "ขอบเขต 50 เขตจาก BMA GIS" : boundaryState === "fallback" ? "กำลังใช้ขอบเขตสำรอง" : "กำลังโหลดขอบเขต กทม."}</em>
             </div>
             <div className="legend" aria-label="คำอธิบายระดับ PM2.5">
@@ -499,23 +512,23 @@ export default function ForecastDashboard() {
       <section className="method" id="method">
         <div>
           <p className="eyebrow">จากข้อมูลสู่การตัดสินใจ</p>
-          <h2>โมเดลจะทำงานอย่างไร<br />เมื่อเชื่อมข้อมูลจริง</h2>
+          <h2>ข้อมูลจริงไหลอย่างไร<br />ก่อนขึ้นแผนที่</h2>
         </div>
         <div className="method-flow">
-          <article><span>01</span><h3>รับค่าตรวจวัด</h3><p>AirBKK รายชั่วโมง พร้อมตรวจคุณภาพและความสดใหม่ของแต่ละสถานี</p></article>
-          <article><span>02</span><h3>เติมสภาพอากาศ</h3><p>ลม ฝน ความชื้น และ CAMS PM2.5 ล่วงหน้า 5 วัน</p></article>
-          <article><span>03</span><h3>ปรับค่าคลาดเคลื่อน</h3><p>เรียนรู้ bias แยกตามสถานี ฤดูกาล และระยะเวลาพยากรณ์</p></article>
+          <article><span>01</span><h3>รับ AirBKK จริง</h3><p>กรองสถานีที่ PM2.5 หาย พิกัดผิด หรือเวลาล้ากว่ารอบล่าสุดเกิน 6 ชั่วโมง</p></article>
+          <article><span>02</span><h3>รับ CAMS + Weather</h3><p>ใช้ CAMS Global รายชั่วโมงและพยากรณ์ลม/ฝนจาก Open-Meteo สำหรับ 1–5 วัน</p></article>
+          <article><span>03</span><h3>ปรับ bias รายสถานี</h3><p>นำส่วนต่าง AirBKK–CAMS ล่าสุดมาปรับค่าล่วงหน้า โดยลดน้ำหนักเมื่อ lead time เพิ่มขึ้น</p></article>
           <article><span>04</span><h3>สร้างพื้นผิว IDW</h3><p>ประมาณค่าระหว่างจุดสถานี แล้วตัด raster ให้แสดงเฉพาะภายในขอบเขต 50 เขตของกรุงเทพฯ</p></article>
         </div>
         <div className="source-row">
-          <span>แหล่งข้อมูลที่ออกแบบไว้</span>
-          <b>AirBKK</b><b>CAMS</b><b>TMD</b><b>BMA GIS · 50 เขต</b>
+          <span>แหล่งข้อมูลที่ใช้งานจริง</span>
+          {(sourceNames.length ? sourceNames : ["AirBKK", "CAMS / Open-Meteo", "BMA GIS"]).map((source) => <b key={source}>{source}</b>)}
         </div>
       </section>
 
       <footer>
-        <span>BKK Air Outlook · Prototype 0.1</span>
-        <p>ผลพยากรณ์ต้องผ่านการ backtest และอนุมัติแหล่งข้อมูลก่อนใช้เป็นคำเตือนสาธารณะ</p>
+        <span>BKK Air Outlook · Live baseline 0.2</span>
+        <p>{modelName} · ยังต้องผ่าน backtest ก่อนใช้เป็นคำเตือนสาธารณะ</p>
       </footer>
     </main>
   );
