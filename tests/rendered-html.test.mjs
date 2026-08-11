@@ -36,14 +36,16 @@ test("server-renders the BKK Air forecast product", async () => {
   const html = await response.text();
   assert.match(html, /<html lang="th">/i);
   assert.match(html, /BKK Air Outlook/);
-  assert.match(html, /พยากรณ์ PM2\.5 กรุงเทพฯ ล่วงหน้า 1–5 วัน/);
-  assert.match(html, /กำลังโหลดข้อมูลจริง/);
+  assert.match(html, /แผนที่พยากรณ์/);
+  assert.match(html, /PM2\.5 กรุงเทพฯ/);
+  assert.match(html, /กำลังโหลดข้อมูล/);
   assert.match(html, /D\+(?:<!-- -->)?1/);
   assert.match(html, /D\+(?:<!-- -->)?5/);
   assert.match(html, /ค่าฝุ่นเฉลี่ย กทม\./);
   assert.doesNotMatch(html, /ความเชื่อมั่นของโมเดล/);
-  assert.match(html, /พื้นผิว IDW/);
-  assert.match(html, /IDW power 2/);
+  assert.match(html, /ชั้นสีค่าฝุ่น/);
+  assert.match(html, /กำลังโหลดขอบเขตกรุงเทพฯ/);
+  assert.doesNotMatch(html, /พื้นผิว IDW|IDW power 2|interpolation|backtest/);
   assert.doesNotMatch(html, /codex-preview|Building your site|react-loading-skeleton/i);
 });
 
