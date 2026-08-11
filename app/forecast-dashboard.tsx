@@ -178,6 +178,7 @@ export default function ForecastDashboard() {
   const [showRange, setShowRange] = useState(false);
   const [showSurface, setShowSurface] = useState(true);
   const [showStations, setShowStations] = useState(true);
+  const [layerMenuOpen, setLayerMenuOpen] = useState(false);
   const [boundary, setBoundary] = useState<BoundaryCollection | null>(null);
   const [boundaryState, setBoundaryState] = useState<"loading" | "official" | "fallback">("loading");
   const [mapReady, setMapReady] = useState(false);
@@ -304,7 +305,7 @@ export default function ForecastDashboard() {
             className: "forecast-tooltip",
           })
           .bindPopup(
-            `<div class="map-popup"><strong>${station.district}</strong><span>${station.label}</span><b>${value} µg/m³</b><small>${level.label} · ค่าล่วงหน้า D+${selectedDay + 1}</small>${station.observed === undefined ? "" : `<em>AirBKK ล่าสุด ${station.observed} µg/m³<br>${station.observedAt ?? ""}</em>`}</div>`,
+            `<div class="map-popup"><strong>${station.district}</strong><span>${station.label}</span><b>${value} µg/m³</b><small>${level.label} · ค่าพยากรณ์สำหรับวันที่เลือก</small>${station.observed === undefined ? "" : `<em>AirBKK ล่าสุด ${station.observed} µg/m³<br>${station.observedAt ?? ""}</em>`}</div>`,
           )
           .addTo(stationLayerRef.current!);
       });
@@ -406,7 +407,6 @@ export default function ForecastDashboard() {
               onClick={() => setSelectedDay(index)}
               aria-pressed={selectedDay === index}
             >
-              <span>D+{forecastDay.lead}</span>
               <b>{forecastDay.weekday} {forecastDay.date}</b>
               <i style={{ backgroundColor: getLevel(dailyMean).color }} />
               <small>{dailyMean} µg/m³ {forecastDay.sourceMode === "extrapolated" && <em>แนวโน้ม</em>}</small>
@@ -417,29 +417,34 @@ export default function ForecastDashboard() {
 
       <section className="workspace">
         <div className="map-card">
-          <div className="map-heading">
-            <div>
-              <p>แผนที่ค่าฝุ่น · D+{day.lead}</p>
-              <h2>{day.weekday}ที่ {day.date} {day.year ?? 2569}</h2>
-            </div>
-            <div className="map-controls" aria-label="ตัวเลือกชั้นข้อมูลแผนที่">
-              <label className="layer-toggle">
-                <input type="checkbox" checked={showSurface} onChange={(event) => setShowSurface(event.target.checked)} />
-                <span />ชั้นสีค่าฝุ่น
-              </label>
-              <label className="layer-toggle">
-                <input type="checkbox" checked={showStations} onChange={(event) => setShowStations(event.target.checked)} />
-                <span />จุดตรวจวัด
-              </label>
-              <label className="range-toggle">
-                <input type="checkbox" checked={showRange} onChange={(event) => setShowRange(event.target.checked)} />
-                <span />ช่วงค่า
-              </label>
-            </div>
-          </div>
-
           <div className="map-wrap">
             <div ref={mapElementRef} className="map" role="application" aria-label={`แผนที่ PM2.5 พยากรณ์ล่วงหน้า ${day.lead} วัน`} />
+            <div className="layer-menu">
+              <button
+                className="layer-menu-trigger"
+                type="button"
+                onClick={() => setLayerMenuOpen((open) => !open)}
+                aria-label="เลือกชั้นข้อมูลแผนที่"
+                aria-expanded={layerMenuOpen}
+              >
+                <span className="layer-symbol" aria-hidden="true"><i /><i /><i /></span>
+              </button>
+              <div className="layer-menu-panel" hidden={!layerMenuOpen}>
+                <strong>แสดงบนแผนที่</strong>
+                <label className="layer-toggle">
+                  <input type="checkbox" checked={showSurface} onChange={(event) => setShowSurface(event.target.checked)} />
+                  <span />ชั้นสีค่าฝุ่น
+                </label>
+                <label className="layer-toggle">
+                  <input type="checkbox" checked={showStations} onChange={(event) => setShowStations(event.target.checked)} />
+                  <span />จุดตรวจวัด
+                </label>
+                <label className="range-toggle">
+                  <input type="checkbox" checked={showRange} onChange={(event) => setShowRange(event.target.checked)} />
+                  <span />แสดงช่วงค่า
+                </label>
+              </div>
+            </div>
             <div className="map-metric">
               <span>ค่าเฉลี่ย กทม.</span>
               <strong>{mean}<small>µg/m³</small></strong>
@@ -448,7 +453,7 @@ export default function ForecastDashboard() {
             </div>
             <div className={`surface-status ${boundaryState}`}>
               <b>{dataState === "live" ? "ข้อมูลอัปเดตแล้ว" : dataState === "degraded" ? "ข้อมูลอัปเดตบางส่วน" : dataState === "fallback" ? "ข้อมูลสำรอง" : "กำลังโหลด"}</b>
-              <span>{stations.length} จุดตรวจวัด · พยากรณ์ D+{day.lead}</span>
+              <span>{stations.length} จุดตรวจวัด · ค่าพยากรณ์วันที่เลือก</span>
               <em>{boundaryState === "official" ? "ครอบคลุมพื้นที่ 50 เขต" : boundaryState === "fallback" ? "กำลังใช้ขอบเขตสำรอง" : "กำลังโหลดขอบเขตกรุงเทพฯ"}</em>
             </div>
             <div className="legend" aria-label="คำอธิบายระดับ PM2.5">
@@ -476,7 +481,7 @@ export default function ForecastDashboard() {
             <div>
               <p>ค่าฝุ่นเฉลี่ย กทม.</p>
               <strong style={{ color: meanLevel.color }}>{meanLevel.label}</strong>
-              <em>เฉลี่ยจาก {stations.length} สถานี · D+{day.lead}</em>
+              <em>เฉลี่ยจาก {stations.length} สถานี</em>
             </div>
           </div>
 
@@ -499,12 +504,12 @@ export default function ForecastDashboard() {
                     key={days[index]?.lead ?? index}
                     className={selectedDay === index ? "active" : ""}
                     onClick={() => setSelectedDay(index)}
-                    aria-label={`D+${index + 1} ค่าเฉลี่ย ${value} ไมโครกรัมต่อลูกบาศก์เมตร`}
+                    aria-label={`${days[index]?.weekday ?? "วันที่เลือก"} ${days[index]?.date ?? ""} ค่าเฉลี่ย ${value} ไมโครกรัมต่อลูกบาศก์เมตร`}
                     aria-pressed={selectedDay === index}
                   >
                     <span>{value}</span>
                     <i style={{ height: `${height}%`, background: getLevel(value).color }} />
-                    <small>D+{index + 1}</small>
+                    <small>{days[index]?.weekday.slice(0, 2)}</small>
                   </button>
                 );
               })}
