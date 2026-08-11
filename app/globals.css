@@ -88,27 +88,27 @@ button { color: inherit; }
 .status-dot.fallback { background: #f97316; box-shadow: 0 0 0 4px #ffedd5; }
 
 .day-tabs {
-  height: 76px;
-  margin-top: 10px;
+  height: 80px;
+  margin-top: 8px;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 7px;
-  padding: 6px;
+  gap: 6px;
+  padding: 5px;
   overflow: hidden;
   border: 1px solid #d4edf0;
-  border-radius: 18px;
-  background: linear-gradient(135deg, rgba(238,251,254,.94), rgba(247,255,250,.96));
-  box-shadow: 0 10px 32px rgba(32,139,159,.08), inset 0 1px 0 rgba(255,255,255,.9);
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(242,251,253,.97), rgba(248,253,251,.98));
+  box-shadow: 0 8px 24px rgba(32,139,159,.065), inset 0 1px 0 rgba(255,255,255,.95);
   backdrop-filter: blur(12px);
 }
-.day-tabs button { position: relative; isolation: isolate; overflow: hidden; padding: 10px 15px; border: 1px solid rgba(210,232,238,.84); border-radius: 13px; background: rgba(255,255,255,.78); color: #173b57; text-align: left; cursor: pointer; box-shadow: 0 2px 8px rgba(16,42,67,.025); transition: background .18s, color .18s, transform .18s, border-color .18s, box-shadow .18s; }
+.day-tabs button { position: relative; isolation: isolate; overflow: hidden; min-width: 0; padding: 9px 14px 10px; border: 1px solid rgba(210,232,238,.9); border-radius: 11px; background: rgba(255,255,255,.74); color: #173b57; text-align: left; cursor: pointer; box-shadow: 0 2px 7px rgba(16,42,67,.02); transition: background .18s, color .18s, transform .18s, border-color .18s, box-shadow .18s; }
 .day-tabs button::before { content: ""; position: absolute; z-index: -1; top: -32px; right: -28px; width: 84px; height: 84px; border-radius: 50%; background: radial-gradient(circle, rgba(32,199,234,.08), transparent 68%); transition: transform .22s, opacity .22s; }
 .day-tabs button:hover { border-color: #aee3e6; background: rgba(255,255,255,.98); transform: translateY(-1px); box-shadow: 0 7px 18px rgba(32,139,159,.09); }
 .day-tabs button:hover::before { transform: scale(1.18); }
-.day-tabs button.active { color: #0d4552; border-color: #8edfd5; background: linear-gradient(135deg, #ddf8ff 0%, #e9fff5 58%, #f7ffdf 100%); box-shadow: 0 8px 22px rgba(32,199,234,.13), inset 0 0 0 1px rgba(255,255,255,.75); }
-.day-tabs button.active::before { top: -40px; right: -12px; width: 120px; height: 120px; background: radial-gradient(circle, rgba(207,244,91,.34), transparent 66%); }
-.day-tabs button.active::after { content: ""; position: absolute; inset: auto 12px 0; height: 4px; border-radius: 4px 4px 0 0; background: linear-gradient(90deg, var(--cyan), var(--green), var(--lime)); }
-.day-tabs b { display: block; margin: 0 0 6px; font-size: 15px; font-weight: 600; }
+.day-tabs button.active { color: #124557; border-color: #9bded7; background: linear-gradient(135deg, #e9faff 0%, #eefbf7 62%, #f6fce9 100%); box-shadow: 0 6px 16px rgba(32,151,165,.10), inset 0 0 0 1px rgba(255,255,255,.78); }
+.day-tabs button.active::before { top: -42px; right: -16px; width: 116px; height: 116px; background: radial-gradient(circle, rgba(188,232,120,.18), transparent 68%); }
+.day-tabs button.active::after { content: ""; position: absolute; right: 14px; bottom: 5px; left: 14px; height: 3px; border-radius: 999px; background: linear-gradient(90deg, #35b9dc, #36c2a0, #a7d85b); }
+.day-tabs b { display: block; overflow: hidden; margin: 0 0 5px; font-size: 15px; font-weight: 600; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
 .day-tabs i { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; }
 .day-tabs small { color: #58748b; font-size: 10px; opacity: 1; }
 .day-tabs small em { margin-left: 4px; padding: 1px 4px; border-radius: 4px; background: #fff1cf; color: #805b13; font-size: 7px; font-style: normal; }
