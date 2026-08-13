@@ -87,6 +87,13 @@ function mean(values: number[]) {
   return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
 }
 
+function median(values: number[]) {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.min(maximum, Math.max(minimum, value));
 }
@@ -148,17 +155,17 @@ export async function GET() {
         body: "{}",
       }),
       fetch(buildCamsUrl(), { headers: { Accept: "application/json" } }),
-      fetch(buildWeatherUrl(), { headers: { Accept: "application/json" } }),
+      fetch(buildWeatherUrl(), { headers: { Accept: "application/json" } }).catch(() => null),
     ]);
 
-    if (!airbkkResponse.ok || !camsResponse.ok || !weatherResponse.ok) {
-      throw new Error(`upstream status ${airbkkResponse.status}/${camsResponse.status}/${weatherResponse.status}`);
+    if (!airbkkResponse.ok || !camsResponse.ok) {
+      throw new Error(`upstream status ${airbkkResponse.status}/${camsResponse.status}`);
     }
 
     const [airbkk, camsRaw, weather] = await Promise.all([
       airbkkResponse.json() as Promise<AirBkkResponse>,
       camsResponse.json() as Promise<CamsLocation[] | CamsLocation>,
-      weatherResponse.json() as Promise<WeatherResponse>,
+      weatherResponse?.ok ? weatherResponse.json() as Promise<WeatherResponse> : Promise.resolve(null),
     ]);
 
     if (airbkk.status !== "Success" || !Array.isArray(airbkk.message)) {
@@ -178,11 +185,32 @@ export async function GET() {
         pm25 >= 0 && pm25 <= 500 && lat >= 13.45 && lat <= 14.1 && lng >= 100.2 && lng <= 101,
       );
 
-    const latestObservation = Math.max(...parsedRecords.map((item) => item.timestamp));
-    const validRecords = parsedRecords.filter((item) => latestObservation - item.timestamp <= 6 * 60 * 60 * 1000);
+    const requestTime = Date.now();
+    const freshRecords = parsedRecords.filter((item) =>
+      item.timestamp <= requestTime + 60 * 60 * 1000 && requestTime - item.timestamp <= 6 * 60 * 60 * 1000,
+    );
+    const newestByStation = new Map<string, (typeof freshRecords)[number]>();
+    freshRecords.forEach((item) => {
+      const key = String(item.record.MeasIndex || `${item.lat},${item.lng}`);
+      const current = newestByStation.get(key);
+      if (!current || item.timestamp > current.timestamp) newestByStation.set(key, item);
+    });
+    const deduplicatedRecords = [...newestByStation.values()];
+    const center = median(deduplicatedRecords.map((item) => item.pm25));
+    const mad = center === null ? null : median(deduplicatedRecords.map((item) => Math.abs(item.pm25 - center)));
+    const robustLimit = Math.max(35, (mad ?? 0) * 6);
+    const validRecords = center === null
+      ? []
+      : deduplicatedRecords.filter((item) => Math.abs(item.pm25 - center) <= robustLimit);
     if (validRecords.length < 20) throw new Error("insufficient fresh AirBKK stations");
 
-    const camsLocations = Array.isArray(camsRaw) ? camsRaw : [camsRaw];
+    const latestObservation = Math.max(...validRecords.map((item) => item.timestamp));
+
+    const camsLocations = (Array.isArray(camsRaw) ? camsRaw : [camsRaw]).filter((location) =>
+      Number.isFinite(Number(location.latitude)) && Number.isFinite(Number(location.longitude)) &&
+      Array.isArray(location.hourly?.time) && Array.isArray(location.hourly?.pm2_5) &&
+      location.hourly.time.length === location.hourly.pm2_5.length,
+    );
     if (camsLocations.length < 3) throw new Error("insufficient CAMS anchors");
 
     const latestRecord = validRecords.find((item) => item.timestamp === latestObservation)!;
@@ -211,7 +239,7 @@ export async function GET() {
         const previous = values[index - 1] ?? Number(location.current?.pm2_5 ?? 0);
         const beforePrevious = values[index - 2] ?? previous;
         const trend = clamp(previous - beforePrevious, -3, 3);
-        values.push(Math.max(0, previous + trend));
+        values.push(clamp(previous + trend, 0, 500));
       });
 
       const currentValue = Number(location.current?.pm2_5);
@@ -225,12 +253,13 @@ export async function GET() {
     });
 
     const forecastCoverage = targetDates.map((_, index) => Math.min(...anchorForecasts.map((anchor) => anchor.coverage[index])));
-    const nowAgeHours = (Date.now() - latestObservation) / 3_600_000;
-    const status = nowAgeHours <= 6 ? "live" : "degraded";
-    const weatherByDate = new Map(weather.daily.time.map((dateKey, index) => [dateKey, {
-      windSpeed: weather.daily.wind_speed_10m_max[index],
-      windDirection: weather.daily.wind_direction_10m_dominant[index],
-      rainProbability: weather.daily.precipitation_probability_max[index],
+    const nowAgeHours = Math.max(0, (requestTime - latestObservation) / 3_600_000);
+    const weatherAvailable = Boolean(weather?.daily?.time?.length);
+    const status = nowAgeHours <= 3 && weatherAvailable ? "live" : "degraded";
+    const weatherByDate = new Map((weather?.daily?.time ?? []).map((dateKey, index) => [dateKey, {
+      windSpeed: weather?.daily.wind_speed_10m_max[index] ?? null,
+      windDirection: weather?.daily.wind_direction_10m_dominant[index] ?? null,
+      rainProbability: weather?.daily.precipitation_probability_max[index] ?? null,
     }]));
 
     const confidenceBase = [80, 72, 64, 55, 40];
@@ -258,13 +287,14 @@ export async function GET() {
       };
     });
 
-    const stations: ForecastStation[] = validRecords.map(({ record, lat, lng, pm25 }) => {
+    const stations: ForecastStation[] = validRecords.map(({ record, lat, lng, pm25, timestamp }) => {
       const currentCams = spatialIdw(lat, lng, anchorForecasts.map((anchor) => ({ lat: anchor.lat, lng: anchor.lng, value: anchor.current })));
-      const bias = pm25 - currentCams;
+      const bias = clamp(pm25 - currentCams, -60, 60);
+      const stationAgeHours = Math.max(0, (requestTime - timestamp) / 3_600_000);
       const values = targetDates.map((_, index) => {
         const camsValue = spatialIdw(lat, lng, anchorForecasts.map((anchor) => ({ lat: anchor.lat, lng: anchor.lng, value: anchor.values[index] })));
-        const biasWeight = Math.exp(-(index + 1) / 2.2);
-        return Math.round(Math.max(0, camsValue + bias * biasWeight) * 10) / 10;
+        const biasWeight = Math.exp(-(((index + 1) * 24) + stationAgeHours) / 48);
+        return Math.round(clamp(camsValue + bias * biasWeight, 0, 500) * 10) / 10;
       });
       return {
         id: String(record.MeasIndex),
@@ -282,15 +312,21 @@ export async function GET() {
     return Response.json({
       status,
       issuedAt: formatIssuedAt(latestObservation),
-      model: "AirBKK + CAMS bias-corrected IDW baseline 0.2",
+      model: "AirBKK + CAMS quality-controlled bias-corrected IDW baseline 0.3",
       disclaimer: "ค่าตรวจวัดมาจาก AirBKK จริง ส่วนค่าล่วงหน้าเป็น CAMS Global ที่ปรับ bias ด้วยสถานีล่าสุด ยังไม่ใช่โมเดลที่ผ่านการรับรองเพื่อออกคำเตือน",
       sources: ["AirBKK live observations", "CAMS Global via Open-Meteo", "Open-Meteo Weather Forecast", "BMA GIS district boundary"],
       dataQuality: {
         rawStations: airbkk.message.length,
+        freshStations: freshRecords.length,
+        deduplicatedStations: deduplicatedRecords.length,
         acceptedStations: stations.length,
+        rejectedOutliers: deduplicatedRecords.length - stations.length,
         latestObservation: latestRecord.record.DateTime,
         observationAgeHours: Math.round(nowAgeHours * 10) / 10,
         camsMinimumCoverageHours: Math.min(...forecastCoverage),
+        camsCoverageHoursByDay: forecastCoverage,
+        weatherAvailable,
+        qualityControl: "freshness + station deduplication + robust MAD outlier filter",
       },
       days,
       stations,
