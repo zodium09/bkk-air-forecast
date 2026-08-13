@@ -24,7 +24,7 @@ export async function GET() {
         "X-Boundary-Source": "BMA GIS DISTRICT MapServer/0",
       },
     });
-  } catch {
+  } catch (error) {
     return Response.json(
       { error: "Bangkok boundary is temporarily unavailable" },
       { status: 502, headers: { "Cache-Control": "no-store" } },
