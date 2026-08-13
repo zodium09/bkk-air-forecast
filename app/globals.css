@@ -86,6 +86,39 @@ button { color: inherit; }
 .status-dot.live { background: #22c55e; box-shadow: 0 0 0 4px #dcfce7; }
 .status-dot.degraded { background: #eab308; box-shadow: 0 0 0 4px #fef9c3; }
 .status-dot.fallback { background: #f97316; box-shadow: 0 0 0 4px #ffedd5; }
+.status-dot.unavailable { background: #ef4444; box-shadow: 0 0 0 4px #fee2e2; }
+
+.product-nav {
+  position: absolute;
+  z-index: 3;
+  top: 14px;
+  right: 16px;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid rgba(190,220,230,.9);
+  border-radius: 13px;
+  background: rgba(255,255,255,.9);
+  box-shadow: 0 8px 24px rgba(16,42,67,.08);
+  backdrop-filter: blur(12px);
+}
+.product-nav a {
+  min-height: 36px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 9px;
+  color: #486581;
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background .18s, color .18s, transform .18s;
+}
+.product-nav a:hover { color: #0e7490; background: #edfafd; transform: translateY(-1px); }
+.product-nav a[aria-current="page"] { color: #fff; background: linear-gradient(135deg, #0e7490, #0f806b); }
+.product-nav a span { font-size: 8px; }
+.product-nav a:focus-visible, .day-tabs button:focus-visible, .trend-chart button:focus-visible { outline: 3px solid #67e8f9; outline-offset: 2px; }
 
 .day-tabs {
   height: 80px;
@@ -214,6 +247,120 @@ button { color: inherit; }
 .forecast-note p { margin: 0; color: #486581; font-size: 10px; line-height: 1.5; }
 .forecast-note b { display: block; margin-bottom: 2px; color: var(--ink); font-size: 11px; }
 
+/* Bangkok rain forecast */
+.rain-shell {
+  background:
+    radial-gradient(circle at 0 0, rgba(116,222,235,.13), transparent 24rem),
+    radial-gradient(circle at 100% 0, rgba(61,64,157,.13), transparent 32rem),
+    #f4f8fc;
+}
+.rain-banner { background-image: url("/og-rain.png"); border-color: #ccdfed; }
+.rain-banner::after { background: linear-gradient(90deg, rgba(255,255,255,.98) 0%, rgba(255,255,255,.90) 34%, rgba(238,247,255,.15) 68%, rgba(238,247,255,.04)); }
+.rain-banner .banner-kicker { color: #3156ad; }
+.rain-banner .banner-copy h1 em { color: #2a69c2; }
+.rain-banner .product-nav a[aria-current="page"] { background: linear-gradient(135deg, #3188c8, #3d409d); }
+.rain-day-tabs { border-color: #cfdfef; background: linear-gradient(135deg, rgba(240,249,253,.98), rgba(244,246,253,.98)); }
+.rain-day-tabs button.active { border-color: #9ccce8; background: linear-gradient(135deg, #e9faff, #eef3ff 62%, #f5f0ff); color: #173d66; }
+.rain-day-tabs button.active::after { background: linear-gradient(90deg, #45c5dd, #2879d0, #5140a4); }
+.rain-day-tabs button.active small { color: #3156ad; }
+.rain-workspace { border-color: #cfdfeb; }
+.rain-window-strip {
+  min-height: 60px;
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  border-bottom: 1px solid #d8e5ef;
+  background: linear-gradient(90deg, #f7fbfd, #f3f6fc);
+}
+.rain-window-strip > div:first-child { padding-left: 4px; display: flex; flex-direction: column; }
+.rain-window-strip > div:first-child span { color: var(--muted); font-size: 9px; }
+.rain-window-strip > div:first-child b { margin-top: 2px; font-size: 11px; white-space: nowrap; }
+.rain-window-buttons { min-width: 0; display: grid; grid-template-columns: repeat(8, minmax(54px, 1fr)); gap: 4px; }
+.rain-window-buttons button {
+  min-width: 0;
+  min-height: 44px;
+  padding: 3px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d6e4ed;
+  border-radius: 9px;
+  background: rgba(255,255,255,.9);
+  cursor: pointer;
+  transition: border-color .18s, background .18s, transform .18s;
+}
+.rain-window-buttons button:hover:not(:disabled) { border-color: #84c7e3; background: #edf9fc; transform: translateY(-1px); }
+.rain-window-buttons button.active { border-color: #478bc8; color: #fff; background: linear-gradient(135deg, #3188c8, #3d409d); }
+.rain-window-buttons button:disabled { cursor: wait; opacity: .62; }
+.rain-window-buttons button span { font-family: Manrope, sans-serif; font-size: 8px; }
+.rain-window-buttons button b { font-family: Manrope, sans-serif; font-size: 10px; }
+.rain-window-buttons button em { margin-top: 1px; color: #3156ad; font-size: 7px; font-style: normal; font-weight: 700; }
+.rain-window-buttons button.active em { color: #dff8ff; }
+.rain-window-buttons button:focus-visible { outline: 3px solid #67e8f9; outline-offset: 1px; }
+.rain-map-wrap { background: #eaf2f7; }
+.rain-map-metric { width: 190px; }
+.rain-map-metric > b { color: #3156ad; }
+.rain-surface-status b { color: #3156ad; }
+.rain-surface-status.degraded b { color: #b7791f; }
+.rain-surface-status.unavailable b { color: #c24141; }
+.rain-layer-panel { width: 208px; }
+.rain-metric-options { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.rain-metric-options button {
+  min-height: 36px;
+  padding: 5px;
+  border: 1px solid #cbdde8;
+  border-radius: 8px;
+  background: #f8fbfd;
+  color: #486581;
+  font-size: 9px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.rain-metric-options button[aria-pressed="true"] { border-color: #478bc8; color: #fff; background: #3156ad; }
+.rain-metric-options button:focus-visible { outline: 3px solid #67e8f9; outline-offset: 1px; }
+.rain-popup b { color: #3156ad; }
+.rain-legend { border-color: #cedeea; }
+.rain-error-panel {
+  position: absolute;
+  z-index: 650;
+  top: 50%;
+  left: 50%;
+  width: min(300px, calc(100% - 28px));
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #f3c5c5;
+  border-radius: 15px;
+  background: rgba(255,255,255,.96);
+  box-shadow: 0 18px 50px rgba(16,42,67,.16);
+  text-align: center;
+  transform: translate(-50%, -50%);
+  backdrop-filter: blur(12px);
+}
+.rain-error-panel strong { color: #9b2c2c; font-size: 14px; }
+.rain-error-panel span { color: var(--muted); font-size: 11px; }
+.rain-error-panel button { min-height: 38px; margin-top: 3px; padding: 0 16px; border: 0; border-radius: 9px; background: #3156ad; color: #fff; font-size: 11px; font-weight: 600; cursor: pointer; }
+.rain-average-card { background: linear-gradient(135deg, rgba(69,197,221,.12), rgba(61,64,157,.10)); }
+.rain-average-ring { --metric-color: #2a69c2; }
+.rain-weather-card div span { background: #edf4fb; color: #3156ad; }
+.rain-trend-card .trend-chart button.active { background: #edf4ff; box-shadow: inset 0 0 0 1px #c9dbf1; }
+.rain-watch-card li { grid-template-columns: 18px 1fr auto 7px; }
+.rain-watch-card li b { font-family: "IBM Plex Sans Thai", sans-serif; font-size: 10px; white-space: nowrap; }
+.rain-watch-card .rain-empty-row::before { content: "—"; }
+.rain-watch-card .rain-empty-row i { background: #cbd5e1; }
+.rain-forecast-note { background: #f2f6fd; }
+.rain-forecast-note > span { background: #a5def0; color: #173d66; }
+.rain-forecast-note p small { display: block; margin-top: 5px; color: #70869b; font-size: 8px; line-height: 1.35; }
+.rain-forecast-note p small a { color: #3156ad; font-weight: 600; text-underline-offset: 2px; }
+.rain-forecast-note p small a:focus-visible { outline: 2px solid #67e8f9; outline-offset: 2px; border-radius: 2px; }
+
 @media (min-width: 781px) and (max-height: 760px) {
   .app-shell { min-height: 600px; padding: 10px; grid-template-rows: 98px 64px minmax(0, 1fr); }
   .banner-copy { padding: 14px 22px; }
@@ -230,6 +377,8 @@ button { color: inherit; }
   .average-ring { width: 70px; height: 70px; }
   .trend-chart { height: 52px; margin-top: 4px; }
   .watch-card li { min-height: 24px; }
+  .rain-window-strip { min-height: 50px; padding: 3px 8px; }
+  .rain-window-buttons button { min-height: 38px; }
 }
 
 @media (max-width: 980px) and (min-width: 781px) {
@@ -258,6 +407,12 @@ button { color: inherit; }
   .trend-card { grid-column: 1 / -1; }
   .legend { right: 10px; left: 10px; gap: 7px; overflow-x: auto; }
   .legend small { white-space: nowrap; }
+  .product-nav { top: 10px; right: 10px; }
+  .product-nav a { min-height: 40px; padding: 0 10px; }
+  .rain-banner::after { background: linear-gradient(90deg, rgba(255,255,255,.98), rgba(255,255,255,.74) 62%, rgba(238,247,255,.12)); }
+  .rain-window-strip { grid-template-columns: 76px minmax(0, 1fr); overflow: hidden; }
+  .rain-window-buttons { overflow-x: auto; grid-template-columns: repeat(8, minmax(58px, 1fr)); }
+  .rain-map-wrap { height: 52vh; min-height: 420px; }
 }
 
 @media (max-width: 520px) {
@@ -269,6 +424,11 @@ button { color: inherit; }
   .insights > div { border-right: 0; }
   .surface-status { top: 62px; right: 10px; min-width: 150px; }
   .map-metric { top: 10px; left: 10px; width: 142px; }
+  .product-nav a { min-height: 38px; padding: 0 8px; font-size: 10px; }
+  .rain-window-strip { grid-template-columns: 1fr; gap: 4px; }
+  .rain-window-strip > div:first-child { display: none; }
+  .rain-map-metric { width: 160px; }
+  .rain-surface-status { top: 62px; right: 10px; min-width: 170px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
