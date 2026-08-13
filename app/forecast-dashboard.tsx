@@ -9,7 +9,6 @@ import {
   type ForecastDay,
   type ForecastStation,
 } from "./lib/forecast-data";
-import OutlookNav from "./components/outlook-nav";
 import "leaflet/dist/leaflet.css";
 
 type ForecastPayload = {
@@ -388,7 +387,6 @@ export default function ForecastDashboard() {
           <h1>แผนที่พยากรณ์ <em>PM2.5 กรุงเทพฯ</em></h1>
           <p>ดูล่วงหน้า 1–5 วัน เลือกวันแล้วตรวจพื้นที่ที่ควรเฝ้าระวังได้ทันที</p>
         </div>
-        <OutlookNav active="air" />
         <div className="banner-status" role="status">
           <span className={`status-dot ${dataState}`} aria-hidden="true" />
           <div>
