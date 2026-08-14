@@ -80,9 +80,10 @@ body:has(.home-shell) {
 .home-intro-bottom > span::before { content: ""; position: absolute; top: 50%; left: 0; width: 26px; height: 1px; background: #0f827e; }
 .home-intro-bottom p { max-width: 470px; margin: 0; color: #647f8d; font-size: 12px; line-height: 1.65; }
 .home-topics { max-width: 1420px; margin: 0 auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
-.home-topic { min-height: clamp(300px, 40vh, 430px); position: relative; isolation: isolate; overflow: hidden; display: flex; align-items: flex-end; border: 1px solid rgba(255,255,255,.7); border-radius: 28px; color: #fff; text-decoration: none; background-position: center; background-size: cover; box-shadow: 0 22px 55px rgba(7,54,74,.14); transform: translateZ(0); }
+.home-topic { min-height: clamp(300px, 40vh, 430px); position: relative; isolation: isolate; overflow: hidden; display: flex; align-items: flex-end; border: 1px solid rgba(255,255,255,.7); border-radius: 28px; color: #fff; text-decoration: none; background-position: center; background-size: cover; box-shadow: 0 22px 55px rgba(7,54,74,.14); transform: translateZ(0); cursor: pointer; touch-action: manipulation; }
 .home-topic::before { content: ""; position: absolute; z-index: -1; inset: 0; background: linear-gradient(90deg, rgba(5,37,51,.93) 0%, rgba(5,37,51,.72) 36%, rgba(5,37,51,.10) 78%), linear-gradient(0deg, rgba(4,30,43,.60), transparent 64%); transition: opacity .3s; }
 .home-topic::after { content: ""; position: absolute; z-index: -2; inset: 0; background: inherit; background-position: center; background-size: cover; transition: transform .55s ease; }
+.home-topic::before, .home-topic::after { pointer-events: none; }
 .home-topic-air { background-image: url("/home-air.png"); }
 .home-topic-rain { background-image: url("/home-rain.png"); }
 .home-topic:hover::after { transform: scale(1.035); }

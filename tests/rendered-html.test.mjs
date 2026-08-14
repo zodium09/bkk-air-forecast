@@ -39,6 +39,8 @@ test("server-renders the two-topic BKK Air Forecast homepage", async () => {
   assert.match(html, /พยากรณ์ฝน/);
   assert.match(html, /href="\/air"/);
   assert.match(html, /href="\/rain"/);
+  assert.match(html, /เปิดแผนที่พยากรณ์ฝุ่น PM2\.5 กรุงเทพฯ/);
+  assert.match(html, /เปิดแผนที่พยากรณ์ฝนกรุงเทพฯ/);
   assert.match(html, /home-topic-air/);
   assert.match(html, /home-topic-rain/);
   assert.doesNotMatch(html, /กำลังโหลดข้อมูล|กำลังโหลดพยากรณ์ฝน/);
@@ -114,6 +116,7 @@ test("forecast API always exposes a safe five-day contract", async () => {
   const payload = await response.json();
   assert.ok(["live", "degraded", "fallback"].includes(payload.status));
   assert.equal(payload.days.length, 5);
+  assert.ok(payload.days.every((day) => Number.isInteger(day.year)));
   assert.ok(payload.stations.length >= 15);
   assert.equal(typeof payload.disclaimer, "string");
   assert.ok(payload.disclaimer.length > 20);
@@ -156,15 +159,18 @@ test("rain forecast API exposes a five-day model-only contract", async () => {
   }
 });
 
-test("rain adapter uses a cached nine-point Open-Meteo forecast without fake fallback values", async () => {
+test("rain adapter uses cached nine-point live Open-Meteo providers without fake fallback values", async () => {
   const route = await readFile(new URL("../app/api/rain-forecast/route.ts", import.meta.url), "utf8");
   assert.match(route, /api\.open-meteo\.com\/v1\/forecast/);
+  assert.match(route, /api\.open-meteo\.com\/v1\/gfs/);
   assert.match(route, /precipitation_probability,precipitation,rain,showers,weather_code/);
   assert.match(route, /forecastPoints\.length/);
   assert.match(route, /s-maxage=1800/);
   assert.match(route, /MINIMUM_HOURLY_COVERAGE/);
   assert.match(route, /rejectedPoints/);
   assert.match(route, /X-Rain-Forecast-Status/);
+  assert.match(route, /X-Rain-Forecast-Provider/);
+  assert.match(route, /providerFallback/);
   assert.match(route, /points: \[\]/);
   assert.doesNotMatch(route, /fallbackRain|demoRain|mockRain/i);
 });

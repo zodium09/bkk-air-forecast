@@ -33,7 +33,7 @@ export default function Home() {
       </section>
 
       <section className="home-topics" aria-label="เลือกหัวข้อพยากรณ์">
-        <Link className="home-topic home-topic-air" href="/air">
+        <Link className="home-topic home-topic-air" href="/air" aria-label="เปิดแผนที่พยากรณ์ฝุ่น PM2.5 กรุงเทพฯ" title="เปิดพยากรณ์ฝุ่น PM2.5">
           <span className="home-topic-number" aria-hidden="true">01</span>
           <span className="home-topic-copy">
             <span className="home-topic-kicker"><i aria-hidden="true" /> AIR QUALITY</span>
@@ -43,7 +43,7 @@ export default function Home() {
           </span>
         </Link>
 
-        <Link className="home-topic home-topic-rain" href="/rain">
+        <Link className="home-topic home-topic-rain" href="/rain" aria-label="เปิดแผนที่พยากรณ์ฝนกรุงเทพฯ" title="เปิดพยากรณ์ฝนกรุงเทพฯ">
           <span className="home-topic-number" aria-hidden="true">02</span>
           <span className="home-topic-copy">
             <span className="home-topic-kicker"><i aria-hidden="true" /> RAIN OUTLOOK</span>

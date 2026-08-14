@@ -60,6 +60,9 @@ export type RainForecastPayload = {
     coverageHours: number;
     rejectedPoints?: number;
     minimumHourlyCoverage?: number;
+    provider?: string;
+    providerFallback?: boolean;
+    providersTried?: string[];
     error?: string;
   };
   days: RainDay[];
@@ -74,6 +77,10 @@ function addDays(dateKey: string, days: number) {
 
 export function formatRainDate(dateKey: string) {
   const date = new Date(`${dateKey}T12:00:00+07:00`);
+  const yearParts = new Intl.DateTimeFormat("th-TH-u-nu-latn", {
+    year: "numeric",
+    timeZone: "Asia/Bangkok",
+  }).formatToParts(date);
   return {
     date: new Intl.DateTimeFormat("th-TH", {
       day: "numeric",
@@ -84,10 +91,7 @@ export function formatRainDate(dateKey: string) {
       weekday: "short",
       timeZone: "Asia/Bangkok",
     }).format(date).replace(".", ""),
-    year: Number(new Intl.DateTimeFormat("th-TH-u-nu-latn", {
-      year: "numeric",
-      timeZone: "Asia/Bangkok",
-    }).format(date)),
+    year: Number(yearParts.find((part) => part.type === "year")?.value ?? dateKey.slice(0, 4)),
   };
 }
 

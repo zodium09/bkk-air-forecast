@@ -8,7 +8,20 @@ import {
   type RainWindow,
 } from "../../lib/rain-forecast-data";
 
-const OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast";
+const forecastProviders = [
+  {
+    id: "best-match",
+    url: "https://api.open-meteo.com/v1/forecast",
+    model: "Open-Meteo Best Match · 9-point Bangkok grid",
+    source: "Open-Meteo Weather Forecast",
+  },
+  {
+    id: "gfs",
+    url: "https://api.open-meteo.com/v1/gfs",
+    model: "Open-Meteo GFS Seamless · 9-point Bangkok grid",
+    source: "Open-Meteo GFS Forecast",
+  },
+] as const;
 const FORECAST_DAYS = 5;
 const EXPECTED_HOURLY_VALUES = FORECAST_DAYS * 24;
 const MINIMUM_HOURLY_COVERAGE = 0.8;
@@ -45,8 +58,8 @@ type OpenMeteoLocation = {
   };
 };
 
-function buildForecastUrl() {
-  const url = new URL(OPEN_METEO_URL);
+function buildForecastUrl(baseUrl = forecastProviders[0].url) {
+  const url = new URL(baseUrl);
   url.searchParams.set("latitude", forecastPoints.map((point) => point.lat).join(","));
   url.searchParams.set("longitude", forecastPoints.map((point) => point.lng).join(","));
   url.searchParams.set("hourly", "precipitation_probability,precipitation,rain,showers,weather_code");
@@ -185,15 +198,16 @@ function unavailableResponse(error: unknown) {
   return Response.json({
     status: "unavailable",
     fetchedAt: new Date().toISOString(),
-    model: "Open-Meteo Best Match",
+    model: "Open-Meteo Best Match / GFS",
     disclaimer: "ยังโหลดค่าพยากรณ์จากแบบจำลองไม่ได้ในขณะนี้ และไม่มีการสร้างค่าฝนสำรองขึ้นมา กรุณาลองใหม่ภายหลัง",
-    sources: ["Open-Meteo Weather Forecast"],
+    sources: forecastProviders.map((provider) => provider.source),
     dataQuality: {
       expectedPoints: forecastPoints.length,
       acceptedPoints: 0,
       coverageHours: 0,
       rejectedPoints: forecastPoints.length,
       minimumHourlyCoverage: MINIMUM_HOURLY_COVERAGE,
+      providersTried: forecastProviders.map((provider) => provider.id),
       error: error instanceof Error ? error.message : "unknown upstream error",
     },
     days: buildRainDayShells(),
@@ -205,48 +219,57 @@ function unavailableResponse(error: unknown) {
 }
 
 export async function GET() {
-  try {
-    const response = await fetch(buildForecastUrl(), {
-      headers: { Accept: "application/json" },
-      signal: AbortSignal.timeout(9_000),
-    });
-    if (!response.ok) throw new Error(`Open-Meteo status ${response.status}`);
-    const raw = await response.json() as OpenMeteoLocation[] | OpenMeteoLocation;
-    const locations = Array.isArray(raw) ? raw : [raw];
-    const points = locations
-      .map((location, index) => aggregatePoint(location, index))
-      .filter((point): point is RainPoint => point !== null);
-    if (points.length < 6) throw new Error(`insufficient forecast points ${points.length}/${forecastPoints.length}`);
+  const failures: string[] = [];
 
-    const dateKeys = locations.find((location) => location.daily)?.daily?.time.slice(0, FORECAST_DAYS);
-    if (!dateKeys || dateKeys.length !== FORECAST_DAYS) throw new Error("missing five-day forecast dates");
-    const { days, windows } = aggregateCity(points, dateKeys);
-    const coverageHours = Math.min(...points.map((point) => point.windows.filter((window) => window.rainMm !== null).length * 3));
-    const status = points.length === forecastPoints.length ? "live" : "degraded";
+  for (const provider of forecastProviders) {
+    try {
+      const response = await fetch(buildForecastUrl(provider.url), {
+        headers: { Accept: "application/json", "User-Agent": "BKK-Air-Forecast/1.0" },
+        signal: AbortSignal.timeout(9_000),
+      });
+      if (!response.ok) throw new Error(`status ${response.status}`);
+      const raw = await response.json() as OpenMeteoLocation[] | OpenMeteoLocation;
+      const locations = Array.isArray(raw) ? raw : [raw];
+      const points = locations
+        .map((location, index) => aggregatePoint(location, index))
+        .filter((point): point is RainPoint => point !== null);
+      if (points.length < 6) throw new Error(`insufficient forecast points ${points.length}/${forecastPoints.length}`);
 
-    return Response.json({
-      status,
-      fetchedAt: new Date().toISOString(),
-      model: "Open-Meteo Best Match · 9-point Bangkok grid",
-      disclaimer: "ค่าประมาณจากแบบจำลอง ไม่ใช่เรดาร์ฝนหรือประกาศเตือนภัย โอกาสฝนและปริมาณฝนเป็นคนละตัวชี้วัด และความละเอียดไม่เท่าการพยากรณ์รายเขต",
-      sources: ["Open-Meteo Weather Forecast", "BMA GIS district boundary", "OpenStreetMap"],
-      dataQuality: {
-        expectedPoints: forecastPoints.length,
-        acceptedPoints: points.length,
-        coverageHours,
-        rejectedPoints: forecastPoints.length - points.length,
-        minimumHourlyCoverage: MINIMUM_HOURLY_COVERAGE,
-      },
-      days,
-      windows,
-      points,
-    }, {
-      headers: {
-        "Cache-Control": "public, max-age=300, s-maxage=1800, stale-while-revalidate=7200",
-        "X-Rain-Forecast-Status": status,
-      },
-    });
-  } catch (error) {
-    return unavailableResponse(error);
+      const dateKeys = locations.find((location) => location.daily)?.daily?.time.slice(0, FORECAST_DAYS);
+      if (!dateKeys || dateKeys.length !== FORECAST_DAYS) throw new Error("missing five-day forecast dates");
+      const { days, windows } = aggregateCity(points, dateKeys);
+      const coverageHours = Math.min(...points.map((point) => point.windows.filter((window) => window.rainMm !== null).length * 3));
+      const status = points.length === forecastPoints.length ? "live" : "degraded";
+
+      return Response.json({
+        status,
+        fetchedAt: new Date().toISOString(),
+        model: provider.model,
+        disclaimer: "ข้อมูลพยากรณ์จริงจากแบบจำลองอากาศ ไม่ใช่เรดาร์ฝนหรือประกาศเตือนภัย โอกาสฝนและปริมาณฝนเป็นคนละตัวชี้วัด และความละเอียดไม่เท่าการพยากรณ์รายเขต",
+        sources: [provider.source, "BMA GIS district boundary", "OpenStreetMap"],
+        dataQuality: {
+          expectedPoints: forecastPoints.length,
+          acceptedPoints: points.length,
+          coverageHours,
+          rejectedPoints: forecastPoints.length - points.length,
+          minimumHourlyCoverage: MINIMUM_HOURLY_COVERAGE,
+          provider: provider.id,
+          providerFallback: provider.id !== forecastProviders[0].id,
+        },
+        days,
+        windows,
+        points,
+      }, {
+        headers: {
+          "Cache-Control": "public, max-age=300, s-maxage=1800, stale-while-revalidate=7200",
+          "X-Rain-Forecast-Status": status,
+          "X-Rain-Forecast-Provider": provider.id,
+        },
+      });
+    } catch (error) {
+      failures.push(`${provider.id}: ${error instanceof Error ? error.message : "unknown error"}`);
+    }
   }
+
+  return unavailableResponse(new Error(failures.join("; ")));
 }

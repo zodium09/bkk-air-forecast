@@ -226,7 +226,7 @@ export default function RainDashboard() {
   const [windows, setWindows] = useState<RainForecastPayload["windows"]>([]);
   const [points, setPoints] = useState<RainPoint[]>([]);
   const [fetchedAt, setFetchedAt] = useState("");
-  const [model, setModel] = useState("Open-Meteo Best Match");
+  const [model, setModel] = useState("กำลังเชื่อมต่อข้อมูลพยากรณ์จริง");
   const [disclaimer, setDisclaimer] = useState("ค่าประมาณจากแบบจำลอง ไม่ใช่เรดาร์ฝนหรือประกาศเตือนภัย");
   const [dataState, setDataState] = useState<RainForecastPayload["status"] | "loading">("loading");
   const [metricMode, setMetricMode] = useState<MetricMode>("probability");
@@ -247,7 +247,7 @@ export default function RainDashboard() {
 
   const loadForecast = useCallback(() => {
     let active = true;
-    fetch("/api/rain-forecast")
+    fetch("/api/rain-forecast", { cache: "no-store" })
       .then((response) => {
         if (!response.ok) throw new Error("rain forecast unavailable");
         return response.json() as Promise<RainForecastPayload>;
@@ -462,7 +462,7 @@ export default function RainDashboard() {
   };
 
   const dataStateLabel = dataState === "live"
-    ? "ข้อมูลอัปเดตแล้ว"
+    ? "ข้อมูลจริงอัปเดตแล้ว"
     : dataState === "degraded"
       ? "ข้อมูลอัปเดตบางส่วน"
       : dataState === "unavailable"
@@ -670,7 +670,7 @@ export default function RainDashboard() {
             <p>
               <b>สรุปวันที่เลือก</b>
               {day?.probabilityMax === null ? "ยังโหลดข้อมูลไม่ได้" : `โอกาสฝนสูงสุด ${day.probabilityMax}% และฝนเฉลี่ย ${day.rainMeanMm ?? "—"} มม.${highestPoint ? ` พื้นที่แบบจำลองที่ควรติดตามคือ${highestPoint.label}` : ""}`}
-              <small>{model} · {disclaimer} <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">ที่มาข้อมูล</a></small>
+              <small>{model} · อัปเดต {formatFetchedAt(fetchedAt)} · {disclaimer} <a href="https://open-meteo.com/en/docs" target="_blank" rel="noreferrer">ที่มาข้อมูล</a></small>
             </p>
           </div>
         </aside>
