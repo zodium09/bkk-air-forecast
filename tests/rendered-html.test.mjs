@@ -171,18 +171,70 @@ test("rain forecast API exposes a five-day model-only contract", async () => {
   }
 });
 
+test("rain forecast API normalizes a real-provider browser fallback payload", async () => {
+  const worker = await loadWorker();
+  const dateKeys = ["2026-08-14", "2026-08-15", "2026-08-16", "2026-08-17", "2026-08-18"];
+  const hourlyTimes = dateKeys.flatMap((dateKey) => Array.from(
+    { length: 24 },
+    (_, hour) => `${dateKey}T${String(hour).padStart(2, "0")}:00`,
+  ));
+  const raw = Array.from({ length: 9 }, (_, pointIndex) => ({
+    latitude: 13.6 + pointIndex * 0.04,
+    longitude: 100.3 + pointIndex * 0.06,
+    hourly: {
+      time: hourlyTimes,
+      precipitation_probability: hourlyTimes.map((_, index) => (index + pointIndex) % 100),
+      precipitation: hourlyTimes.map((_, index) => (index % 8 === 0 ? 1.2 : 0)),
+      rain: hourlyTimes.map((_, index) => (index % 8 === 0 ? 1.2 : 0)),
+      showers: hourlyTimes.map(() => 0),
+      weather_code: hourlyTimes.map(() => 61),
+    },
+    daily: {
+      time: dateKeys,
+      precipitation_sum: dateKeys.map((_, index) => 4 + index + pointIndex / 10),
+      precipitation_probability_max: dateKeys.map((_, index) => 60 + index),
+      precipitation_hours: dateKeys.map(() => 3),
+      weather_code: dateKeys.map(() => 61),
+    },
+  }));
+
+  const response = await worker.fetch(
+    new Request("http://localhost/api/rain-forecast", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ provider: "best-match", raw }),
+    }),
+    environment,
+    executionContext,
+  );
+
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.status, "live");
+  assert.equal(payload.points.length, 9);
+  assert.equal(payload.windows.length, 40);
+  assert.equal(payload.dataQuality.deliveryFallback, true);
+  assert.equal(response.headers.get("X-Rain-Forecast-Delivery"), "browser-fallback");
+});
+
 test("rain adapter uses cached nine-point live Open-Meteo providers without fake fallback values", async () => {
   const route = await readFile(new URL("../app/api/rain-forecast/route.ts", import.meta.url), "utf8");
-  assert.match(route, /api\.open-meteo\.com\/v1\/forecast/);
-  assert.match(route, /api\.open-meteo\.com\/v1\/gfs/);
-  assert.match(route, /precipitation_probability,precipitation,rain,showers,weather_code/);
-  assert.match(route, /forecastPoints\.length/);
+  const provider = await readFile(new URL("../app/lib/rain-forecast-provider.ts", import.meta.url), "utf8");
+  const dashboard = await readFile(new URL("../app/rain/rain-dashboard.tsx", import.meta.url), "utf8");
+  assert.match(provider, /api\.open-meteo\.com\/v1\/forecast/);
+  assert.match(provider, /api\.open-meteo\.com\/v1\/gfs/);
+  assert.match(provider, /precipitation_probability,precipitation,rain,showers,weather_code/);
+  assert.match(route, /rainForecastPoints\.length/);
   assert.match(route, /s-maxage=1800/);
   assert.match(route, /MINIMUM_HOURLY_COVERAGE/);
   assert.match(route, /rejectedPoints/);
   assert.match(route, /X-Rain-Forecast-Status/);
   assert.match(route, /X-Rain-Forecast-Provider/);
+  assert.match(route, /export async function POST/);
+  assert.match(route, /browser-fallback/);
   assert.match(route, /providerFallback/);
+  assert.match(dashboard, /fetchRainForecastPayload/);
+  assert.match(dashboard, /buildRainForecastUrl/);
   assert.match(route, /points: \[\]/);
-  assert.doesNotMatch(route, /fallbackRain|demoRain|mockRain/i);
+  assert.doesNotMatch(`${route}\n${provider}\n${dashboard}`, /fallbackRain|demoRain|mockRain/i);
 });

@@ -8,6 +8,7 @@ import {
   type RainForecastPayload,
   type RainPoint,
 } from "../lib/rain-forecast-data";
+import { buildRainForecastUrl, rainForecastProviders } from "../lib/rain-forecast-provider";
 import "leaflet/dist/leaflet.css";
 
 type Coordinate = [number, number];
@@ -219,6 +220,47 @@ function getPeakWindowIndex(windows: RainForecastPayload["windows"], dayIndex: n
   return peak?.windowIndex ?? 0;
 }
 
+async function fetchRainForecastPayload() {
+  let unavailablePayload: RainForecastPayload | null = null;
+
+  try {
+    const response = await fetch("/api/rain-forecast", { cache: "no-store" });
+    if (response.ok) {
+      const payload = await response.json() as RainForecastPayload;
+      if (payload.status !== "unavailable") return payload;
+      unavailablePayload = payload;
+    }
+  } catch {
+    // The browser-to-provider fallback below keeps the page usable during a server-side upstream outage.
+  }
+
+  for (const provider of rainForecastProviders) {
+    try {
+      const upstreamResponse = await fetch(buildRainForecastUrl(provider.url), {
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      });
+      if (!upstreamResponse.ok) continue;
+      const raw = await upstreamResponse.json();
+      const normalizedResponse = await fetch("/api/rain-forecast", {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: provider.id, raw }),
+      });
+      if (!normalizedResponse.ok) continue;
+      const payload = await normalizedResponse.json() as RainForecastPayload;
+      if (payload.status !== "unavailable") return payload;
+      unavailablePayload = payload;
+    } catch {
+      // Try the next real forecast model before showing the unavailable state.
+    }
+  }
+
+  if (unavailablePayload) return unavailablePayload;
+  throw new Error("rain forecast unavailable");
+}
+
 export default function RainDashboard() {
   const [selectedDay, setSelectedDay] = useState(0);
   const [selectedWindowIndex, setSelectedWindowIndex] = useState(0);
@@ -244,11 +286,7 @@ export default function RainDashboard() {
 
   const loadForecast = useCallback(() => {
     let active = true;
-    fetch("/api/rain-forecast", { cache: "no-store" })
-      .then((response) => {
-        if (!response.ok) throw new Error("rain forecast unavailable");
-        return response.json() as Promise<RainForecastPayload>;
-      })
+    fetchRainForecastPayload()
       .then((payload) => {
         if (!active) return;
         setDays(payload.days);

@@ -62,6 +62,7 @@ export type RainForecastPayload = {
     minimumHourlyCoverage?: number;
     provider?: string;
     providerFallback?: boolean;
+    deliveryFallback?: boolean;
     providersTried?: string[];
     error?: string;
   };
