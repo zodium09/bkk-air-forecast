@@ -365,7 +365,7 @@ export default function RainDashboard() {
         attributionControl: true,
         minZoom: 9,
         maxZoom: 15,
-      }).setView([13.765, 100.595], 11);
+      }).setView([13.765, 100.595], 10);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: "&copy; OpenStreetMap contributors",
         maxZoom: 19,
@@ -411,7 +411,6 @@ export default function RainDashboard() {
       }).addTo(map);
       if (boundaryState === "official") {
         map.fitBounds(boundaryLayerRef.current.getBounds(), { padding: [14, 14], animate: false });
-        map.setZoom(Math.min(map.getMaxZoom(), map.getZoom() + 1), { animate: false });
       }
     });
     return () => {
