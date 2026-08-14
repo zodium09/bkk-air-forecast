@@ -177,15 +177,12 @@ export default function ForecastDashboard() {
   const [issuedAt, setIssuedAt] = useState(bundledIssuedAt);
   const [dataState, setDataState] = useState<"loading" | "live" | "degraded" | "fallback">("loading");
   const [showRange, setShowRange] = useState(false);
-  const [showSurface, setShowSurface] = useState(true);
-  const [showStations, setShowStations] = useState(true);
   const [layerMenuOpen, setLayerMenuOpen] = useState(false);
   const [boundary, setBoundary] = useState<BoundaryCollection | null>(null);
   const [boundaryState, setBoundaryState] = useState<"loading" | "official" | "fallback">("loading");
   const [mapReady, setMapReady] = useState(false);
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<import("leaflet").Map | null>(null);
-  const stationLayerRef = useRef<import("leaflet").LayerGroup | null>(null);
   const surfaceLayerRef = useRef<import("leaflet").ImageOverlay | null>(null);
   const boundaryLayerRef = useRef<import("leaflet").GeoJSON | null>(null);
 
@@ -260,8 +257,6 @@ export default function ForecastDashboard() {
       map.getPane("surfacePane")!.style.pointerEvents = "none";
       map.createPane("boundaryPane").style.zIndex = "420";
       map.getPane("boundaryPane")!.style.pointerEvents = "none";
-      map.createPane("stationPane").style.zIndex = "450";
-      stationLayerRef.current = L.layerGroup().addTo(map);
       mapInstanceRef.current = map;
       setMapReady(true);
       window.setTimeout(() => map.invalidateSize(), 80);
@@ -272,50 +267,12 @@ export default function ForecastDashboard() {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
-        stationLayerRef.current = null;
         surfaceLayerRef.current = null;
         boundaryLayerRef.current = null;
         setMapReady(false);
       }
     };
   }, []);
-
-  useEffect(() => {
-    if (!mapReady || !stationLayerRef.current) return;
-
-    let cancelled = false;
-    import("leaflet").then((leafletModule) => {
-      if (cancelled || !stationLayerRef.current) return;
-      const L = leafletModule.default;
-      stationLayerRef.current.clearLayers();
-
-      if (!showStations) return;
-      stations.forEach((station) => {
-        const value = station.values[selectedDay];
-        const level = getLevel(value);
-        L.circleMarker([station.lat, station.lng], {
-          pane: "stationPane",
-          radius: 6,
-          color: "#fff",
-          weight: 2,
-          fillColor: level.color,
-          fillOpacity: 1,
-        })
-          .bindTooltip(`${station.district} · ${value} µg/m³`, {
-            direction: "top",
-            className: "forecast-tooltip",
-          })
-          .bindPopup(
-            `<div class="map-popup"><strong>${station.district}</strong><span>${station.label}</span><b>${value} µg/m³</b><small>${level.label} · ค่าพยากรณ์สำหรับวันที่เลือก</small>${station.observed === undefined ? "" : `<em>AirBKK ล่าสุด ${station.observed} µg/m³<br>${station.observedAt ?? ""}</em>`}</div>`,
-          )
-          .addTo(stationLayerRef.current!);
-      });
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [mapReady, selectedDay, showStations, stations]);
 
   useEffect(() => {
     if (!mapReady || !mapInstanceRef.current || !boundary) return;
@@ -329,16 +286,12 @@ export default function ForecastDashboard() {
       if (surfaceLayerRef.current) map.removeLayer(surfaceLayerRef.current);
       if (boundaryLayerRef.current) map.removeLayer(boundaryLayerRef.current);
 
-      if (showSurface) {
-        const surface = createIdwSurface(boundary, stations, selectedDay);
-        surfaceLayerRef.current = L.imageOverlay(surface.url, surface.bounds, {
-          pane: "surfacePane",
-          opacity: 0.78,
-          interactive: false,
-        }).addTo(map);
-      } else {
-        surfaceLayerRef.current = null;
-      }
+      const surface = createIdwSurface(boundary, stations, selectedDay);
+      surfaceLayerRef.current = L.imageOverlay(surface.url, surface.bounds, {
+        pane: "surfacePane",
+        opacity: 0.78,
+        interactive: false,
+      }).addTo(map);
 
       boundaryLayerRef.current = L.geoJSON(boundary as GeoJSON.GeoJsonObject, {
         pane: "boundaryPane",
@@ -358,7 +311,7 @@ export default function ForecastDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [boundary, boundaryState, mapReady, selectedDay, showSurface, stations]);
+  }, [boundary, boundaryState, mapReady, selectedDay, stations]);
 
   const day = days[selectedDay];
   const values = useMemo(
@@ -432,15 +385,8 @@ export default function ForecastDashboard() {
                 <span className="layer-symbol" aria-hidden="true"><i /><i /><i /></span>
               </button>
               <div className="layer-menu-panel" hidden={!layerMenuOpen}>
-                <strong>แสดงบนแผนที่</strong>
-                <label className="layer-toggle">
-                  <input type="checkbox" checked={showSurface} onChange={(event) => setShowSurface(event.target.checked)} />
-                  <span />ชั้นสีค่าฝุ่น
-                </label>
-                <label className="layer-toggle">
-                  <input type="checkbox" checked={showStations} onChange={(event) => setShowStations(event.target.checked)} />
-                  <span />จุดตรวจวัด
-                </label>
+                <strong>การแสดงผล</strong>
+                <div className="layer-static"><span aria-hidden="true">✓</span>พื้นผิว IDW ค่าฝุ่น</div>
                 <label className="range-toggle">
                   <input type="checkbox" checked={showRange} onChange={(event) => setShowRange(event.target.checked)} />
                   <span />แสดงช่วงค่า
@@ -455,7 +401,7 @@ export default function ForecastDashboard() {
             </div>
             <div className={`surface-status ${boundaryState}`}>
               <b>{dataState === "live" ? "ข้อมูลอัปเดตแล้ว" : dataState === "degraded" ? "ข้อมูลอัปเดตบางส่วน" : dataState === "fallback" ? "ข้อมูลสำรอง" : "กำลังโหลด"}</b>
-              <span>{stations.length} จุดตรวจวัด · ค่าพยากรณ์วันที่เลือก</span>
+              <span>พื้นผิว IDW · คำนวณจากข้อมูล {stations.length} พิกัด</span>
               <em>{boundaryState === "official" ? "ครอบคลุมพื้นที่ 50 เขต" : boundaryState === "fallback" ? "กำลังใช้ขอบเขตสำรอง" : "กำลังโหลดขอบเขตกรุงเทพฯ"}</em>
             </div>
             <div className="legend" aria-label="คำอธิบายระดับ PM2.5">

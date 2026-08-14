@@ -76,11 +76,12 @@ test("server-renders the BKK Air forecast product", async () => {
   assert.match(html, /แนวโน้ม 5 วัน/);
   assert.match(html, /เลือกชั้นข้อมูลแผนที่/);
   assert.doesNotMatch(html, /ความเชื่อมั่นของโมเดล/);
-  assert.match(html, /ชั้นสีค่าฝุ่น/);
+  assert.match(html, /พื้นผิว IDW ค่าฝุ่น/);
+  assert.doesNotMatch(html, /จุดตรวจวัด<\/label>|จุดตรวจวัด<\/span>/);
   assert.match(html, /กำลังโหลดขอบเขตกรุงเทพฯ/);
   assert.match(html, /href="\/rain"/);
   assert.match(html, /href="\/"/);
-  assert.doesNotMatch(html, /พื้นผิว IDW|IDW power 2|interpolation|backtest/);
+  assert.doesNotMatch(html, /IDW power 2|interpolation|backtest/);
   assert.doesNotMatch(html, /codex-preview|Building your site|react-loading-skeleton/i);
 });
 
@@ -104,6 +105,8 @@ test("server-renders the Bangkok rain forecast page", async () => {
   assert.match(html, /ที่มาข้อมูล/);
   assert.match(html, /href="\/"/);
   assert.doesNotMatch(html, /จุดตรวจวัดฝน|สถานีฝน/);
+  assert.match(html, /พื้นผิว IDW เท่านั้น/);
+  assert.doesNotMatch(html, /checked=.*จุดประมาณการ|จุดประมาณการ<\/label>/s);
 });
 
 test("boundary adapter uses the official BMA district layer", async () => {

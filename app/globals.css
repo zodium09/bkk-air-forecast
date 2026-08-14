@@ -254,6 +254,10 @@ body:has(.home-shell) {
 .range-toggle input:checked + span { background: #0f7d68; }
 .range-toggle input:checked + span::after { transform: translateX(16px); }
 .layer-toggle input:focus-visible + span, .range-toggle input:focus-visible + span { outline: 3px solid #a5f3fc; outline-offset: 2px; }
+.layer-static { min-height: 32px; padding: 7px 9px; display: flex; align-items: center; gap: 7px; border-radius: 8px; background: #edf8f7; color: #17665b; font-size: 10px; font-weight: 600; }
+.layer-static span { width: 16px; height: 16px; display: grid; place-items: center; border-radius: 50%; background: #0f7d68; color: #fff; font-size: 9px; }
+.rain-layer-panel .layer-static { background: #edf4fb; color: #3156ad; }
+.rain-layer-panel .layer-static span { background: #3156ad; }
 
 .map-wrap { min-height: 0; flex: 1; position: relative; overflow: hidden; background: #edf5f7; }
 .map { width: 100%; height: 100%; z-index: 1; }

@@ -230,8 +230,6 @@ export default function RainDashboard() {
   const [disclaimer, setDisclaimer] = useState("ค่าประมาณจากแบบจำลอง ไม่ใช่เรดาร์ฝนหรือประกาศเตือนภัย");
   const [dataState, setDataState] = useState<RainForecastPayload["status"] | "loading">("loading");
   const [metricMode, setMetricMode] = useState<MetricMode>("probability");
-  const [showSurface, setShowSurface] = useState(true);
-  const [showPoints, setShowPoints] = useState(true);
   const [layerMenuOpen, setLayerMenuOpen] = useState(false);
   const [boundary, setBoundary] = useState<BoundaryCollection | null>(null);
   const [boundaryState, setBoundaryState] = useState<"loading" | "official" | "fallback">("loading");
@@ -240,7 +238,6 @@ export default function RainDashboard() {
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const layerMenuRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<import("leaflet").Map | null>(null);
-  const pointLayerRef = useRef<import("leaflet").LayerGroup | null>(null);
   const surfaceLayerRef = useRef<import("leaflet").ImageOverlay | null>(null);
   const boundaryLayerRef = useRef<import("leaflet").GeoJSON | null>(null);
   const selectedDayRef = useRef(0);
@@ -339,8 +336,6 @@ export default function RainDashboard() {
       map.getPane("rainSurfacePane")!.style.pointerEvents = "none";
       map.createPane("rainBoundaryPane").style.zIndex = "420";
       map.getPane("rainBoundaryPane")!.style.pointerEvents = "none";
-      map.createPane("rainPointPane").style.zIndex = "450";
-      pointLayerRef.current = L.layerGroup().addTo(map);
       mapInstanceRef.current = map;
       setMapReady(true);
       window.setTimeout(() => map.invalidateSize(), 80);
@@ -350,47 +345,12 @@ export default function RainDashboard() {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
-        pointLayerRef.current = null;
         surfaceLayerRef.current = null;
         boundaryLayerRef.current = null;
         setMapReady(false);
       }
     };
   }, []);
-
-  useEffect(() => {
-    if (!mapReady || !pointLayerRef.current) return;
-    let cancelled = false;
-    import("leaflet").then((leafletModule) => {
-      if (cancelled || !pointLayerRef.current) return;
-      const L = leafletModule.default;
-      pointLayerRef.current.clearLayers();
-      if (!showPoints) return;
-      points.forEach((point) => {
-        const window = getPointWindow(point, selectedDay, selectedWindowIndex);
-        if (!window || (window.probabilityMax === null && window.rainMm === null)) return;
-        const probability = window.probabilityMax ?? 0;
-        const [red, green, blue] = interpolateColor(probability, "probability");
-        L.circleMarker([point.lat, point.lng], {
-          pane: "rainPointPane",
-          radius: 6,
-          color: "#fff",
-          weight: 2,
-          fillColor: `rgb(${red}, ${green}, ${blue})`,
-          fillOpacity: 1,
-        })
-          .bindTooltip(`${point.label} · ${window.probabilityMax ?? "—"}% · ${window.rainMm ?? "—"} มม.`, {
-            direction: "top",
-            className: "forecast-tooltip",
-          })
-          .bindPopup(`<div class="map-popup rain-popup"><strong>${point.label}</strong><span>จุดประมาณการจากแบบจำลอง</span><b>${window.probabilityMax ?? "—"}%</b><small>ฝนสะสม ${window.rainMm ?? "—"} มม. · ${windows.find((item) => item.dayIndex === selectedDay && item.windowIndex === selectedWindowIndex)?.label ?? "ช่วงที่เลือก"}</small></div>`)
-          .addTo(pointLayerRef.current!);
-      });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [mapReady, points, selectedDay, selectedWindowIndex, showPoints, windows]);
 
   useEffect(() => {
     if (!mapReady || !mapInstanceRef.current || !boundary) return;
@@ -401,16 +361,12 @@ export default function RainDashboard() {
       const map = mapInstanceRef.current;
       if (surfaceLayerRef.current) map.removeLayer(surfaceLayerRef.current);
       if (boundaryLayerRef.current) map.removeLayer(boundaryLayerRef.current);
-      if (showSurface) {
-        const surface = createRainSurface(boundary, points, selectedDay, selectedWindowIndex, metricMode);
-        surfaceLayerRef.current = surface ? L.imageOverlay(surface.url, surface.bounds, {
-          pane: "rainSurfacePane",
-          opacity: 0.8,
-          interactive: false,
-        }).addTo(map) : null;
-      } else {
-        surfaceLayerRef.current = null;
-      }
+      const surface = createRainSurface(boundary, points, selectedDay, selectedWindowIndex, metricMode);
+      surfaceLayerRef.current = surface ? L.imageOverlay(surface.url, surface.bounds, {
+        pane: "rainSurfacePane",
+        opacity: 0.8,
+        interactive: false,
+      }).addTo(map) : null;
       boundaryLayerRef.current = L.geoJSON(boundary as GeoJSON.GeoJsonObject, {
         pane: "rainBoundaryPane",
         style: { color: "#173d66", weight: 1.05, opacity: 0.76, fillOpacity: 0 },
@@ -422,7 +378,7 @@ export default function RainDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [boundary, boundaryState, mapReady, metricMode, points, selectedDay, selectedWindowIndex, showSurface]);
+  }, [boundary, boundaryState, mapReady, metricMode, points, selectedDay, selectedWindowIndex]);
 
   const day = days[selectedDay] ?? days[0];
   const dayWindows = useMemo(
@@ -547,14 +503,7 @@ export default function RainDashboard() {
                   <button aria-pressed={metricMode === "probability"} onClick={() => setMetricMode("probability")}>โอกาสฝน</button>
                   <button aria-pressed={metricMode === "rain"} onClick={() => setMetricMode("rain")}>ปริมาณฝน</button>
                 </div>
-                <label className="layer-toggle">
-                  <input type="checkbox" checked={showSurface} onChange={(event) => setShowSurface(event.target.checked)} />
-                  <span />ชั้นสีแบบจำลอง
-                </label>
-                <label className="layer-toggle">
-                  <input type="checkbox" checked={showPoints} onChange={(event) => setShowPoints(event.target.checked)} />
-                  <span />จุดประมาณการ
-                </label>
+                <div className="layer-static"><span aria-hidden="true">✓</span>พื้นผิว IDW เท่านั้น</div>
               </div>
             </div>
 
@@ -566,7 +515,7 @@ export default function RainDashboard() {
 
             <div className={`surface-status rain-surface-status ${dataState}`} aria-live="polite">
               <b>{dataStateLabel}</b>
-              <span>{points.length ? `${points.length} จุดประมาณการ · ${selectedWindow?.label ?? "ช่วงที่เลือก"}` : "ยังไม่มีข้อมูลพยากรณ์สำหรับช่วงนี้"}</span>
+              <span>{points.length ? `พื้นผิว IDW · ${selectedWindow?.label ?? "ช่วงที่เลือก"}` : "ยังไม่มีข้อมูลพยากรณ์สำหรับช่วงนี้"}</span>
               <em>{boundaryState === "official" ? "ขอบเขต 50 เขต · สีเป็นการประมาณเชิงพื้นที่" : boundaryState === "fallback" ? "กำลังใช้ขอบเขตสำรอง" : "กำลังโหลดขอบเขตกรุงเทพฯ"}</em>
             </div>
 
