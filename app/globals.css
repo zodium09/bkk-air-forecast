@@ -27,7 +27,7 @@ body {
 button, input { font: inherit; }
 button { color: inherit; }
 
-/* BKK Outlook home */
+/* BKK Air Forecast home */
 body:has(.home-shell) {
   height: auto;
   min-height: 100%;

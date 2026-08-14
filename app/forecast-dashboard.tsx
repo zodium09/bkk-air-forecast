@@ -384,7 +384,7 @@ export default function ForecastDashboard() {
     <main className="app-shell">
       <header className={`dashboard-banner ${dataState}`} id="top">
         <div className="banner-copy">
-          <span className="banner-kicker">BKK AIR OUTLOOK</span>
+          <span className="banner-kicker">BKK AIR FORECAST</span>
           <h1>แผนที่พยากรณ์ <em>PM2.5 กรุงเทพฯ</em></h1>
           <p>ดูล่วงหน้า 1–5 วัน เลือกวันแล้วตรวจพื้นที่ที่ควรเฝ้าระวังได้ทันที</p>
         </div>

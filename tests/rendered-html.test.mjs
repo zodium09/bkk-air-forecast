@@ -20,7 +20,7 @@ const executionContext = {
   passThroughOnException() {},
 };
 
-test("server-renders the two-topic BKK Outlook homepage", async () => {
+test("server-renders the two-topic BKK Air Forecast homepage", async () => {
   const worker = await loadWorker();
   const response = await worker.fetch(
     new Request("http://localhost/", { headers: { accept: "text/html" } }),
@@ -33,7 +33,7 @@ test("server-renders the two-topic BKK Outlook homepage", async () => {
 
   const html = await response.text();
   assert.match(html, /<html lang="th">/i);
-  assert.match(html, /BKK OUTLOOK/);
+  assert.match(html, /BKK AIR FORECAST/);
   assert.match(html, /มองกรุงเทพฯ ล่วงหน้า/);
   assert.match(html, /พยากรณ์ฝุ่น/);
   assert.match(html, /พยากรณ์ฝน/);
@@ -56,7 +56,7 @@ test("server-renders the BKK Air forecast product", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /BKK Air Outlook/);
+  assert.match(html, /BKK Air Forecast/);
   assert.match(html, /แผนที่พยากรณ์/);
   assert.match(html, /PM2\.5 กรุงเทพฯ/);
   assert.match(html, /กำลังโหลดข้อมูล/);
@@ -85,7 +85,7 @@ test("server-renders the Bangkok rain forecast page", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /BKK RAIN OUTLOOK/);
+  assert.match(html, /BKK AIR FORECAST · RAIN/);
   assert.match(html, /ฝนกรุงเทพฯ/);
   assert.match(html, /กำลังโหลดพยากรณ์ฝน/);
   assert.match(html, /เลือกวันพยากรณ์ฝน/);

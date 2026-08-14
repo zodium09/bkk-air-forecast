@@ -473,7 +473,7 @@ export default function RainDashboard() {
     <main className="app-shell rain-shell">
       <header className={`dashboard-banner rain-banner ${dataState}`} id="top">
         <div className="banner-copy">
-          <span className="banner-kicker">BKK RAIN OUTLOOK</span>
+          <span className="banner-kicker">BKK AIR FORECAST · RAIN</span>
           <h1>แผนที่พยากรณ์ <em>ฝนกรุงเทพฯ</em></h1>
           <p>เช็กโอกาสฝนและปริมาณฝนสะสมล่วงหน้า 1–5 วัน พร้อมช่วงเวลาที่ควรเฝ้าระวัง</p>
         </div>

@@ -7,13 +7,13 @@ export default function Home() {
       <div className="home-glow home-glow-two" aria-hidden="true" />
 
       <header className="home-header">
-        <Link className="home-brand" href="/" aria-label="BKK Outlook หน้าหลัก">
+        <Link className="home-brand" href="/" aria-label="BKK Air Forecast หน้าหลัก">
           <span className="home-brand-mark" aria-hidden="true">
             <i />
             <i />
           </span>
           <span>
-            <b>BKK OUTLOOK</b>
+            <b>BKK AIR FORECAST</b>
             <small>Bangkok environmental forecast</small>
           </span>
         </Link>
@@ -24,7 +24,7 @@ export default function Home() {
       </header>
 
       <section className="home-intro" aria-labelledby="home-title">
-        <p>BANGKOK ENVIRONMENTAL OUTLOOK</p>
+        <p>BANGKOK ENVIRONMENTAL FORECAST</p>
         <h1 id="home-title">มองกรุงเทพฯ ล่วงหน้า<br />ก่อนออกจากบ้าน</h1>
         <div className="home-intro-bottom">
           <span>เลือกเรื่องที่ต้องการติดตาม</span>
