@@ -20,7 +20,7 @@ const executionContext = {
   passThroughOnException() {},
 };
 
-test("server-renders the BKK Air forecast product", async () => {
+test("server-renders the two-topic BKK Outlook homepage", async () => {
   const worker = await loadWorker();
   const response = await worker.fetch(
     new Request("http://localhost/", { headers: { accept: "text/html" } }),
@@ -33,6 +33,29 @@ test("server-renders the BKK Air forecast product", async () => {
 
   const html = await response.text();
   assert.match(html, /<html lang="th">/i);
+  assert.match(html, /BKK OUTLOOK/);
+  assert.match(html, /มองกรุงเทพฯ ล่วงหน้า/);
+  assert.match(html, /พยากรณ์ฝุ่น/);
+  assert.match(html, /พยากรณ์ฝน/);
+  assert.match(html, /href="\/air"/);
+  assert.match(html, /href="\/rain"/);
+  assert.match(html, /home-topic-air/);
+  assert.match(html, /home-topic-rain/);
+  assert.doesNotMatch(html, /กำลังโหลดข้อมูล|กำลังโหลดพยากรณ์ฝน/);
+});
+
+test("server-renders the BKK Air forecast product", async () => {
+  const worker = await loadWorker();
+  const response = await worker.fetch(
+    new Request("http://localhost/air", { headers: { accept: "text/html" } }),
+    environment,
+    executionContext,
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
+
+  const html = await response.text();
   assert.match(html, /BKK Air Outlook/);
   assert.match(html, /แผนที่พยากรณ์/);
   assert.match(html, /PM2\.5 กรุงเทพฯ/);
@@ -45,6 +68,7 @@ test("server-renders the BKK Air forecast product", async () => {
   assert.match(html, /ชั้นสีค่าฝุ่น/);
   assert.match(html, /กำลังโหลดขอบเขตกรุงเทพฯ/);
   assert.match(html, /href="\/rain"/);
+  assert.match(html, /href="\/"/);
   assert.doesNotMatch(html, /พื้นผิว IDW|IDW power 2|interpolation|backtest/);
   assert.doesNotMatch(html, /codex-preview|Building your site|react-loading-skeleton/i);
 });
