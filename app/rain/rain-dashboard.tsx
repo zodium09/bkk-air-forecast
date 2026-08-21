@@ -54,6 +54,9 @@ const probabilityStops = [
   { value: 100, color: [91, 33, 132] },
 ];
 
+const rainSurfaceCache = new Map<string, ReturnType<typeof createRainSurface>>();
+const MAX_RAIN_SURFACES = 24;
+
 const rainStops = [
   { value: 0, color: [220, 247, 250] },
   { value: 1, color: [116, 222, 235] },
@@ -132,7 +135,7 @@ function createRainSurface(
   if (values.length < 3) return null;
 
   const bounds = getBoundaryBounds(boundary);
-  const width = 460;
+  const width = 360;
   const height = Math.max(320, Math.round(width * (bounds.maxLat - bounds.minLat) / (bounds.maxLng - bounds.minLng)));
   const maskCanvas = document.createElement("canvas");
   maskCanvas.width = width;
@@ -220,11 +223,11 @@ function getPeakWindowIndex(windows: RainForecastPayload["windows"], dayIndex: n
   return peak?.windowIndex ?? 0;
 }
 
-async function fetchRainForecastPayload() {
+async function fetchRainForecastPayload(forceRefresh = false) {
   let unavailablePayload: RainForecastPayload | null = null;
 
   try {
-    const response = await fetch("/api/rain-forecast", { cache: "no-store" });
+    const response = await fetch(forceRefresh ? `/api/rain-forecast?refresh=${Date.now()}` : "/api/rain-forecast", { cache: forceRefresh ? "reload" : "default" });
     if (response.ok) {
       const payload = await response.json() as RainForecastPayload;
       if (payload.status !== "unavailable") return payload;
@@ -284,9 +287,9 @@ export default function RainDashboard() {
   const boundaryLayerRef = useRef<import("leaflet").GeoJSON | null>(null);
   const selectedDayRef = useRef(0);
 
-  const loadForecast = useCallback(() => {
+  const loadForecast = useCallback((forceRefresh = false) => {
     let active = true;
-    fetchRainForecastPayload()
+    fetchRainForecastPayload(forceRefresh)
       .then((payload) => {
         if (!active) return;
         setDays(payload.days);
@@ -314,7 +317,7 @@ export default function RainDashboard() {
     };
   }, []);
 
-  useEffect(() => loadForecast(), [loadForecast, reloadKey]);
+  useEffect(() => loadForecast(reloadKey > 0), [loadForecast, reloadKey]);
 
   useEffect(() => {
     let active = true;
@@ -399,7 +402,17 @@ export default function RainDashboard() {
       const map = mapInstanceRef.current;
       if (surfaceLayerRef.current) map.removeLayer(surfaceLayerRef.current);
       if (boundaryLayerRef.current) map.removeLayer(boundaryLayerRef.current);
-      const surface = createRainSurface(boundary, points, selectedDay, selectedWindowIndex, metricMode);
+      const dataVersion = points.map((point) => `${point.id}:${point.windows.map((window) => `${window.probabilityMax}:${window.rainMm}`).join(",")}`).join("|");
+      const cacheKey = `${selectedDay}:${selectedWindowIndex}:${metricMode}:${dataVersion}:${boundaryState}:${boundary.features.length}`;
+      let surface = rainSurfaceCache.get(cacheKey);
+      if (!rainSurfaceCache.has(cacheKey)) {
+        surface = createRainSurface(boundary, points, selectedDay, selectedWindowIndex, metricMode);
+        rainSurfaceCache.set(cacheKey, surface);
+        if (rainSurfaceCache.size > MAX_RAIN_SURFACES) rainSurfaceCache.delete(rainSurfaceCache.keys().next().value!);
+      } else {
+        rainSurfaceCache.delete(cacheKey);
+        rainSurfaceCache.set(cacheKey, surface ?? null);
+      }
       surfaceLayerRef.current = surface ? L.imageOverlay(surface.url, surface.bounds, {
         pane: "rainSurfacePane",
         opacity: 0.8,

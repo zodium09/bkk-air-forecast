@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Home() {
   return (
     <main className="home-shell">
@@ -5,7 +7,7 @@ export default function Home() {
       <div className="home-glow home-glow-two" aria-hidden="true" />
 
       <header className="home-header">
-        <a className="home-brand" href="/" aria-label="BKK Air Forecast หน้าหลัก">
+        <Link className="home-brand" href="/" aria-label="BKK Air Forecast หน้าหลัก">
           <span className="home-brand-mark" aria-hidden="true">
             <i />
             <i />
@@ -14,7 +16,7 @@ export default function Home() {
             <b>BKK AIR FORECAST</b>
             <small>Bangkok environmental forecast</small>
           </span>
-        </a>
+        </Link>
         <div className="home-header-note">
           <span aria-hidden="true">●</span>
           พยากรณ์ล่วงหน้า 1–5 วัน
@@ -31,7 +33,7 @@ export default function Home() {
       </section>
 
       <section className="home-topics" aria-label="เลือกหัวข้อพยากรณ์">
-        <a className="home-topic home-topic-air" href="/air" aria-label="เปิดแผนที่พยากรณ์ฝุ่น PM2.5 กรุงเทพฯ" title="เปิดพยากรณ์ฝุ่น PM2.5">
+        <Link className="home-topic home-topic-air" href="/air" aria-label="เปิดแผนที่พยากรณ์ฝุ่น PM2.5 กรุงเทพฯ" title="เปิดพยากรณ์ฝุ่น PM2.5">
           <span className="home-topic-number" aria-hidden="true">01</span>
           <span className="home-topic-copy">
             <span className="home-topic-kicker"><i aria-hidden="true" /> AIR QUALITY</span>
@@ -39,9 +41,9 @@ export default function Home() {
             <small>ดูค่าฝุ่นรายพื้นที่ แนวโน้ม 5 วัน และพื้นที่ที่ควรเฝ้าระวัง</small>
             <span className="home-topic-action">เปิดแผนที่พยากรณ์ <b aria-hidden="true">↗</b></span>
           </span>
-        </a>
+        </Link>
 
-        <a className="home-topic home-topic-rain" href="/rain" aria-label="เปิดแผนที่พยากรณ์ฝนกรุงเทพฯ" title="เปิดพยากรณ์ฝนกรุงเทพฯ">
+        <Link className="home-topic home-topic-rain" href="/rain" aria-label="เปิดแผนที่พยากรณ์ฝนกรุงเทพฯ" title="เปิดพยากรณ์ฝนกรุงเทพฯ">
           <span className="home-topic-number" aria-hidden="true">02</span>
           <span className="home-topic-copy">
             <span className="home-topic-kicker"><i aria-hidden="true" /> RAIN OUTLOOK</span>
@@ -49,7 +51,7 @@ export default function Home() {
             <small>เช็กโอกาสฝน ปริมาณฝน และช่วงเวลาที่ควรเตรียมพร้อม</small>
             <span className="home-topic-action">เปิดแผนที่พยากรณ์ <b aria-hidden="true">↗</b></span>
           </span>
-        </a>
+        </Link>
       </section>
 
       <footer className="home-footer">

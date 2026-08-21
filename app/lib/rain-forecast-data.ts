@@ -77,25 +77,12 @@ function addDays(dateKey: string, days: number) {
 }
 
 export function formatRainDate(dateKey: string) {
-  const date = new Date(`${dateKey}T12:00:00+07:00`);
-  const yearParts = new Intl.DateTimeFormat("th-TH-u-nu-latn", {
-    year: "numeric",
-    timeZone: "Asia/Bangkok",
-  }).formatToParts(date);
-  return {
-    date: new Intl.DateTimeFormat("th-TH", {
-      day: "numeric",
-      month: "short",
-      timeZone: "Asia/Bangkok",
-    }).format(date),
-    weekday: new Intl.DateTimeFormat("th-TH", {
-      weekday: "short",
-      timeZone: "Asia/Bangkok",
-    }).format(date).replace(".", ""),
-    year: Number(yearParts.find((part) => part.type === "year")?.value ?? dateKey.slice(0, 4)),
-  };
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const months = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+  const weekdays = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
+  return { date: `${day} ${months[month - 1]}`, weekday: weekdays[date.getUTCDay()], year: year + 543 };
 }
-
 export function buildRainDayShells(startDateKey?: string): RainDay[] {
   const bangkokToday = startDateKey ?? new Intl.DateTimeFormat("en-CA", {
     year: "numeric",

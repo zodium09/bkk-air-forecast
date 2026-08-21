@@ -11,14 +11,16 @@ import {
 } from "./lib/forecast-data";
 import OutlookNav from "./components/outlook-nav";
 import "leaflet/dist/leaflet.css";
+import "./reliability.css";
 
 type ForecastPayload = {
-  status: string;
+  status: "live" | "degraded" | "unavailable" | "fallback";
   issuedAt: string;
   model?: string;
   disclaimer?: string;
   sources?: string[];
-  dataQuality?: { acceptedStations?: number; observationAgeHours?: number; camsMinimumCoverageHours?: number };
+  degradedReasons?: string[];
+  dataQuality?: { acceptedStations?: number; observationAgeHours?: number; camsMinimumCoverageHours?: number; upstream?: Record<string, "ok" | "timeout" | "error"> };
   days: ForecastDay[];
   stations: ForecastStation[];
 };
@@ -55,6 +57,9 @@ const fallbackBoundary: BoundaryCollection = {
     },
   }],
 };
+
+const surfaceCache = new Map<string, ReturnType<typeof createIdwSurface>>();
+const MAX_SURFACE_CACHE = 12;
 
 const colorStops = [
   { value: 0, color: [56, 189, 248] },
@@ -115,7 +120,7 @@ function interpolateIdw(lng: number, lat: number, stations: ForecastStation[], d
 
 function createIdwSurface(boundary: BoundaryCollection, stations: ForecastStation[], dayIndex: number) {
   const bounds = getBoundaryBounds(boundary);
-  const width = 460;
+  const width = 360;
   const height = Math.max(320, Math.round(width * (bounds.maxLat - bounds.minLat) / (bounds.maxLng - bounds.minLng)));
   const maskCanvas = document.createElement("canvas");
   maskCanvas.width = width;
@@ -167,7 +172,7 @@ function createIdwSurface(boundary: BoundaryCollection, stations: ForecastStatio
 }
 
 function average(values: number[]) {
-  return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+  return values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : null;
 }
 
 export default function ForecastDashboard() {
@@ -175,7 +180,9 @@ export default function ForecastDashboard() {
   const [days, setDays] = useState(bundledDays);
   const [stations, setStations] = useState(bundledStations);
   const [issuedAt, setIssuedAt] = useState(bundledIssuedAt);
-  const [dataState, setDataState] = useState<"loading" | "live" | "degraded" | "fallback">("loading");
+  const [dataState, setDataState] = useState<"loading" | "live" | "degraded" | "unavailable">("loading");
+  const [degradedReasons, setDegradedReasons] = useState<string[]>([]);
+  const [reloadKey, setReloadKey] = useState(0);
   const [showRange, setShowRange] = useState(false);
   const [layerMenuOpen, setLayerMenuOpen] = useState(false);
   const [boundary, setBoundary] = useState<BoundaryCollection | null>(null);
@@ -192,7 +199,8 @@ export default function ForecastDashboard() {
 
   useEffect(() => {
     let active = true;
-    fetch("/api/forecast")
+
+    fetch(reloadKey ? `/api/forecast?refresh=${reloadKey}` : "/api/forecast", { cache: reloadKey ? "reload" : "default" })
       .then((response) => {
         if (!response.ok) throw new Error("forecast unavailable");
         return response.json() as Promise<ForecastPayload>;
@@ -202,15 +210,17 @@ export default function ForecastDashboard() {
         setDays(payload.days);
         setStations(payload.stations);
         setIssuedAt(payload.issuedAt);
-        setDataState(payload.status === "live" ? "live" : payload.status === "degraded" ? "degraded" : "fallback");
+        const nextStatus = payload.status === "fallback" ? "unavailable" : payload.status;
+        setDataState(nextStatus);
+        setDegradedReasons(payload.degradedReasons ?? []);
       })
       .catch(() => {
-        if (active) setDataState("fallback");
+        if (active) { setStations([]); setDataState("unavailable"); setDegradedReasons(["forecast_request_failed"]); }
       });
     return () => {
       active = false;
     };
-  }, []);
+  }, [reloadKey]);
 
   useEffect(() => {
     let active = true;
@@ -286,12 +296,18 @@ export default function ForecastDashboard() {
       if (surfaceLayerRef.current) map.removeLayer(surfaceLayerRef.current);
       if (boundaryLayerRef.current) map.removeLayer(boundaryLayerRef.current);
 
-      const surface = createIdwSurface(boundary, stations, selectedDay);
-      surfaceLayerRef.current = L.imageOverlay(surface.url, surface.bounds, {
-        pane: "surfacePane",
-        opacity: 0.78,
-        interactive: false,
-      }).addTo(map);
+      if ((dataState === "live" || dataState === "degraded") && stations.length) {
+        const stationDataVersion = stations.map((station) => `${station.id}:${station.values.join(",")}`).join("|");
+        const boundaryVersion = `${boundaryState}:${boundary.features.length}`;
+        const cacheKey = `${selectedDay}:${stationDataVersion}:${boundaryVersion}`;
+        let surface = surfaceCache.get(cacheKey);
+        if (!surface) {
+          surface = createIdwSurface(boundary, stations, selectedDay);
+          surfaceCache.set(cacheKey, surface);
+          if (surfaceCache.size > MAX_SURFACE_CACHE) surfaceCache.delete(surfaceCache.keys().next().value!);
+        }
+        surfaceLayerRef.current = L.imageOverlay(surface.url, surface.bounds, { pane: "surfacePane", opacity: 0.78, interactive: false }).addTo(map);
+      }
 
       boundaryLayerRef.current = L.geoJSON(boundary as GeoJSON.GeoJsonObject, {
         pane: "boundaryPane",
@@ -311,7 +327,7 @@ export default function ForecastDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [boundary, boundaryState, mapReady, selectedDay, stations]);
+  }, [boundary, boundaryState, dataState, mapReady, selectedDay, stations]);
 
   const day = days[selectedDay];
   const values = useMemo(
@@ -319,7 +335,7 @@ export default function ForecastDashboard() {
     [selectedDay, stations],
   );
   const mean = average(values);
-  const meanLevel = getLevel(mean);
+  const meanLevel = mean === null ? { label: "ไม่มีข้อมูล", color: "#94a3b8" } : getLevel(mean);
   const sortedStations = useMemo(
     () => [...stations].sort((a, b) => b.values[selectedDay] - a.values[selectedDay]).slice(0, 5),
     [selectedDay, stations],
@@ -328,8 +344,9 @@ export default function ForecastDashboard() {
     () => days.map((_, index) => average(stations.map((station) => station.values[index]))),
     [days, stations],
   );
-  const trendMin = Math.min(...dailyMeans);
-  const trendMax = Math.max(...dailyMeans);
+  const numericDailyMeans = dailyMeans.filter((value): value is number => value !== null);
+  const trendMin = numericDailyMeans.length ? Math.min(...numericDailyMeans) : 0;
+  const trendMax = numericDailyMeans.length ? Math.max(...numericDailyMeans) : 0;
   const trendRange = trendMax - trendMin;
   const highestStation = sortedStations[0];
 
@@ -345,7 +362,7 @@ export default function ForecastDashboard() {
         <div className="banner-status" role="status">
           <span className={`status-dot ${dataState}`} aria-hidden="true" />
           <div>
-            <span>{dataState === "live" ? "ข้อมูลอัปเดตแล้ว" : dataState === "degraded" ? "ข้อมูลอัปเดตบางส่วน" : dataState === "fallback" ? "กำลังใช้ข้อมูลสำรอง" : "กำลังโหลดข้อมูล"}</span>
+            <span>{dataState === "live" ? "ข้อมูลอัปเดตแล้ว" : dataState === "degraded" ? "ข้อมูลอัปเดตบางส่วน" : dataState === "unavailable" ? "ข้อมูลไม่พร้อมใช้งาน" : "กำลังโหลดข้อมูล"}</span>
             <b>{issuedAt}</b>
           </div>
         </div>
@@ -363,8 +380,8 @@ export default function ForecastDashboard() {
               aria-pressed={selectedDay === index}
             >
               <b>{forecastDay.weekday} {forecastDay.date}</b>
-              <i style={{ backgroundColor: getLevel(dailyMean).color }} />
-              <small>{dailyMean} µg/m³ {forecastDay.sourceMode === "extrapolated" && <em>แนวโน้ม</em>}</small>
+              <i style={{ backgroundColor: dailyMean === null ? "#94a3b8" : getLevel(dailyMean).color }} />
+              <small>{dailyMean ?? "—"} µg/m³ {forecastDay.sourceMode === "extrapolated" && <em>แนวโน้ม</em>}</small>
             </button>
           );
         })}
@@ -374,6 +391,7 @@ export default function ForecastDashboard() {
         <div className="map-card">
           <div className="map-wrap">
             <div ref={mapElementRef} className="map" role="application" aria-label={`แผนที่ PM2.5 พยากรณ์ล่วงหน้า ${day.lead} วัน`} />
+            {dataState === "unavailable" && <div className="forecast-unavailable" role="alert"><b>ไม่สามารถโหลดข้อมูลพยากรณ์ล่าสุดได้</b><span>ค่าที่แสดงบนแผนที่ถูกปิดไว้เพื่อป้องกันการเข้าใจผิด</span><button type="button" onClick={() => { setDataState("loading"); setReloadKey((value) => value + 1); }}>ลองใหม่</button></div>}
             <div className="layer-menu">
               <button
                 className="layer-menu-trigger"
@@ -395,13 +413,14 @@ export default function ForecastDashboard() {
             </div>
             <div className="map-metric">
               <span>ค่าเฉลี่ย กทม.</span>
-              <strong>{mean}<small>µg/m³</small></strong>
+              <strong>{mean ?? "—"}<small>µg/m³</small></strong>
               <b style={{ color: meanLevel.color }}>{meanLevel.label}</b>
-              {showRange && <em>ช่วงคาดการณ์ {Math.max(0, mean - day.uncertainty)}–{mean + day.uncertainty}</em>}
+              {showRange && mean !== null && <em>ช่วงคาดการณ์ {Math.max(0, mean - day.uncertainty)}–{mean + day.uncertainty}</em>}
             </div>
             <div className={`surface-status ${boundaryState}`}>
-              <b>{dataState === "live" ? "ข้อมูลอัปเดตแล้ว" : dataState === "degraded" ? "ข้อมูลอัปเดตบางส่วน" : dataState === "fallback" ? "ข้อมูลสำรอง" : "กำลังโหลด"}</b>
-              <span>พื้นผิว IDW · คำนวณจากข้อมูล {stations.length} พิกัด</span>
+              <b>{dataState === "live" ? "ข้อมูลอัปเดตแล้ว" : dataState === "degraded" ? "ข้อมูลอัปเดตบางส่วน" : dataState === "unavailable" ? "ข้อมูลไม่พร้อมใช้งาน" : "กำลังโหลด"}</b>
+              <span>{stations.length ? `พื้นผิว IDW · คำนวณจากข้อมูล ${stations.length} พิกัด` : "ปิดพื้นผิวพยากรณ์จนกว่าจะมีข้อมูลจริง"}</span>
+              {dataState === "degraded" && degradedReasons.length > 0 && <em>ข้อมูลขาด: {degradedReasons.join(", ")}</em>}
               <em>{boundaryState === "official" ? "ครอบคลุมพื้นที่ 50 เขต" : boundaryState === "fallback" ? "กำลังใช้ขอบเขตสำรอง" : "กำลังโหลดขอบเขตกรุงเทพฯ"}</em>
             </div>
             <div className="legend" aria-label="คำอธิบายระดับ PM2.5">
@@ -420,11 +439,11 @@ export default function ForecastDashboard() {
             <div
               className="average-ring"
               style={{
-                "--progress": `${Math.min(100, (mean / 75) * 100) * 3.6}deg`,
+                "--progress": `${Math.min(100, ((mean ?? 0) / 75) * 100) * 3.6}deg`,
                 "--metric-color": meanLevel.color,
               } as React.CSSProperties}
             >
-              <span>{mean}<small>µg/m³</small></span>
+              <span>{mean ?? "—"}<small>µg/m³</small></span>
             </div>
             <div>
               <p>ค่าฝุ่นเฉลี่ย กทม.</p>
@@ -446,17 +465,17 @@ export default function ForecastDashboard() {
             </div>
             <div className="trend-chart" role="group" aria-label="กราฟแนวโน้มค่าฝุ่นเฉลี่ย 5 วัน">
               {dailyMeans.map((value, index) => {
-                const height = trendRange === 0 ? 68 : 36 + ((value - trendMin) / trendRange) * 64;
+                const height = value === null ? 18 : trendRange === 0 ? 68 : 36 + ((value - trendMin) / trendRange) * 64;
                 return (
                   <button
                     key={days[index]?.lead ?? index}
                     className={selectedDay === index ? "active" : ""}
                     onClick={() => setSelectedDay(index)}
-                    aria-label={`${days[index]?.weekday ?? "วันที่เลือก"} ${days[index]?.date ?? ""} ค่าเฉลี่ย ${value} ไมโครกรัมต่อลูกบาศก์เมตร`}
+                    aria-label={`${days[index]?.weekday ?? "วันที่เลือก"} ${days[index]?.date ?? ""} ค่าเฉลี่ย ${value ?? "ไม่มีข้อมูล"} ไมโครกรัมต่อลูกบาศก์เมตร`}
                     aria-pressed={selectedDay === index}
                   >
-                    <span>{value}</span>
-                    <i style={{ height: `${height}%`, background: getLevel(value).color }} />
+                    <span>{value ?? "—"}</span>
+                    <i style={{ height: `${height}%`, background: value === null ? "#94a3b8" : getLevel(value).color }} />
                     <small>{days[index]?.weekday.slice(0, 2)}</small>
                   </button>
                 );
@@ -477,7 +496,7 @@ export default function ForecastDashboard() {
 
           <div className="forecast-note">
             <span aria-hidden="true">!</span>
-            <p><b>สรุปวันนี้</b>ค่าเฉลี่ยอยู่ในระดับ{meanLevel.label}{highestStation ? ` พื้นที่ที่ควรติดตามมากที่สุดคือ${highestStation.district}` : ""}</p>
+            <p><b>สรุปวันนี้</b>{mean === null ? "ยังไม่มีข้อมูลพยากรณ์ที่พร้อมแสดง" : `ค่าเฉลี่ยอยู่ในระดับ${meanLevel.label}${highestStation ? ` พื้นที่ที่ควรติดตามมากที่สุดคือ${highestStation.district}` : ""}`}</p>
           </div>
         </aside>
       </section>

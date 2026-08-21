@@ -6,14 +6,14 @@ import {
   type RainPointDay,
   type RainPointWindow,
   type RainWindow,
-} from "../../lib/rain-forecast-data";
+} from "../../lib/rain-forecast-data.ts";
 import {
   buildRainForecastUrl,
   getRainForecastProvider,
   rainForecastPoints,
   rainForecastProviders,
   type RainForecastProvider,
-} from "../../lib/rain-forecast-provider";
+} from "../../lib/rain-forecast-provider.ts";
 
 const FORECAST_DAYS = 5;
 const EXPECTED_HOURLY_VALUES = FORECAST_DAYS * 24;
@@ -234,14 +234,16 @@ function normalizedResponse(raw: OpenMeteoLocation[] | OpenMeteoLocation, provid
   });
 }
 
-export async function GET() {
+export async function createRainForecastResponse(options: { fetchImpl?: typeof fetch; timeoutMs?: number } = {}) {
   const failures: string[] = [];
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const timeoutMs = options.timeoutMs ?? 9_000;
 
   for (const provider of rainForecastProviders) {
     try {
-      const response = await fetch(buildRainForecastUrl(provider.url), {
+      const response = await fetchImpl(buildRainForecastUrl(provider.url), {
         headers: { Accept: "application/json", "User-Agent": "BKK-Air-Forecast/1.0" },
-        signal: AbortSignal.timeout(9_000),
+        signal: AbortSignal.timeout(timeoutMs),
       });
       if (!response.ok) throw new Error(`status ${response.status}`);
       const raw = await response.json() as OpenMeteoLocation[] | OpenMeteoLocation;
@@ -254,6 +256,7 @@ export async function GET() {
   return unavailableResponse(new Error(failures.join("; ")));
 }
 
+export async function GET() { return createRainForecastResponse(); }
 export async function POST(request: Request) {
   try {
     const contentLength = Number(request.headers.get("content-length") ?? 0);

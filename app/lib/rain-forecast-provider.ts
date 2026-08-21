@@ -1,16 +1,6 @@
 export const rainForecastProviders = [
-  {
-    id: "best-match",
-    url: "https://api.open-meteo.com/v1/forecast",
-    model: "Open-Meteo Best Match · 9-point Bangkok grid",
-    source: "Open-Meteo Weather Forecast",
-  },
-  {
-    id: "gfs",
-    url: "https://api.open-meteo.com/v1/gfs",
-    model: "Open-Meteo GFS Seamless · 9-point Bangkok grid",
-    source: "Open-Meteo GFS Forecast",
-  },
+  { id: "best-match", url: "https://api.open-meteo.com/v1/forecast", model: "Open-Meteo Best Match · 9-point Bangkok grid", source: "Open-Meteo Weather Forecast" },
+  { id: "gfs", url: "https://api.open-meteo.com/v1/gfs", model: "Open-Meteo GFS Seamless · 9-point Bangkok grid", source: "Open-Meteo GFS Forecast" },
 ] as const;
 
 export type RainForecastProvider = (typeof rainForecastProviders)[number];
@@ -28,16 +18,14 @@ export const rainForecastPoints = [
   { id: "northeast", label: "ตะวันออกเฉียงเหนือ", lat: 13.96, lng: 100.88 },
 ] as const;
 
-const FORECAST_DAYS = 5;
-
-export function buildRainForecastUrl(baseUrl = rainForecastProviders[0].url) {
+export function buildRainForecastUrl(baseUrl: string = rainForecastProviders[0].url) {
   const url = new URL(baseUrl);
   url.searchParams.set("latitude", rainForecastPoints.map((point) => point.lat).join(","));
   url.searchParams.set("longitude", rainForecastPoints.map((point) => point.lng).join(","));
   url.searchParams.set("hourly", "precipitation_probability,precipitation,rain,showers,weather_code");
   url.searchParams.set("daily", "precipitation_sum,precipitation_probability_max,precipitation_hours,weather_code");
   url.searchParams.set("timezone", "Asia/Bangkok");
-  url.searchParams.set("forecast_days", String(FORECAST_DAYS));
+  url.searchParams.set("forecast_days", "5");
   return url;
 }
 

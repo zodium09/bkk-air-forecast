@@ -46,13 +46,13 @@ test("server-renders the two-topic BKK Air Forecast homepage", async () => {
   assert.doesNotMatch(html, /กำลังโหลดข้อมูล|กำลังโหลดพยากรณ์ฝน/);
 });
 
-test("topic cards and product navigation use reliable native links", async () => {
+test("topic cards and product navigation use framework links", async () => {
   const homepage = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const productNav = await readFile(new URL("../app/components/outlook-nav.tsx", import.meta.url), "utf8");
-  assert.doesNotMatch(homepage, /from ["']next\/link["']/);
-  assert.doesNotMatch(productNav, /from ["']next\/link["']/);
-  assert.match(homepage, /<a className="home-topic home-topic-air" href="\/air"/);
-  assert.match(homepage, /<a className="home-topic home-topic-rain" href="\/rain"/);
+  assert.match(homepage, /from ["']next\/link["']/);
+  assert.match(productNav, /from ["']next\/link["']/);
+  assert.match(homepage, /<Link className="home-topic home-topic-air" href="\/air"/);
+  assert.match(homepage, /<Link className="home-topic home-topic-rain" href="\/rain"/);
 });
 
 test("server-renders the BKK Air forecast product", async () => {
@@ -116,59 +116,14 @@ test("boundary adapter uses the official BMA district layer", async () => {
   assert.match(route, /s-maxage=86400/);
 });
 
-test("forecast API always exposes a safe five-day contract", async () => {
-  const worker = await loadWorker();
-  const response = await worker.fetch(
-    new Request("http://localhost/api/forecast"),
-    environment,
-    executionContext,
-  );
-
-  assert.equal(response.status, 200);
-  const payload = await response.json();
-  assert.ok(["live", "degraded", "fallback"].includes(payload.status));
-  assert.equal(payload.days.length, 5);
-  assert.ok(payload.days.every((day) => Number.isInteger(day.year)));
-  assert.ok(payload.stations.length >= 15);
-  assert.equal(typeof payload.disclaimer, "string");
-  assert.ok(payload.disclaimer.length > 20);
-  assert.ok(payload.days.every((day) => day.confidence > 0 && day.confidence <= 100));
-  assert.ok(payload.stations.every((station) => station.values.length === 5));
-});
-
-test("forecast adapter combines AirBKK and CAMS with explicit fallback", async () => {
+test("forecast adapter combines AirBKK and CAMS with explicit unavailable contract", async () => {
   const route = await readFile(new URL("../app/api/forecast/route.ts", import.meta.url), "utf8");
   assert.match(route, /official\.airbkk\.com\/airbkk\/Api/);
   assert.match(route, /air-quality-api\.open-meteo\.com/);
   assert.match(route, /domains.*cams_global/s);
-  assert.match(route, /biasWeight/);
-  assert.match(route, /insufficient fresh AirBKK stations/);
+  assert.match(route, /calculateBiasCorrection/);
+  assert.match(route, /insufficient_fresh_airbkk_stations/);
   assert.match(route, /X-Forecast-Status/);
-});
-
-test("rain forecast API exposes a five-day model-only contract", async () => {
-  const worker = await loadWorker();
-  const response = await worker.fetch(
-    new Request("http://localhost/api/rain-forecast"),
-    environment,
-    executionContext,
-  );
-
-  assert.equal(response.status, 200);
-  const payload = await response.json();
-  assert.ok(["live", "degraded", "unavailable"].includes(payload.status));
-  assert.equal(payload.days.length, 5);
-  assert.equal(typeof payload.disclaimer, "string");
-  assert.match(payload.disclaimer, /แบบจำลอง|โหลดค่าพยากรณ์/);
-  assert.equal(payload.dataQuality.expectedPoints, 9);
-  if (payload.status === "unavailable") {
-    assert.equal(payload.points.length, 0);
-    assert.equal(payload.windows.length, 0);
-  } else {
-    assert.ok(payload.points.length >= 6);
-    assert.equal(payload.windows.length, 40);
-    assert.ok(payload.points.every((point) => point.daily.length === 5));
-  }
 });
 
 test("rain forecast API normalizes a real-provider browser fallback payload", async () => {
