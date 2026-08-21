@@ -46,25 +46,96 @@ const fallbackBoundary: BoundaryCollection = {
 };
 
 const probabilityStops = [
-  { value: 0, color: [220, 247, 250] },
-  { value: 20, color: [116, 222, 235] },
-  { value: 40, color: [48, 169, 220] },
-  { value: 60, color: [42, 105, 194] },
-  { value: 80, color: [61, 64, 157] },
-  { value: 100, color: [91, 33, 132] },
+  { value: 0, color: [224, 242, 254] },
+  { value: 25, color: [56, 189, 248] },
+  { value: 50, color: [16, 185, 129] },
+  { value: 75, color: [37, 99, 235] },
+  { value: 100, color: [124, 58, 237] },
 ];
 
 const rainSurfaceCache = new Map<string, ReturnType<typeof createRainSurface>>();
 const MAX_RAIN_SURFACES = 24;
 
 const rainStops = [
-  { value: 0, color: [220, 247, 250] },
-  { value: 1, color: [116, 222, 235] },
-  { value: 5, color: [48, 169, 220] },
-  { value: 10, color: [42, 105, 194] },
-  { value: 20, color: [61, 64, 157] },
-  { value: 35, color: [91, 33, 132] },
+  { value: 0, color: [224, 242, 254] },
+  { value: 1, color: [56, 189, 248] },
+  { value: 5, color: [16, 185, 129] },
+  { value: 10, color: [37, 99, 235] },
+  { value: 20, color: [124, 58, 237] },
 ];
+
+function getRainChanceColor(prob: number | null) {
+  if (prob === null) return "#cbd5e1";
+  if (prob <= 20) return "#38bdf8";
+  if (prob <= 45) return "#10b981";
+  if (prob <= 75) return "#2563eb";
+  return "#7c3aed";
+}
+
+function getRainAdvisory(prob: number | null, maxMm: number | null) {
+  if (prob === null) {
+    return {
+      title: "กำลังประมวลผลข้อมูล",
+      desc: "ระบบกำลังรวบรวมข้อมูลพยากรณ์ฝนล่าสุดจากแบบจำลอง",
+      icon: "ℹ️",
+      risk: "รอข้อมูล",
+      riskColor: "#64748b",
+    };
+  }
+  if (prob >= 80 || (maxMm !== null && maxMm >= 15)) {
+    return {
+      title: "พกร่มและวางแผนเดินทาง",
+      desc: "มีโอกาสเกิดฝนตกหนักถึงหนักมาก ควรเผื่อเวลาเดินทางและระวังน้ำท่วมขังในจุดลุ่มต่ำ",
+      icon: "⛈️",
+      risk: "เฝ้าระวังน้ำท่วม",
+      riskColor: "#ef4444",
+    };
+  }
+  if (prob >= 50 || (maxMm !== null && maxMm >= 5)) {
+    return {
+      title: "มีโอกาสเกิดฝนฟ้าคะนอง",
+      desc: "ควรพกร่มหรือเสื้อกันฝนติดตัว และตรวจสอบเรดาร์ฝนก่อนเริ่มเดินทางช่วงบ่าย-ค่ำ",
+      icon: "🌦️",
+      risk: "ความเสี่ยงปานกลาง",
+      riskColor: "#f59e0b",
+    };
+  }
+  if (prob >= 25) {
+    return {
+      title: "อาจมีฝนบางพื้นที่",
+      desc: "สภาพอากาศส่วนใหญ่เดินทางสะดวก มีโอกาสเกิดฝนโปรยเล็กน้อยบางจุด",
+      icon: "⛅",
+      risk: "ความเสี่ยงต่ำ",
+      riskColor: "#10b981",
+    };
+  }
+  return {
+    title: "อากาศแจ่มใส เดินทางสะดวก",
+    desc: "โอกาสฝนตกน้อยมาก เหมาะสำหรับกิจกรรมกลางแจ้งและการเดินทางทั่วไป",
+    icon: "☀️",
+    risk: "ปกติ",
+    riskColor: "#0284c7",
+  };
+}
+
+function buildSvgCurve(pts: Array<{ x: number; y: number }>) {
+  if (!pts.length) return "";
+  let d = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i === 0 ? 0 : i - 1];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2 < pts.length ? i + 2 : i + 1];
+
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+    d += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+  }
+  return d;
+}
 
 function getPolygons(boundary: BoundaryCollection): PolygonCoordinates[] {
   return boundary.features.flatMap((feature) =>
@@ -494,47 +565,158 @@ export default function RainDashboard() {
         </div>
       </header>
 
-      <nav className="day-tabs rain-day-tabs" aria-label="เลือกวันพยากรณ์ฝน">
-        {days.map((forecastDay, index) => (
-          <button
-            key={forecastDay.dateKey}
-            className={selectedDay === index ? "active" : ""}
-            onClick={() => selectDay(index)}
-            aria-pressed={selectedDay === index}
-          >
-            <b>{forecastDay.weekday} {forecastDay.date}</b>
-            <i style={{ backgroundColor: rainAmountLevel(forecastDay.rainMeanMm).color }} />
-            <small>{forecastDay.probabilityMax === null ? "รอข้อมูล" : `สูงสุด ${forecastDay.probabilityMax}% · ${forecastDay.rainMeanMm ?? "—"} มม.`}</small>
-          </button>
-        ))}
-      </nav>
-
       <section className="workspace rain-workspace">
-        <div className="map-card">
-          <div className="rain-window-strip" aria-label="เลือกช่วงเวลาพยากรณ์ 3 ชั่วโมง">
-            <div>
-              <span>ช่วงเวลา</span>
-              <b>{day?.weekday} {day?.date}</b>
+        {/* LEFT CONTROL PANEL */}
+        <aside className="rain-control-panel" aria-label="แถบเลือกวันและเวลาพยากรณ์">
+          {/* Section 1: 5-Day Outlook Selector */}
+          <div className="rain-panel-section">
+            <div className="rain-panel-title">
+              <span>📅 เลือกวันพยากรณ์</span>
+              <small>5 วันล่วงหน้า</small>
             </div>
-            <div className="rain-window-buttons">
-              {(dayWindows.length ? dayWindows : Array.from({ length: 8 }, (_, index) => ({ windowIndex: index, label: `${String(index * 3).padStart(2, "0")}:00`, probabilityMax: null }))).map((window) => (
-                <button
-                  key={window.windowIndex}
-                  className={selectedWindowIndex === window.windowIndex ? "active" : ""}
-                  onClick={() => setSelectedWindowIndex(window.windowIndex)}
-                  aria-pressed={selectedWindowIndex === window.windowIndex}
-                  disabled={!dayWindows.length}
-                >
-                  <span>{window.label.split("–")[0]}</span>
-                  <b>{window.probabilityMax === null ? "—" : `${window.probabilityMax}%`}</b>
-                  {selectedDayIsToday && window.windowIndex === currentWindowIndex
-                    ? <em>ตอนนี้</em>
-                    : window.windowIndex === peakWindowIndex && <em>ช่วงเด่น</em>}
-                </button>
-              ))}
+            <nav className="rain-sidebar-days" aria-label="เลือกวันพยากรณ์ฝน">
+              {days.map((forecastDay, index) => {
+                const isActive = selectedDay === index;
+                const prob = forecastDay.probabilityMax;
+                return (
+                  <button
+                    key={forecastDay.dateKey}
+                    className={`rain-sidebar-day-btn ${isActive ? "active" : ""}`}
+                    onClick={() => selectDay(index)}
+                    aria-pressed={isActive}
+                  >
+                    <div className="day-btn-left">
+                      <b className="day-name">{forecastDay.weekday}</b>
+                      <span className="day-date">{forecastDay.date}</span>
+                    </div>
+                    <div className="day-btn-right">
+                      <span className="day-prob-badge" style={{ color: isActive ? "#ffffff" : getRainChanceColor(prob) }}>
+                        {prob === null ? "—" : `${prob}%`}
+                      </span>
+                      <small className="day-rain-mm">{forecastDay.rainMeanMm ?? "—"} มม.</small>
+                    </div>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+
+          {/* Section 2: 24-Hour Timeline & Line Curve */}
+          <div className="rain-panel-section rain-timeline-section">
+            <div className="rain-panel-title">
+              <span>⏱️ ไทม์ไลน์ 24 ชม.</span>
+              <small>{day?.weekday} {day?.date}</small>
+            </div>
+
+            <div className="rain-sidebar-graph-wrap">
+              {(() => {
+                const windows = dayWindows.length ? dayWindows : Array.from({ length: 8 }, (_, index) => ({ windowIndex: index, label: `${String(index * 3).padStart(2, "0")}:00`, probabilityMax: null }));
+                const svgPts = windows.map((w, i) => {
+                  const x = i * (240 / 7);
+                  const val = w.probabilityMax ?? 0;
+                  const y = 32 - (val / 100) * 22;
+                  return { x, y };
+                });
+                const lineD = buildSvgCurve(svgPts);
+                const areaD = lineD ? `${lineD} L 240 42 L 0 42 Z` : "";
+                return (
+                  <>
+                    <svg className="rain-sidebar-svg" viewBox="0 0 240 42" preserveAspectRatio="none" aria-hidden="true">
+                      <defs>
+                        <linearGradient id="panelLineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                          <stop offset="0%" stopColor="#38bdf8" />
+                          <stop offset="50%" stopColor="#2563eb" />
+                          <stop offset="100%" stopColor="#7c3aed" />
+                        </linearGradient>
+                        <linearGradient id="panelAreaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                          <stop offset="0%" stopColor="#2563eb" stopOpacity="0.3" />
+                          <stop offset="100%" stopColor="#2563eb" stopOpacity="0.0" />
+                        </linearGradient>
+                      </defs>
+                      {areaD && <path d={areaD} fill="url(#panelAreaGrad)" />}
+                      {lineD && <path d={lineD} stroke="url(#panelLineGrad)" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />}
+                    </svg>
+                    <div className="rain-hourly-chart" role="group" aria-label="กราฟช่วงเวลาพยากรณ์ฝน 24 ชั่วโมงของวันที่เลือก">
+                      {windows.map((w, i) => {
+                        const val = w.probabilityMax;
+                        const leftPct = (i / 7) * 100;
+                        const alignClass = i === 0 ? "align-left" : i === 7 ? "align-right" : "align-center";
+                        return (
+                          <button
+                            key={w.windowIndex}
+                            className={`${selectedWindowIndex === w.windowIndex ? "active" : ""} ${alignClass}`}
+                            style={{ left: `${leftPct}%` }}
+                            onClick={() => setSelectedWindowIndex(w.windowIndex)}
+                            aria-label={`ช่วง ${w.label} โอกาสฝน ${val ?? "—"}%`}
+                          >
+                            <i className="sidebar-line-dot" style={{ backgroundColor: getRainChanceColor(val) }} />
+                            <small>{w.label.slice(0, 2)}</small>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+
+            {/* 8-Window Time Selector 2-Column Grid */}
+            <div className="rain-panel-windows" role="group" aria-label="เลือกช่วงเวลา 3 ชั่วโมง">
+              {(dayWindows.length ? dayWindows : Array.from({ length: 8 }, (_, index) => ({ windowIndex: index, label: `${String(index * 3).padStart(2, "0")}:00`, probabilityMax: null }))).map((window) => {
+                const isActive = selectedWindowIndex === window.windowIndex;
+                const val = window.probabilityMax;
+                const isNow = selectedDayIsToday && window.windowIndex === currentWindowIndex;
+                const isPeak = window.windowIndex === peakWindowIndex;
+                return (
+                  <button
+                    key={window.windowIndex}
+                    className={`panel-window-btn ${isActive ? "active" : ""}`}
+                    onClick={() => setSelectedWindowIndex(window.windowIndex)}
+                    aria-pressed={isActive}
+                    disabled={!dayWindows.length}
+                    title={`ช่วง ${window.label}: โอกาสฝน ${val ?? "—"}%`}
+                  >
+                    <div className="window-time-wrap">
+                      <i className="window-color-dot" style={{ backgroundColor: isActive ? "#ffffff" : getRainChanceColor(val) }} />
+                      <span className="window-clock">{window.label}</span>
+                    </div>
+                    <div className="window-val-wrap">
+                      <b className="window-prob">{val === null ? "—" : `${val}%`}</b>
+                      {isNow && <em className="badge-now">ตอนนี้</em>}
+                      {isPeak && !isNow && <em className="badge-peak">ช่วงเด่น</em>}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
+          {/* Section 3: Daily Weather Highlights in Left Panel */}
+          <div className="rain-panel-section rain-highlights-section">
+            <div className="rain-panel-title">
+              <span>⚡ สรุปช่วงเวลาสำคัญ</span>
+            </div>
+            <div className="rain-highlights-list">
+              <div>
+                <span className="highlight-icon" aria-hidden="true">◷</span>
+                <div>
+                  <small>ช่วงเวลาฝนตกหนักสุด</small>
+                  <b>{day?.peakWindow ?? "ยังไม่มีข้อมูลช่วงเวลา"}</b>
+                </div>
+              </div>
+              <div>
+                <span className="highlight-icon" aria-hidden="true">≈</span>
+                <div>
+                  <small>คาดการณ์ฝนตกสะสม</small>
+                  <b>มีฝน {day?.wetHours ?? "—"} ชม. ตลอดวัน</b>
+                </div>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        {/* CENTER MAP CANVAS */}
+        <div className="map-card rain-map-card">
           <div className="map-wrap rain-map-wrap">
             <div ref={mapElementRef} className="map rain-map" role="region" aria-label={`แผนที่พยากรณ์ฝน ${day?.weekday ?? ""} ${day?.date ?? ""} ${selectedWindow?.label ?? ""}`} />
             <div className="layer-menu" ref={layerMenuRef}>
@@ -581,20 +763,20 @@ export default function RainDashboard() {
             <div className="legend rain-legend" aria-label={metricMode === "probability" ? "คำอธิบายโอกาสฝน" : "คำอธิบายปริมาณฝนใน 3 ชั่วโมง"}>
               {metricMode === "probability" ? (
                 <>
-                  <span><i style={{ background: "#dcf7fa" }} />0%</span>
-                  <span><i style={{ background: "#74deeb" }} />20%</span>
-                  <span><i style={{ background: "#30a9dc" }} />40%</span>
-                  <span><i style={{ background: "#2a69c2" }} />60%</span>
-                  <span><i style={{ background: "#3d409d" }} />80%</span>
+                  <span><i style={{ background: "#bae6fd" }} />0–20%</span>
+                  <span><i style={{ background: "#38bdf8" }} />21–45%</span>
+                  <span><i style={{ background: "#10b981" }} />46–65%</span>
+                  <span><i style={{ background: "#2563eb" }} />66–80%</span>
+                  <span><i style={{ background: "#7c3aed" }} />&gt;80%</span>
                   <small>โอกาสฝน</small>
                 </>
               ) : (
                 <>
-                  <span><i style={{ background: "#dcf7fa" }} />0</span>
-                  <span><i style={{ background: "#74deeb" }} />1</span>
-                  <span><i style={{ background: "#30a9dc" }} />5</span>
-                  <span><i style={{ background: "#2a69c2" }} />10</span>
-                  <span><i style={{ background: "#3d409d" }} />20+</span>
+                  <span><i style={{ background: "#bae6fd" }} />0</span>
+                  <span><i style={{ background: "#38bdf8" }} />0.1–2.5</span>
+                  <span><i style={{ background: "#10b981" }} />2.6–5</span>
+                  <span><i style={{ background: "#2563eb" }} />5.1–10</span>
+                  <span><i style={{ background: "#7c3aed" }} />&gt;10 มม.</span>
                   <small>มม. / 3 ชม.</small>
                 </>
               )}
@@ -602,6 +784,7 @@ export default function RainDashboard() {
           </div>
         </div>
 
+        {/* RIGHT INSIGHTS SIDEBAR */}
         <aside className="insights rain-insights" aria-label="สรุปพยากรณ์ฝนวันที่เลือก">
           <div className="average-card rain-average-card">
             <div
@@ -620,11 +803,23 @@ export default function RainDashboard() {
             </div>
           </div>
 
-          <div className="weather-card rain-weather-card">
-            <p>ช่วงเวลาที่ควรเฝ้าระวัง</p>
-            <div><span aria-hidden="true">◷</span><b>{day?.peakWindow ?? "ยังไม่มีข้อมูลช่วงเวลา"}</b></div>
-            <div><span aria-hidden="true">≈</span><b>คาดว่ามีฝน {day?.wetHours ?? "—"} ชม. ตลอดวัน</b></div>
-          </div>
+          {(() => {
+            const adv = getRainAdvisory(day?.probabilityMax ?? null, day?.rainMaxMm ?? null);
+            return (
+              <div className="advisory-card rain-advisory-card">
+                <div className="advisory-header">
+                  <span className="advisory-icon">{adv.icon}</span>
+                  <div className="advisory-title-wrap">
+                    <b>{adv.title}</b>
+                    <span className="advisory-risk-badge" style={{ backgroundColor: adv.riskColor }}>
+                      {adv.risk}
+                    </span>
+                  </div>
+                </div>
+                <p className="advisory-desc">{adv.desc}</p>
+              </div>
+            );
+          })()}
 
           <div className="trend-card rain-trend-card">
             <div className="trend-heading">

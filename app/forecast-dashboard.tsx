@@ -175,6 +175,34 @@ function average(values: number[]) {
   return values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : null;
 }
 
+function getHealthAdvice(mean: number | null) {
+  if (mean === null) return "ยังไม่มีข้อมูลคำแนะนำ";
+  if (mean <= 15) return "คุณภาพอากาศดีเยี่ยม เหมาะทำกิจกรรมกลางแจ้ง";
+  if (mean <= 25) return "คุณภาพอากาศดี สามารถทำกิจกรรมกลางแจ้งได้ปกติ";
+  if (mean <= 37.5) return "ระดับปานกลาง ผู้ป่วยระบบทางเดินหายใจควรสังเกตอาการ";
+  if (mean <= 75) return "เริ่มมีผลกระทบต่อสุขภาพ ควรลดเวลาทำกิจกรรมกลางแจ้ง";
+  return "มีผลกระทบต่อสุขภาพ สวมหน้ากาก N95 เมื่อออกนอกอาคาร";
+}
+
+function buildAirSvgCurve(pts: Array<{ x: number; y: number }>) {
+  if (!pts.length) return "";
+  let d = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i === 0 ? 0 : i - 1];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2 < pts.length ? i + 2 : i + 1];
+
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+    d += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+  }
+  return d;
+}
+
 export default function ForecastDashboard() {
   const [selectedDay, setSelectedDay] = useState(0);
   const [days, setDays] = useState(bundledDays);
@@ -312,9 +340,9 @@ export default function ForecastDashboard() {
       boundaryLayerRef.current = L.geoJSON(boundary as GeoJSON.GeoJsonObject, {
         pane: "boundaryPane",
         style: {
-          color: "#173c2b",
-          weight: 1.05,
-          opacity: 0.72,
+          color: "#0f766e",
+          weight: 1.2,
+          opacity: 0.8,
           fillOpacity: 0,
         },
       }).addTo(map);
@@ -336,6 +364,7 @@ export default function ForecastDashboard() {
   );
   const mean = average(values);
   const meanLevel = mean === null ? { label: "ไม่มีข้อมูล", color: "#94a3b8" } : getLevel(mean);
+  const healthAdvice = useMemo(() => getHealthAdvice(mean), [mean]);
   const sortedStations = useMemo(
     () => [...stations].sort((a, b) => b.values[selectedDay] - a.values[selectedDay]).slice(0, 5),
     [selectedDay, stations],
@@ -351,10 +380,10 @@ export default function ForecastDashboard() {
   const highestStation = sortedStations[0];
 
   return (
-    <main className="app-shell">
+    <main className="app-shell air-shell">
       <header className={`dashboard-banner ${dataState}`} id="top">
         <div className="banner-copy">
-          <span className="banner-kicker">BKK AIR FORECAST</span>
+          <span className="banner-kicker">BKK Air Forecast</span>
           <h1>แผนที่พยากรณ์ <em>PM2.5 กรุงเทพฯ</em></h1>
           <p>ดูล่วงหน้า 1–5 วัน เลือกวันแล้วตรวจพื้นที่ที่ควรเฝ้าระวังได้ทันที</p>
         </div>
@@ -368,27 +397,130 @@ export default function ForecastDashboard() {
         </div>
       </header>
 
-      <nav className="day-tabs" aria-label="เลือกวันพยากรณ์">
-        {days.map((forecastDay, index) => {
-          const dailyValues = stations.map((station) => station.values[index]);
-          const dailyMean = average(dailyValues);
-          return (
-            <button
-              key={forecastDay.lead}
-              className={selectedDay === index ? "active" : ""}
-              onClick={() => setSelectedDay(index)}
-              aria-pressed={selectedDay === index}
-            >
-              <b>{forecastDay.weekday} {forecastDay.date}</b>
-              <i style={{ backgroundColor: dailyMean === null ? "#94a3b8" : getLevel(dailyMean).color }} />
-              <small>{dailyMean ?? "—"} µg/m³ {forecastDay.sourceMode === "extrapolated" && <em>แนวโน้ม</em>}</small>
-            </button>
-          );
-        })}
-      </nav>
+      <section className="workspace air-workspace">
+        {/* LEFT CONTROL PANEL */}
+        <aside className="control-panel air-control-panel" aria-label="แถบเลือกวันและแนวโน้มพยากรณ์ฝุ่น">
+          {/* Section 1: 5-Day Outlook Selector */}
+          <div className="panel-section">
+            <div className="panel-title">
+              <span>📅 เลือกวันพยากรณ์</span>
+              <small>5 วันล่วงหน้า</small>
+            </div>
+            <nav className="sidebar-days" aria-label="เลือกวันพยากรณ์">
+              {days.map((forecastDay, index) => {
+                const dailyValues = stations.map((station) => station.values[index]);
+                const dailyMean = average(dailyValues);
+                const isActive = selectedDay === index;
+                const level = dailyMean === null ? { label: "—", color: "#94a3b8" } : getLevel(dailyMean);
+                return (
+                  <button
+                    key={forecastDay.lead}
+                    className={`sidebar-day-btn ${isActive ? "active" : ""}`}
+                    onClick={() => setSelectedDay(index)}
+                    aria-pressed={isActive}
+                  >
+                    <div className="day-btn-left">
+                      <b className="day-name">{forecastDay.weekday}</b>
+                      <span className="day-date">{forecastDay.date}</span>
+                    </div>
+                    <div className="day-btn-right">
+                      <span className="day-val-badge" style={{ color: isActive ? "#ffffff" : level.color }}>
+                        {dailyMean ?? "—"} µg/m³
+                      </span>
+                      {forecastDay.sourceMode === "extrapolated" && <em className="badge-trend">แนวโน้ม</em>}
+                    </div>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
 
-      <section className="workspace">
-        <div className="map-card">
+          {/* Section 2: 5-Day Trend Line Curve Graph */}
+          <div className="panel-section trend-line-section">
+            <div className="panel-title">
+              <span>📈 แนวโน้ม 5 วัน</span>
+              <small>ค่าเฉลี่ย กทม.</small>
+            </div>
+            <div className="air-trend-graph-wrap">
+              {(() => {
+                const svgPts = dailyMeans.map((val, i) => {
+                  const x = i * (240 / 4);
+                  const safeVal = val ?? 20;
+                  const y = Math.max(6, Math.min(38, 38 - ((safeVal - 0) / 75) * 32));
+                  return { x, y };
+                });
+                const lineD = buildAirSvgCurve(svgPts);
+                const areaD = lineD ? `${lineD} L 240 42 L 0 42 Z` : "";
+                return (
+                  <>
+                    <svg className="air-trend-svg" viewBox="0 0 240 42" preserveAspectRatio="none" aria-hidden="true">
+                      <defs>
+                        <linearGradient id="airLineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                          <stop offset="0%" stopColor="#38bdf8" />
+                          <stop offset="50%" stopColor="#34d399" />
+                          <stop offset="100%" stopColor="#f59e0b" />
+                        </linearGradient>
+                        <linearGradient id="airAreaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                          <stop offset="0%" stopColor="#0d9488" stopOpacity="0.3" />
+                          <stop offset="100%" stopColor="#0d9488" stopOpacity="0.0" />
+                        </linearGradient>
+                      </defs>
+                      {areaD && <path d={areaD} fill="url(#airAreaGrad)" />}
+                      {lineD && <path d={lineD} stroke="url(#airLineGrad)" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />}
+                    </svg>
+                    <div className="air-trend-nodes" role="group" aria-label="กราฟแนวโน้มค่าฝุ่นเฉลี่ย 5 วัน">
+                      {dailyMeans.map((value, index) => {
+                        const leftPct = (index / 4) * 100;
+                        const alignClass = index === 0 ? "align-left" : index === 4 ? "align-right" : "align-center";
+                        const level = value === null ? { color: "#94a3b8" } : getLevel(value);
+                        return (
+                          <button
+                            key={days[index]?.lead ?? index}
+                            className={`${selectedDay === index ? "active" : ""} ${alignClass}`}
+                            style={{ left: `${leftPct}%` }}
+                            onClick={() => setSelectedDay(index)}
+                            aria-label={`${days[index]?.weekday ?? "วัน"} ${days[index]?.date ?? ""} ค่าเฉลี่ย ${value ?? "ไม่มีข้อมูล"} ไมโครกรัมต่อลูกบาศก์เมตร`}
+                            aria-pressed={selectedDay === index}
+                          >
+                            <i className="trend-node-dot" style={{ backgroundColor: level.color }} />
+                            <span className="trend-node-val">{value ?? "—"}</span>
+                            <small>{days[index]?.weekday.slice(0, 2)}</small>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+
+          {/* Section 3: Weather Factors */}
+          <div className="panel-section weather-factor-section">
+            <div className="panel-title">
+              <span>💨 ปัจจัยสภาพอากาศ & ลม</span>
+            </div>
+            <div className="weather-factor-list">
+              <div>
+                <span className="weather-factor-icon" aria-hidden="true">↗</span>
+                <div>
+                  <small>ทิศทางและความเร็วลม</small>
+                  <b>{day.wind}</b>
+                </div>
+              </div>
+              <div>
+                <span className="weather-factor-icon" aria-hidden="true">◌</span>
+                <div>
+                  <small>สภาพอากาศทั่วไป</small>
+                  <b>{day.weather}</b>
+                </div>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        {/* CENTER MAP CANVAS */}
+        <div className="map-card air-map-card">
           <div className="map-wrap">
             <div ref={mapElementRef} className="map" role="application" aria-label={`แผนที่ PM2.5 พยากรณ์ล่วงหน้า ${day.lead} วัน`} />
             {dataState === "unavailable" && <div className="forecast-unavailable" role="alert"><b>ไม่สามารถโหลดข้อมูลพยากรณ์ล่าสุดได้</b><span>ค่าที่แสดงบนแผนที่ถูกปิดไว้เพื่อป้องกันการเข้าใจผิด</span><button type="button" onClick={() => { setDataState("loading"); setReloadKey((value) => value + 1); }}>ลองใหม่</button></div>}
@@ -434,7 +566,8 @@ export default function ForecastDashboard() {
           </div>
         </div>
 
-        <aside className="insights">
+        {/* RIGHT INSIGHTS SIDEBAR */}
+        <aside className="insights air-insights">
           <div className="average-card">
             <div
               className="average-ring"
@@ -448,39 +581,21 @@ export default function ForecastDashboard() {
             <div>
               <p>ค่าฝุ่นเฉลี่ย กทม.</p>
               <strong style={{ color: meanLevel.color }}>{meanLevel.label}</strong>
-              <em>เฉลี่ยจาก {stations.length} สถานี</em>
+              <em>เฉลี่ย {mean ?? "—"} µg/m³ · 50 เขต</em>
             </div>
           </div>
 
-          <div className="weather-card">
-            <p>สภาพอากาศ</p>
-            <div><span aria-hidden="true">↗</span><b>{day.wind}</b></div>
-            <div><span aria-hidden="true">◌</span><b>{day.weather}</b></div>
-          </div>
-
-          <div className="trend-card">
-            <div className="trend-heading">
-              <p>แนวโน้ม 5 วัน</p>
-              <span>ค่าเฉลี่ย กทม.</span>
+          <div className="advisory-card air-advisory-card">
+            <div className="advisory-header">
+              <span className="advisory-icon">{mean && mean > 37.5 ? "😷" : mean && mean > 25 ? "⚠️" : "🌿"}</span>
+              <div className="advisory-title-wrap">
+                <b>คำแนะนำสุขภาพ</b>
+                <span className="advisory-risk-badge" style={{ backgroundColor: meanLevel.color }}>
+                  {meanLevel.label}
+                </span>
+              </div>
             </div>
-            <div className="trend-chart" role="group" aria-label="กราฟแนวโน้มค่าฝุ่นเฉลี่ย 5 วัน">
-              {dailyMeans.map((value, index) => {
-                const height = value === null ? 18 : trendRange === 0 ? 68 : 36 + ((value - trendMin) / trendRange) * 64;
-                return (
-                  <button
-                    key={days[index]?.lead ?? index}
-                    className={selectedDay === index ? "active" : ""}
-                    onClick={() => setSelectedDay(index)}
-                    aria-label={`${days[index]?.weekday ?? "วันที่เลือก"} ${days[index]?.date ?? ""} ค่าเฉลี่ย ${value ?? "ไม่มีข้อมูล"} ไมโครกรัมต่อลูกบาศก์เมตร`}
-                    aria-pressed={selectedDay === index}
-                  >
-                    <span>{value ?? "—"}</span>
-                    <i style={{ height: `${height}%`, background: value === null ? "#94a3b8" : getLevel(value).color }} />
-                    <small>{days[index]?.weekday.slice(0, 2)}</small>
-                  </button>
-                );
-              })}
-            </div>
+            <p className="advisory-desc">{healthAdvice}</p>
           </div>
 
           <div className="watch-card">
