@@ -1,11 +1,13 @@
 # BKK Air Forecast
 
-BKK Air Forecast is a Bangkok-focused web application for viewing five-day PM2.5 and rain outlooks. It is designed for planning and data exploration; it is not an official warning or health-advisory system.
+BKK Air Forecast is a Bangkok-metropolitan web application for viewing seven-day PM2.5 and rain outlooks across Bangkok, Nonthaburi, Pathum Thani, Samut Prakan, Samut Sakhon, and Nakhon Pathom. It is designed for planning and data exploration; it is not an official warning or health-advisory system.
 
 ## Features
 
-- Five-day PM2.5 outlook with Bangkok station observations and a spatial IDW surface
-- Five-day rain outlook with 3-hour windows, probability and rain-amount views
+- Seven-day PM2.5 outlook with Bangkok station observations, province model grids, and spatial IDW surfaces
+- Seven-day rain outlook with 3-hour windows, probability and rain-amount views
+- Province selector shared across air and rain views, defaulting to Bangkok
+- Optional TMD RadarGIS observed and 0–3 hour nowcast layers
 - Explicit `live`, `degraded`, and `unavailable` data states
 - Upstream timeout handling, quality-control summaries, and safe no-data behavior
 - Responsive Leaflet maps with bounded surface caches
@@ -22,7 +24,9 @@ The browser renders Leaflet base maps and generates clipped raster IDW surfaces.
 - **CAMS Global via Open-Meteo Air Quality:** model forecast used as the PM2.5 background field.
 - **Open-Meteo Weather Forecast:** wind and precipitation context for PM2.5.
 - **Open-Meteo Best Match and GFS:** rain model providers, queried in that order.
-- **BMA GIS:** official district boundary when available.
+- **BMA GIS:** official Bangkok district boundary when available.
+- **Department of Mineral Resources GIS:** official province boundaries for the five metropolitan provinces.
+- **TMD RadarGIS:** observed radar and short-range nowcast image layers.
 - **OpenStreetMap:** basemap tiles.
 
 ## PM2.5 Forecast Method
@@ -33,7 +37,7 @@ The PM2.5 surface is an interpolation, not a direct measurement at every pixel. 
 
 ## Rain Forecast Method
 
-Rain values come from nine model grid points covering Bangkok. Hourly model values are aggregated into eight 3-hour windows per day and then summarized for the city. The map interpolates those nine grid-point forecasts with IDW. It is not weather radar, does not show observed storm cells, and is not a nowcasting system.
+Rain values come from nine model grid points covering the selected province. Hourly model values are aggregated into eight 3-hour windows per day and then summarized for the province. The map interpolates those nine grid-point forecasts with IDW. The optional TMD RadarGIS layer is displayed separately from the model forecast.
 
 ## Data Quality / Fallback Behavior
 
@@ -41,7 +45,7 @@ Rain values come from nine model grid points covering Bangkok. Hourly model valu
 - `degraded`: a usable forecast exists, but a secondary source, hourly coverage, or freshness criterion is incomplete. `degradedReasons` explains why.
 - `unavailable`: a trustworthy forecast cannot be produced. The API returns current date placeholders and no PM2.5 stations/rain points; the UI disables the heatmap and offers retry.
 
-Every upstream request has a bounded timeout. PM2.5 `dataQuality.upstream` reports `ok`, `timeout`, or `error` for AirBKK, CAMS, and weather. Bundled dated demo values are not used in the production failure path. A simplified Bangkok boundary may be shown if BMA GIS is unavailable, and the UI labels this boundary fallback explicitly.
+Every upstream request has a bounded timeout. PM2.5 `dataQuality.upstream` reports `ok`, `timeout`, or `error` for AirBKK, CAMS, and weather. AirBKK bias correction is used only for Bangkok; the five neighbouring provinces are explicitly labelled as CAMS-only model grids. Bundled dated demo values are not used in the production failure path. A simplified province boundary may be shown when an official GIS service is unavailable, and the UI labels this boundary fallback explicitly.
 
 ## Local Development
 

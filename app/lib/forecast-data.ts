@@ -1,4 +1,5 @@
 import { addDays, bangkokDateKey } from "./forecast/timestamps.ts";
+import { FORECAST_DAYS } from "./forecast-horizon.ts";
 
 export type ForecastStatus = "live" | "degraded" | "unavailable";
 export type UpstreamStatus = "ok" | "timeout" | "error";
@@ -23,7 +24,7 @@ function formatDate(dateKey: string) {
 }
 export function buildForecastDayShells(timestamp = Date.now()): ForecastDay[] {
   const today = bangkokDateKey(timestamp);
-  return Array.from({ length: 5 }, (_, index) => ({
+  return Array.from({ length: FORECAST_DAYS }, (_, index) => ({
     lead: index + 1, ...formatDate(addDays(today, index + 1)), forecastReliabilityScore: 0, uncertainty: 0,
     wind: "รอข้อมูลสภาพอากาศ", weather: "รอข้อมูลล่าสุด",
     note: "Placeholder ระหว่างโหลดข้อมูล ไม่ใช่ค่าพยากรณ์", sourceMode: "placeholder" as const, coverageHours: 0,

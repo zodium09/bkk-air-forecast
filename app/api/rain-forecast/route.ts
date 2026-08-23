@@ -7,15 +7,15 @@ import {
   type RainPointWindow,
   type RainWindow,
 } from "../../lib/rain-forecast-data.ts";
+import { FORECAST_DAYS } from "../../lib/forecast-horizon.ts";
 import {
   buildRainForecastUrl,
   getRainForecastProvider,
-  rainForecastPoints,
+  getRainForecastContext,
   rainForecastProviders,
   type RainForecastProvider,
 } from "../../lib/rain-forecast-provider.ts";
 
-const FORECAST_DAYS = 5;
 const EXPECTED_HOURLY_VALUES = FORECAST_DAYS * 24;
 const MINIMUM_HOURLY_COVERAGE = 0.8;
 
@@ -64,8 +64,8 @@ function windowLabel(hour: number) {
   return `${String(hour).padStart(2, "0")}:00–${String(end).padStart(2, "0")}:00 น.`;
 }
 
-function aggregatePoint(raw: OpenMeteoLocation, index: number): RainPoint | null {
-  const point = rainForecastPoints[index];
+function aggregatePoint(raw: OpenMeteoLocation, index: number, forecastPoints: ReturnType<typeof getRainForecastContext>["points"]): RainPoint | null {
+  const point = forecastPoints[index];
   if (!point || !raw.hourly || !raw.daily || raw.daily.time.length < FORECAST_DAYS) return null;
   const hourlyLength = Math.min(
     raw.hourly.time.length,
@@ -164,18 +164,20 @@ function aggregateCity(points: RainPoint[], dateKeys: string[]) {
   return { days, windows };
 }
 
-function unavailableResponse(error: unknown) {
+function unavailableResponse(error: unknown, provinceId: unknown) {
+  const { province, points } = getRainForecastContext(provinceId);
   return Response.json({
+    province: { id: province.id, nameTh: province.nameTh, shortNameTh: province.shortNameTh, nameEn: province.nameEn },
     status: "unavailable",
     fetchedAt: new Date().toISOString(),
     model: "Open-Meteo Best Match / GFS",
     disclaimer: "ยังโหลดค่าพยากรณ์จากแบบจำลองไม่ได้ในขณะนี้ และไม่มีการสร้างค่าฝนสำรองขึ้นมา กรุณาลองใหม่ภายหลัง",
     sources: rainForecastProviders.map((provider) => provider.source),
     dataQuality: {
-      expectedPoints: rainForecastPoints.length,
+      expectedPoints: points.length,
       acceptedPoints: 0,
       coverageHours: 0,
-      rejectedPoints: rainForecastPoints.length,
+      rejectedPoints: points.length,
       minimumHourlyCoverage: MINIMUM_HOURLY_COVERAGE,
       providersTried: rainForecastProviders.map((provider) => provider.id),
       error: error instanceof Error ? error.message : "unknown upstream error",
@@ -188,30 +190,32 @@ function unavailableResponse(error: unknown) {
   });
 }
 
-function normalizedResponse(raw: OpenMeteoLocation[] | OpenMeteoLocation, provider: RainForecastProvider, deliveryFallback = false) {
+function normalizedResponse(raw: OpenMeteoLocation[] | OpenMeteoLocation, provider: RainForecastProvider, provinceId: unknown, deliveryFallback = false) {
+  const { province, points: forecastPoints } = getRainForecastContext(provinceId);
   const locations = Array.isArray(raw) ? raw : [raw];
   const points = locations
-    .map((location, index) => aggregatePoint(location, index))
+    .map((location, index) => aggregatePoint(location, index, forecastPoints))
     .filter((point): point is RainPoint => point !== null);
-  if (points.length < 6) throw new Error(`insufficient forecast points ${points.length}/${rainForecastPoints.length}`);
+  if (points.length < 6) throw new Error(`insufficient forecast points ${points.length}/${forecastPoints.length}`);
 
   const dateKeys = locations.find((location) => location.daily)?.daily?.time.slice(0, FORECAST_DAYS);
-  if (!dateKeys || dateKeys.length !== FORECAST_DAYS) throw new Error("missing five-day forecast dates");
+  if (!dateKeys || dateKeys.length !== FORECAST_DAYS) throw new Error("missing seven-day forecast dates");
   const { days, windows } = aggregateCity(points, dateKeys);
   const coverageHours = Math.min(...points.map((point) => point.windows.filter((window) => window.rainMm !== null).length * 3));
-  const status = points.length === rainForecastPoints.length ? "live" : "degraded";
+  const status = points.length === forecastPoints.length ? "live" : "degraded";
 
   return Response.json({
+    province: { id: province.id, nameTh: province.nameTh, shortNameTh: province.shortNameTh, nameEn: province.nameEn },
     status,
     fetchedAt: new Date().toISOString(),
-    model: provider.model,
+    model: `${provider.model} · 9-point ${province.nameEn} grid`,
     disclaimer: "ข้อมูลพยากรณ์จริงจากแบบจำลองอากาศ ไม่ใช่เรดาร์ฝนหรือประกาศเตือนภัย โอกาสฝนและปริมาณฝนเป็นคนละตัวชี้วัด และความละเอียดไม่เท่าการพยากรณ์รายเขต",
-    sources: [provider.source, "BMA GIS district boundary", "OpenStreetMap"],
+    sources: [provider.source, province.id === "bangkok" ? "BMA GIS district boundary" : "DMR province boundary", "OpenStreetMap"],
     dataQuality: {
-      expectedPoints: rainForecastPoints.length,
+      expectedPoints: forecastPoints.length,
       acceptedPoints: points.length,
       coverageHours,
-      rejectedPoints: rainForecastPoints.length - points.length,
+      rejectedPoints: forecastPoints.length - points.length,
       minimumHourlyCoverage: MINIMUM_HOURLY_COVERAGE,
       provider: provider.id,
       providerFallback: provider.id !== rainForecastProviders[0].id,
@@ -234,38 +238,41 @@ function normalizedResponse(raw: OpenMeteoLocation[] | OpenMeteoLocation, provid
   });
 }
 
-export async function createRainForecastResponse(options: { fetchImpl?: typeof fetch; timeoutMs?: number } = {}) {
+export async function createRainForecastResponse(options: { fetchImpl?: typeof fetch; timeoutMs?: number; provinceId?: unknown } = {}) {
   const failures: string[] = [];
   const fetchImpl = options.fetchImpl ?? fetch;
   const timeoutMs = options.timeoutMs ?? 9_000;
+  const { province } = getRainForecastContext(options.provinceId);
 
   for (const provider of rainForecastProviders) {
     try {
-      const response = await fetchImpl(buildRainForecastUrl(provider.url), {
+      const response = await fetchImpl(buildRainForecastUrl(provider.url, province.id), {
         headers: { Accept: "application/json", "User-Agent": "BKK-Air-Forecast/1.0" },
         signal: AbortSignal.timeout(timeoutMs),
       });
       if (!response.ok) throw new Error(`status ${response.status}`);
       const raw = await response.json() as OpenMeteoLocation[] | OpenMeteoLocation;
-      return normalizedResponse(raw, provider);
+      return normalizedResponse(raw, provider, province.id);
     } catch (error) {
       failures.push(`${provider.id}: ${error instanceof Error ? error.message : "unknown error"}`);
     }
   }
 
-  return unavailableResponse(new Error(failures.join("; ")));
+  return unavailableResponse(new Error(failures.join("; ")), province.id);
 }
 
-export async function GET() { return createRainForecastResponse(); }
+export async function GET(request: Request) {
+  return createRainForecastResponse({ provinceId: new URL(request.url).searchParams.get("province") });
+}
 export async function POST(request: Request) {
   try {
     const contentLength = Number(request.headers.get("content-length") ?? 0);
     if (contentLength > 500_000) throw new Error("fallback payload too large");
-    const body = await request.json() as { provider?: unknown; raw?: unknown };
+    const body = await request.json() as { provider?: unknown; province?: unknown; raw?: unknown };
     const provider = getRainForecastProvider(body.provider);
     if (!provider || !body.raw || typeof body.raw !== "object") throw new Error("invalid fallback payload");
-    return normalizedResponse(body.raw as OpenMeteoLocation[] | OpenMeteoLocation, provider, true);
+    return normalizedResponse(body.raw as OpenMeteoLocation[] | OpenMeteoLocation, provider, body.province, true);
   } catch (error) {
-    return unavailableResponse(error);
+    return unavailableResponse(error, null);
   }
 }

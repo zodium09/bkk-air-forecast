@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import OutlookNav from "../components/outlook-nav";
+import ProvinceSelector from "../components/province-selector";
 import {
   buildRainDayShells,
   rainAmountLevel,
@@ -9,6 +10,9 @@ import {
   type RainPoint,
 } from "../lib/rain-forecast-data";
 import { buildRainForecastUrl, rainForecastProviders } from "../lib/rain-forecast-provider";
+import { FORECAST_DAYS } from "../lib/forecast-horizon";
+import type { TmdRadarMode, TmdRadarPayload } from "../lib/tmd-radar-data";
+import { DEFAULT_PROVINCE_ID, buildFallbackBoundary, getProvince, type ProvinceId } from "../lib/provinces";
 import "leaflet/dist/leaflet.css";
 
 type Coordinate = [number, number];
@@ -26,24 +30,6 @@ type BoundaryCollection = {
   features: BoundaryFeature[];
 };
 type MetricMode = "probability" | "rain";
-
-const fallbackBoundary: BoundaryCollection = {
-  type: "FeatureCollection",
-  features: [{
-    type: "Feature",
-    properties: { NAME_T: "กรุงเทพมหานคร (ขอบเขตสำรอง)" },
-    geometry: {
-      type: "Polygon",
-      coordinates: [[
-        [100.327, 13.652], [100.376, 13.615], [100.47, 13.63], [100.568, 13.645],
-        [100.668, 13.638], [100.759, 13.69], [100.875, 13.735], [100.915, 13.816],
-        [100.895, 13.925], [100.801, 13.956], [100.703, 13.951], [100.622, 13.934],
-        [100.533, 13.961], [100.442, 13.914], [100.348, 13.861], [100.327, 13.779],
-        [100.327, 13.652],
-      ]],
-    },
-  }],
-};
 
 const probabilityStops = [
   { value: 0, color: [224, 242, 254] },
@@ -268,6 +254,23 @@ function formatFetchedAt(value: string) {
   }).format(date).replace(".", "");
 }
 
+function formatRadarTime(value: string | null) {
+  if (!value) return "ไม่พบเวลาตรวจล่าสุด";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "ไม่พบเวลาตรวจล่าสุด";
+  return new Intl.DateTimeFormat("th-TH-u-nu-latn", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Bangkok",
+  }).format(date).replace(".", "");
+}
+
+function radarFreshnessLabel(ageMinutes: number | null) {
+  if (ageMinutes === null) return "ตรวจสอบความสดไม่ได้";
+  if (ageMinutes <= 1) return "ข้อมูลล่าสุด";
+  return `${ageMinutes} นาทีที่แล้ว`;
+}
+
 function getBangkokDateParts() {
   const parts = new Intl.DateTimeFormat("en-CA", {
     year: "numeric",
@@ -294,11 +297,13 @@ function getPeakWindowIndex(windows: RainForecastPayload["windows"], dayIndex: n
   return peak?.windowIndex ?? 0;
 }
 
-async function fetchRainForecastPayload(forceRefresh = false) {
+async function fetchRainForecastPayload(provinceId: ProvinceId, forceRefresh = false) {
   let unavailablePayload: RainForecastPayload | null = null;
 
   try {
-    const response = await fetch(forceRefresh ? `/api/rain-forecast?refresh=${Date.now()}` : "/api/rain-forecast", { cache: forceRefresh ? "reload" : "default" });
+    const query = new URLSearchParams({ horizon: String(FORECAST_DAYS), province: provinceId });
+    if (forceRefresh) query.set("refresh", String(Date.now()));
+    const response = await fetch(`/api/rain-forecast?${query}`, { cache: forceRefresh ? "reload" : "default" });
     if (response.ok) {
       const payload = await response.json() as RainForecastPayload;
       if (payload.status !== "unavailable") return payload;
@@ -310,7 +315,7 @@ async function fetchRainForecastPayload(forceRefresh = false) {
 
   for (const provider of rainForecastProviders) {
     try {
-      const upstreamResponse = await fetch(buildRainForecastUrl(provider.url), {
+      const upstreamResponse = await fetch(buildRainForecastUrl(provider.url, provinceId), {
         cache: "no-store",
         headers: { Accept: "application/json" },
       });
@@ -320,7 +325,7 @@ async function fetchRainForecastPayload(forceRefresh = false) {
         method: "POST",
         cache: "no-store",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: provider.id, raw }),
+        body: JSON.stringify({ provider: provider.id, province: provinceId, raw }),
       });
       if (!normalizedResponse.ok) continue;
       const payload = await normalizedResponse.json() as RainForecastPayload;
@@ -335,7 +340,17 @@ async function fetchRainForecastPayload(forceRefresh = false) {
   throw new Error("rain forecast unavailable");
 }
 
+async function fetchTmdRadarPayload(forceRefresh = false, signal?: AbortSignal) {
+  const response = await fetch("/api/tmd-radar", {
+    cache: forceRefresh ? "reload" : "default",
+    signal,
+  });
+  if (!response.ok) throw new Error("TMD radar unavailable");
+  return response.json() as Promise<TmdRadarPayload>;
+}
+
 export default function RainDashboard() {
+  const [selectedProvinceId, setSelectedProvinceId] = useState<ProvinceId>(DEFAULT_PROVINCE_ID);
   const [selectedDay, setSelectedDay] = useState(0);
   const [selectedWindowIndex, setSelectedWindowIndex] = useState(0);
   const [days, setDays] = useState(() => buildRainDayShells());
@@ -347,6 +362,14 @@ export default function RainDashboard() {
   const [dataState, setDataState] = useState<RainForecastPayload["status"] | "loading">("loading");
   const [metricMode, setMetricMode] = useState<MetricMode>("probability");
   const [layerMenuOpen, setLayerMenuOpen] = useState(false);
+  const [showForecastSurface, setShowForecastSurface] = useState(true);
+  const [radarEnabled, setRadarEnabled] = useState(false);
+  const [radarMode, setRadarMode] = useState<TmdRadarMode>("observed");
+  const [radarPayload, setRadarPayload] = useState<TmdRadarPayload | null>(null);
+  const [radarLoadState, setRadarLoadState] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [radarFrameIndex, setRadarFrameIndex] = useState(0);
+  const [radarOpacity, setRadarOpacity] = useState(0.76);
+  const [radarImageError, setRadarImageError] = useState(false);
   const [boundary, setBoundary] = useState<BoundaryCollection | null>(null);
   const [boundaryState, setBoundaryState] = useState<"loading" | "official" | "fallback">("loading");
   const [mapReady, setMapReady] = useState(false);
@@ -355,12 +378,15 @@ export default function RainDashboard() {
   const layerMenuRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<import("leaflet").Map | null>(null);
   const surfaceLayerRef = useRef<import("leaflet").ImageOverlay | null>(null);
+  const radarLayerRef = useRef<import("leaflet").ImageOverlay | null>(null);
   const boundaryLayerRef = useRef<import("leaflet").GeoJSON | null>(null);
+  const radarAbortRef = useRef<AbortController | null>(null);
   const selectedDayRef = useRef(0);
+  const selectedProvince = getProvince(selectedProvinceId);
 
   const loadForecast = useCallback((forceRefresh = false) => {
     let active = true;
-    fetchRainForecastPayload(forceRefresh)
+    fetchRainForecastPayload(selectedProvinceId, forceRefresh)
       .then((payload) => {
         if (!active) return;
         setDays(payload.days);
@@ -386,13 +412,42 @@ export default function RainDashboard() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [selectedProvinceId]);
 
   useEffect(() => loadForecast(reloadKey > 0), [loadForecast, reloadKey]);
 
   useEffect(() => {
+    window.scrollTo(0, 0);
+    const requestedProvince = new URLSearchParams(window.location.search).get("province");
+    Promise.resolve().then(() => setSelectedProvinceId(getProvince(requestedProvince).id));
+  }, []);
+
+  const loadRadar = useCallback((forceRefresh = false) => {
+    radarAbortRef.current?.abort();
+    const controller = new AbortController();
+    radarAbortRef.current = controller;
+    setRadarLoadState("loading");
+    setRadarImageError(false);
+    fetchTmdRadarPayload(forceRefresh, controller.signal)
+      .then((payload) => {
+        if (controller.signal.aborted) return;
+        setRadarPayload(payload);
+        setRadarLoadState(payload.status === "unavailable" ? "error" : "ready");
+        setRadarFrameIndex(payload.observedFrames.length ? payload.observedFrames.length - 1 : 0);
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setRadarPayload(null);
+        setRadarLoadState("error");
+      });
+  }, []);
+
+  useEffect(() => () => radarAbortRef.current?.abort(), []);
+
+  useEffect(() => {
     let active = true;
-    fetch("/api/bangkok-boundary")
+    const boundaryUrl = selectedProvinceId === "bangkok" ? "/api/bangkok-boundary" : `/api/province-boundary?province=${selectedProvinceId}`;
+    fetch(boundaryUrl)
       .then((response) => {
         if (!response.ok) throw new Error("boundary unavailable");
         return response.json() as Promise<BoundaryCollection>;
@@ -404,13 +459,13 @@ export default function RainDashboard() {
       })
       .catch(() => {
         if (!active) return;
-        setBoundary(fallbackBoundary);
+        setBoundary(buildFallbackBoundary(selectedProvinceId) as BoundaryCollection);
         setBoundaryState("fallback");
       });
     return () => {
       active = false;
     };
-  }, []);
+  }, [selectedProvinceId]);
 
   useEffect(() => {
     if (!layerMenuOpen) return;
@@ -446,6 +501,8 @@ export default function RainDashboard() {
       }).addTo(map);
       map.createPane("rainSurfacePane").style.zIndex = "350";
       map.getPane("rainSurfacePane")!.style.pointerEvents = "none";
+      map.createPane("tmdRadarPane").style.zIndex = "390";
+      map.getPane("tmdRadarPane")!.style.pointerEvents = "none";
       map.createPane("rainBoundaryPane").style.zIndex = "420";
       map.getPane("rainBoundaryPane")!.style.pointerEvents = "none";
       mapInstanceRef.current = map;
@@ -458,6 +515,7 @@ export default function RainDashboard() {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
         surfaceLayerRef.current = null;
+        radarLayerRef.current = null;
         boundaryLayerRef.current = null;
         setMapReady(false);
       }
@@ -474,7 +532,7 @@ export default function RainDashboard() {
       if (surfaceLayerRef.current) map.removeLayer(surfaceLayerRef.current);
       if (boundaryLayerRef.current) map.removeLayer(boundaryLayerRef.current);
       const dataVersion = points.map((point) => `${point.id}:${point.windows.map((window) => `${window.probabilityMax}:${window.rainMm}`).join(",")}`).join("|");
-      const cacheKey = `${selectedDay}:${selectedWindowIndex}:${metricMode}:${dataVersion}:${boundaryState}:${boundary.features.length}`;
+      const cacheKey = `${selectedProvinceId}:${selectedDay}:${selectedWindowIndex}:${metricMode}:${dataVersion}:${boundaryState}:${boundary.features.length}`;
       let surface = rainSurfaceCache.get(cacheKey);
       if (!rainSurfaceCache.has(cacheKey)) {
         surface = createRainSurface(boundary, points, selectedDay, selectedWindowIndex, metricMode);
@@ -484,7 +542,7 @@ export default function RainDashboard() {
         rainSurfaceCache.delete(cacheKey);
         rainSurfaceCache.set(cacheKey, surface ?? null);
       }
-      surfaceLayerRef.current = surface ? L.imageOverlay(surface.url, surface.bounds, {
+      surfaceLayerRef.current = showForecastSurface && surface ? L.imageOverlay(surface.url, surface.bounds, {
         pane: "rainSurfacePane",
         opacity: 0.8,
         interactive: false,
@@ -500,7 +558,44 @@ export default function RainDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [boundary, boundaryState, mapReady, metricMode, points, selectedDay, selectedWindowIndex]);
+  }, [boundary, boundaryState, mapReady, metricMode, points, selectedDay, selectedProvinceId, selectedWindowIndex, showForecastSurface]);
+
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+    const frames = radarMode === "observed" ? radarPayload?.observedFrames ?? [] : radarPayload?.nowcastFrames ?? [];
+    const safeFrameIndex = Math.min(radarFrameIndex, Math.max(0, frames.length - 1));
+    const frame = frames[safeFrameIndex];
+    let cancelled = false;
+    import("leaflet").then((leafletModule) => {
+      if (cancelled || !mapInstanceRef.current) return;
+      if (radarLayerRef.current) {
+        map.removeLayer(radarLayerRef.current);
+        radarLayerRef.current = null;
+      }
+      if (!radarEnabled || radarLoadState !== "ready" || !frame) return;
+      const layer = leafletModule.default.imageOverlay(frame.imageUrl, frame.bounds, {
+        pane: "tmdRadarPane",
+        opacity: radarOpacity,
+        interactive: false,
+        alt: `${frame.label} จากกรมอุตุนิยมวิทยา`,
+      });
+      layer.once("error", () => setRadarImageError(true));
+      layer.addTo(map);
+      radarLayerRef.current = layer;
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [mapReady, radarEnabled, radarFrameIndex, radarLoadState, radarMode, radarOpacity, radarPayload]);
+
+  useEffect(() => {
+    if (!mapReady || !mapElementRef.current || !mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+    const observer = new ResizeObserver(() => map.invalidateSize({ animate: false }));
+    observer.observe(mapElementRef.current);
+    return () => observer.disconnect();
+  }, [mapReady]);
 
   const day = days[selectedDay] ?? days[0];
   const dayWindows = useMemo(
@@ -526,6 +621,9 @@ export default function RainDashboard() {
   const currentWindowIndex = Math.min(7, Math.floor(bangkokNow.hour / 3));
   const selectedDayIsToday = day?.dateKey === bangkokNow.dateKey;
   const peakWindowIndex = getPeakWindowIndex(windows, selectedDay);
+  const radarFrames = radarMode === "observed" ? radarPayload?.observedFrames ?? [] : radarPayload?.nowcastFrames ?? [];
+  const safeRadarFrameIndex = Math.min(radarFrameIndex, Math.max(0, radarFrames.length - 1));
+  const selectedRadarFrame = radarFrames[safeRadarFrameIndex] ?? null;
 
   const selectDay = (index: number) => {
     selectedDayRef.current = index;
@@ -539,8 +637,35 @@ export default function RainDashboard() {
     setReloadKey((value) => value + 1);
   };
 
+  const selectProvince = (provinceId: ProvinceId) => {
+    selectedDayRef.current = 0;
+    setDataState("loading");
+    setBoundaryState("loading");
+    setSelectedDay(0);
+    setSelectedProvinceId(provinceId);
+    const url = new URL(window.location.href);
+    url.searchParams.set("province", provinceId);
+    window.history.replaceState({}, "", url);
+  };
+
+  const toggleRadar = (enabled: boolean) => {
+    setRadarEnabled(enabled);
+    setRadarImageError(false);
+    if (enabled) {
+      setShowForecastSurface(false);
+      if (radarLoadState === "idle") loadRadar();
+    }
+  };
+
+  const selectRadarMode = (mode: TmdRadarMode) => {
+    setRadarMode(mode);
+    const frames = mode === "observed" ? radarPayload?.observedFrames ?? [] : radarPayload?.nowcastFrames ?? [];
+    setRadarFrameIndex(mode === "observed" ? Math.max(0, frames.length - 1) : 0);
+    setRadarImageError(false);
+  };
+
   const dataStateLabel = dataState === "live"
-    ? "ข้อมูลจริงอัปเดตแล้ว"
+    ? "แบบจำลองอัปเดตแล้ว"
     : dataState === "degraded"
       ? "ข้อมูลอัปเดตบางส่วน"
       : dataState === "unavailable"
@@ -552,10 +677,11 @@ export default function RainDashboard() {
       <header className={`dashboard-banner rain-banner ${dataState}`} id="top">
         <div className="banner-copy">
           <span className="banner-kicker">BKK AIR FORECAST · RAIN</span>
-          <h1>แผนที่พยากรณ์ <em>ฝนกรุงเทพฯ</em></h1>
-          <p>เช็กโอกาสฝนและปริมาณฝนสะสมล่วงหน้า 1–5 วัน พร้อมช่วงเวลาที่ควรเฝ้าระวัง</p>
+          <h1>แผนที่พยากรณ์ <em>ฝน · {selectedProvince.shortNameTh}</em></h1>
+          <p>เช็กโอกาสฝนและปริมาณฝนสะสมล่วงหน้า 1–7 วัน พร้อมช่วงเวลาที่ควรเฝ้าระวัง</p>
         </div>
-        <OutlookNav active="rain" />
+        <ProvinceSelector value={selectedProvinceId} onChange={selectProvince} />
+        <OutlookNav active="rain" province={selectedProvinceId} />
         <div className="banner-status" role="status" aria-live="polite">
           <span className={`status-dot ${dataState}`} aria-hidden="true" />
           <div>
@@ -568,11 +694,11 @@ export default function RainDashboard() {
       <section className="workspace rain-workspace">
         {/* LEFT CONTROL PANEL */}
         <aside className="rain-control-panel" aria-label="แถบเลือกวันและเวลาพยากรณ์">
-          {/* Section 1: 5-Day Outlook Selector */}
+          {/* Section 1: 7-Day Outlook Selector */}
           <div className="rain-panel-section">
             <div className="rain-panel-title">
               <span>📅 เลือกวันพยากรณ์</span>
-              <small>5 วันล่วงหน้า</small>
+              <small>7 วันล่วงหน้า</small>
             </div>
             <nav className="rain-sidebar-days" aria-label="เลือกวันพยากรณ์ฝน">
               {days.map((forecastDay, index) => {
@@ -718,7 +844,7 @@ export default function RainDashboard() {
         {/* CENTER MAP CANVAS */}
         <div className="map-card rain-map-card">
           <div className="map-wrap rain-map-wrap">
-            <div ref={mapElementRef} className="map rain-map" role="region" aria-label={`แผนที่พยากรณ์ฝน ${day?.weekday ?? ""} ${day?.date ?? ""} ${selectedWindow?.label ?? ""}`} />
+            <div ref={mapElementRef} className="map rain-map" role="region" aria-label={radarEnabled && selectedRadarFrame ? `แผนที่เรดาร์ฝน TMD ${selectedProvince.nameTh} ${selectedRadarFrame.label}` : `แผนที่พยากรณ์ฝน ${selectedProvince.nameTh} ${day?.weekday ?? ""} ${day?.date ?? ""} ${selectedWindow?.label ?? ""}`} />
             <div className="layer-menu" ref={layerMenuRef}>
               <button
                 className="layer-menu-trigger"
@@ -731,12 +857,64 @@ export default function RainDashboard() {
                 <span className="layer-symbol" aria-hidden="true"><i /><i /><i /></span>
               </button>
               <div className="layer-menu-panel rain-layer-panel" id="rain-layer-menu" hidden={!layerMenuOpen}>
-                <strong>สีบนแผนที่</strong>
-                <div className="rain-metric-options" role="group" aria-label="ตัวชี้วัดบนแผนที่">
-                  <button aria-pressed={metricMode === "probability"} onClick={() => setMetricMode("probability")}>โอกาสฝน</button>
-                  <button aria-pressed={metricMode === "rain"} onClick={() => setMetricMode("rain")}>ปริมาณฝน</button>
-                </div>
-                <div className="layer-static"><span aria-hidden="true">✓</span>พื้นผิว IDW เท่านั้น</div>
+                <strong>ชั้นข้อมูลแผนที่</strong>
+                <label className="layer-toggle radar-layer-toggle" htmlFor="rain-forecast-surface-toggle" aria-label="แสดงแบบจำลองพยากรณ์ฝนบนแผนที่">
+                  <input id="rain-forecast-surface-toggle" type="checkbox" checked={showForecastSurface} onChange={(event) => setShowForecastSurface(event.target.checked)} disabled={dataState === "unavailable"} />
+                  <span aria-hidden="true" />
+                  <span className="layer-toggle-copy"><b>แบบจำลองพยากรณ์</b><small>IDW จาก 9 จุดแบบจำลอง</small></span>
+                </label>
+                {showForecastSurface && (
+                  <div className="rain-metric-options" role="group" aria-label="ตัวชี้วัดแบบจำลองบนแผนที่">
+                    <button aria-pressed={metricMode === "probability"} onClick={() => setMetricMode("probability")}>โอกาสฝน</button>
+                    <button aria-pressed={metricMode === "rain"} onClick={() => setMetricMode("rain")}>ปริมาณฝน</button>
+                  </div>
+                )}
+                <label className="layer-toggle radar-layer-toggle" htmlFor="tmd-radar-layer-toggle" aria-label="แสดงเรดาร์ฝน TMD บนแผนที่">
+                  <input id="tmd-radar-layer-toggle" type="checkbox" checked={radarEnabled} onChange={(event) => toggleRadar(event.target.checked)} />
+                  <span aria-hidden="true" />
+                  <span className="layer-toggle-copy"><b>เรดาร์ฝน TMD</b><small>ตรวจจริงและ Nowcast 0–3 ชม.</small></span>
+                </label>
+                {radarEnabled && (
+                  <div className="radar-layer-controls">
+                    {radarLoadState === "loading" ? (
+                      <div className="radar-layer-message" role="status">กำลังโหลดชั้นเรดาร์…</div>
+                    ) : radarLoadState === "error" || radarImageError ? (
+                      <div className="radar-layer-message error" role="alert">
+                        <span>{radarImageError ? "โหลดภาพเรดาร์ไม่สำเร็จ" : "เรดาร์ยังไม่พร้อมใช้งาน"}</span>
+                        <button type="button" onClick={() => loadRadar(true)}>ลองโหลดเรดาร์ใหม่</button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="radar-mode-options" role="group" aria-label="เลือกชนิดข้อมูลเรดาร์">
+                          <button type="button" aria-pressed={radarMode === "observed"} onClick={() => selectRadarMode("observed")}>ตรวจจริง</button>
+                          <button type="button" aria-pressed={radarMode === "nowcast"} onClick={() => selectRadarMode("nowcast")}>Nowcast</button>
+                        </div>
+                        <div className="radar-frame-meta" aria-live="polite">
+                          <b>{selectedRadarFrame?.label ?? "รอเฟรมเรดาร์"}</b>
+                          <span>{selectedRadarFrame ? `${formatRadarTime(selectedRadarFrame.validAt)} น. · ${radarFreshnessLabel(radarPayload?.ageMinutes ?? null)}` : "ไม่มีเฟรมที่เลือก"}</span>
+                        </div>
+                        <div className="radar-frame-picker">
+                          <button type="button" onClick={() => setRadarFrameIndex((index) => Math.max(0, index - 1))} disabled={safeRadarFrameIndex <= 0} aria-label="เฟรมเรดาร์ก่อนหน้า">‹</button>
+                          <input
+                            type="range"
+                            min="0"
+                            max={Math.max(0, radarFrames.length - 1)}
+                            value={safeRadarFrameIndex}
+                            onChange={(event) => setRadarFrameIndex(Number(event.target.value))}
+                            disabled={radarFrames.length <= 1}
+                            aria-label="เลือกเวลาเรดาร์"
+                          />
+                          <button type="button" onClick={() => setRadarFrameIndex((index) => Math.min(radarFrames.length - 1, index + 1))} disabled={safeRadarFrameIndex >= radarFrames.length - 1} aria-label="เฟรมเรดาร์ถัดไป">›</button>
+                        </div>
+                        <label className="radar-opacity-control">
+                          <span>ความทึบ {Math.round(radarOpacity * 100)}%</span>
+                          <input type="range" min="0.35" max="0.9" step="0.05" value={radarOpacity} onChange={(event) => setRadarOpacity(Number(event.target.value))} />
+                        </label>
+                        <a className="radar-source-link" href={radarPayload?.sourcePage ?? "https://radargis.tmd.go.th/"} target="_blank" rel="noreferrer">เปิดข้อมูลต้นทาง TMD RadarGIS</a>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -746,22 +924,28 @@ export default function RainDashboard() {
               <b>{selectedMeanRain === null ? "รอข้อมูล" : `ฝนเฉลี่ย ${selectedMeanRain} มม.`}</b>
             </div>
 
-            <div className={`surface-status rain-surface-status ${dataState}`} aria-live="polite">
-              <b>{dataStateLabel}</b>
-              <span>{points.length ? `พื้นผิว IDW · ${selectedWindow?.label ?? "ช่วงที่เลือก"}` : "ยังไม่มีข้อมูลพยากรณ์สำหรับช่วงนี้"}</span>
-              <em>{boundaryState === "official" ? "ขอบเขต 50 เขต · สีเป็นการประมาณเชิงพื้นที่" : boundaryState === "fallback" ? "กำลังใช้ขอบเขตสำรอง" : "กำลังโหลดขอบเขตกรุงเทพฯ"}</em>
+            <div className={`surface-status rain-surface-status ${radarEnabled ? radarPayload?.status ?? radarLoadState : dataState}`} aria-live="polite">
+              <b>{radarEnabled ? radarLoadState === "loading" ? "กำลังโหลดเรดาร์ TMD" : radarLoadState === "error" || radarImageError ? "เรดาร์ไม่พร้อมใช้งาน" : radarMode === "observed" ? "เรดาร์ตรวจจริง TMD" : "Radar Nowcast TMD" : dataStateLabel}</b>
+              <span>{radarEnabled ? selectedRadarFrame ? `${selectedRadarFrame.label} · ${formatRadarTime(selectedRadarFrame.validAt)} น.` : "ยังไม่มีเฟรมเรดาร์" : points.length ? `พื้นผิว IDW · ${selectedWindow?.label ?? "ช่วงที่เลือก"}` : "ยังไม่มีข้อมูลพยากรณ์สำหรับช่วงนี้"}</span>
+              <em>{radarEnabled ? radarPayload?.status === "degraded" ? `ข้อมูลช้ากว่าปกติ · ${radarFreshnessLabel(radarPayload.ageMinutes)}` : "Rain Rate · mm/h · ข้อมูลกึ่งเวลาจริง" : boundaryState === "official" ? `${selectedProvinceId === "bangkok" ? "ขอบเขต 50 เขต" : `ขอบเขตจังหวัด${selectedProvince.nameTh}`} · สีเป็นการประมาณเชิงพื้นที่` : boundaryState === "fallback" ? "กำลังใช้ขอบเขตสำรอง" : `กำลังโหลดขอบเขต${selectedProvince.nameTh}`}</em>
             </div>
 
             {dataState === "unavailable" && (
               <div className="rain-error-panel" role="alert">
                 <strong>โหลดข้อมูลฝนไม่สำเร็จ</strong>
-                <span>ระบบไม่แสดงค่าฝนจำลองแทนข้อมูลจริง</span>
+                <span>ระบบไม่สร้างค่าทดแทนเมื่อแบบจำลองไม่พร้อม</span>
                 <button onClick={retryForecast}>ลองอีกครั้ง</button>
               </div>
             )}
 
-            <div className="legend rain-legend" aria-label={metricMode === "probability" ? "คำอธิบายโอกาสฝน" : "คำอธิบายปริมาณฝนใน 3 ชั่วโมง"}>
-              {metricMode === "probability" ? (
+            <div className={`legend rain-legend ${radarEnabled ? "radar-legend" : ""}`} aria-label={radarEnabled ? "คำอธิบายชั้นเรดาร์ฝน TMD" : metricMode === "probability" ? "คำอธิบายโอกาสฝน" : "คำอธิบายปริมาณฝนใน 3 ชั่วโมง"}>
+              {radarEnabled ? (
+                <>
+                  <span><i style={{ background: "#2563eb" }} />TMD RadarGIS</span>
+                  <span>{radarMode === "observed" ? "ตรวจจริง" : "Nowcast 0–3 ชม."}</span>
+                  <small>Rain Rate · mm/h · สีตามข้อมูลต้นทาง</small>
+                </>
+              ) : metricMode === "probability" ? (
                 <>
                   <span><i style={{ background: "#bae6fd" }} />0–20%</span>
                   <span><i style={{ background: "#38bdf8" }} />21–45%</span>
@@ -823,10 +1007,10 @@ export default function RainDashboard() {
 
           <div className="trend-card rain-trend-card">
             <div className="trend-heading">
-              <p>แนวโน้ม 5 วัน</p>
+              <p>แนวโน้ม 7 วัน</p>
               <span>โอกาสฝนสูงสุด</span>
             </div>
-            <div className="trend-chart" role="group" aria-label="กราฟแนวโน้มโอกาสฝนสูงสุด 5 วัน">
+            <div className="trend-chart" role="group" aria-label="กราฟแนวโน้มโอกาสฝนสูงสุด 7 วัน">
               {dailyProbabilities.map((value, index) => (
                 <button
                   key={days[index]?.dateKey ?? index}

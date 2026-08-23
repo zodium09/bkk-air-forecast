@@ -15,7 +15,7 @@ function airPayload() {
 }
 
 function camsPayload(hoursPerDay = 24) {
-  const dates = ["2026-08-22", "2026-08-23", "2026-08-24", "2026-08-25", "2026-08-26"];
+  const dates = ["2026-08-22", "2026-08-23", "2026-08-24", "2026-08-25", "2026-08-26", "2026-08-27", "2026-08-28"];
   const times = dates.flatMap((date) => Array.from({ length: hoursPerDay }, (_, hour) => `${date}T${String(hour).padStart(2, "0")}:00`));
   return Array.from({ length: 9 }, (_, index) => ({
     latitude: 13.64 + Math.floor(index / 3) * 0.16, longitude: 100.34 + (index % 3) * 0.27,
@@ -24,7 +24,7 @@ function camsPayload(hoursPerDay = 24) {
 }
 
 function weatherPayload() {
-  const time = ["2026-08-22", "2026-08-23", "2026-08-24", "2026-08-25", "2026-08-26"];
+  const time = ["2026-08-22", "2026-08-23", "2026-08-24", "2026-08-25", "2026-08-26", "2026-08-27", "2026-08-28"];
   return { daily: { time, wind_speed_10m_max: time.map(() => 12), wind_direction_10m_dominant: time.map(() => 180), precipitation_probability_max: time.map(() => 40) } };
 }
 
@@ -43,6 +43,8 @@ test("PM API is live when all sources are complete", async () => {
   assert.equal(payload.status, "live");
   assert.deepEqual(payload.dataQuality.upstream, { airbkk: "ok", cams: "ok", weather: "ok" });
   assert.equal(payload.stations.length, 24);
+  assert.equal(payload.days.length, 7);
+  assert.ok(payload.stations.every((station) => station.values.length === 7));
 });
 
 test("weather timeout degrades PM forecast without hiding the heatmap data", async () => {
@@ -52,6 +54,24 @@ test("weather timeout degrades PM forecast without hiding the heatmap data", asy
   assert.equal(payload.dataQuality.upstream.weather, "timeout");
   assert.ok(payload.degradedReasons.includes("weather_unavailable"));
   assert.equal(payload.stations.length, 24);
+});
+
+test("metro PM forecast uses province CAMS grid without calling Bangkok stations", async () => {
+  const requested = [];
+  const fetchImpl = async (input) => {
+    const url = String(input);
+    requested.push(url);
+    if (url.includes("air-quality-api")) return json(camsPayload());
+    if (url.includes("api.open-meteo.com/v1/forecast")) return json(weatherPayload());
+    throw new Error(`unexpected URL ${url}`);
+  };
+  const payload = await (await createForecastResponse({ fetchImpl, now: () => NOW, provinceId: "nonthaburi" })).json();
+  assert.equal(payload.province.id, "nonthaburi");
+  assert.equal(payload.dataMode, "cams-only");
+  assert.equal(payload.status, "degraded");
+  assert.equal(payload.stations.length, 9);
+  assert.ok(payload.stations.every((station) => station.values.length === 7 && station.sourceType === "CAMS model grid"));
+  assert.equal(requested.some((url) => url.includes("official.airbkk.com")), false);
 });
 
 for (const source of ["airbkk", "cams"]) {
@@ -86,7 +106,7 @@ test("a genuinely hanging PM upstream is aborted within the configured timeout",
 });
 
 function rainRaw(pointCount = 9, corruptCount = 0) {
-  const dates = ["2026-08-21", "2026-08-22", "2026-08-23", "2026-08-24", "2026-08-25"];
+  const dates = ["2026-08-21", "2026-08-22", "2026-08-23", "2026-08-24", "2026-08-25", "2026-08-26", "2026-08-27"];
   const times = dates.flatMap((date) => Array.from({ length: 24 }, (_, hour) => `${date}T${String(hour).padStart(2, "0")}:00`));
   return Array.from({ length: pointCount }, (_, index) => {
     const values = times.map(() => index < corruptCount ? null : 1);
@@ -101,6 +121,23 @@ test("rain provider failover uses GFS after Best Match fails", async () => {
   assert.equal(payload.status, "live");
   assert.equal(payload.dataQuality.provider, "gfs");
   assert.equal(payload.dataQuality.providerFallback, true);
+  assert.equal(payload.days.length, 7);
+  assert.equal(payload.windows.length, 56);
+  assert.ok(payload.points.every((point) => point.daily.length === 7));
+});
+
+test("rain forecast uses coordinates and metadata for the selected metro province", async () => {
+  let requestedUrl = "";
+  const response = await createRainForecastResponse({
+    provinceId: "samut-sakhon",
+    fetchImpl: async (input) => { requestedUrl = String(input); return json(rainRaw(9)); },
+  });
+  const payload = await response.json();
+  assert.equal(payload.province.id, "samut-sakhon");
+  assert.equal(payload.points.length, 9);
+  assert.match(payload.model, /Samut Sakhon/);
+  assert.match(requestedUrl, /latitude=/);
+  assert.doesNotMatch(requestedUrl, /13\.64%2C13\.64%2C13\.64/);
 });
 
 test("rain coverage yields live at 9, degraded at 6-8, and unavailable below 6", async () => {

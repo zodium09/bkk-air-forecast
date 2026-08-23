@@ -9,11 +9,16 @@ import {
   type ForecastDay,
   type ForecastStation,
 } from "./lib/forecast-data";
+import { FORECAST_DAYS } from "./lib/forecast-horizon";
 import OutlookNav from "./components/outlook-nav";
+import ProvinceSelector from "./components/province-selector";
+import { DEFAULT_PROVINCE_ID, buildFallbackBoundary, getProvince, type ProvinceId } from "./lib/provinces";
 import "leaflet/dist/leaflet.css";
 import "./reliability.css";
 
 type ForecastPayload = {
+  province?: { id: ProvinceId; nameTh: string; shortNameTh: string; nameEn: string };
+  dataMode?: "airbkk-cams" | "cams-only";
   status: "live" | "degraded" | "unavailable" | "fallback";
   issuedAt: string;
   model?: string;
@@ -38,24 +43,6 @@ type BoundaryFeature = {
 type BoundaryCollection = {
   type: "FeatureCollection";
   features: BoundaryFeature[];
-};
-
-const fallbackBoundary: BoundaryCollection = {
-  type: "FeatureCollection",
-  features: [{
-    type: "Feature",
-    properties: { NAME_T: "กรุงเทพมหานคร (ขอบเขตสำรอง)" },
-    geometry: {
-      type: "Polygon",
-      coordinates: [[
-        [100.327, 13.652], [100.376, 13.615], [100.47, 13.63], [100.568, 13.645],
-        [100.668, 13.638], [100.759, 13.69], [100.875, 13.735], [100.915, 13.816],
-        [100.895, 13.925], [100.801, 13.956], [100.703, 13.951], [100.622, 13.934],
-        [100.533, 13.961], [100.442, 13.914], [100.348, 13.861], [100.327, 13.779],
-        [100.327, 13.652],
-      ]],
-    },
-  }],
 };
 
 const surfaceCache = new Map<string, ReturnType<typeof createIdwSurface>>();
@@ -184,6 +171,16 @@ function getHealthAdvice(mean: number | null) {
   return "มีผลกระทบต่อสุขภาพ สวมหน้ากาก N95 เมื่อออกนอกอาคาร";
 }
 
+function degradedReasonLabel(reason: string) {
+  const labels: Record<string, string> = {
+    no_local_station_bias_correction: "ไม่มีสถานีท้องถิ่นสำหรับปรับเทียบ",
+    cams_partial_coverage: "แบบจำลอง CAMS ครอบคลุมบางช่วง",
+    weather_unavailable: "ข้อมูลสภาพอากาศประกอบไม่พร้อม",
+    observations_older_than_3h: "ข้อมูลสถานีล่าสุดเกิน 3 ชั่วโมง",
+  };
+  return labels[reason] ?? reason;
+}
+
 function buildAirSvgCurve(pts: Array<{ x: number; y: number }>) {
   if (!pts.length) return "";
   let d = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
@@ -204,10 +201,13 @@ function buildAirSvgCurve(pts: Array<{ x: number; y: number }>) {
 }
 
 export default function ForecastDashboard() {
+  const [selectedProvinceId, setSelectedProvinceId] = useState<ProvinceId>(DEFAULT_PROVINCE_ID);
   const [selectedDay, setSelectedDay] = useState(0);
   const [days, setDays] = useState(bundledDays);
   const [stations, setStations] = useState(bundledStations);
   const [issuedAt, setIssuedAt] = useState(bundledIssuedAt);
+  const [model, setModel] = useState("กำลังเชื่อมต่อแหล่งข้อมูล");
+  const [disclaimer, setDisclaimer] = useState("ค่าบนแผนที่เป็นค่าพยากรณ์และการประมาณเชิงพื้นที่");
   const [dataState, setDataState] = useState<"loading" | "live" | "degraded" | "unavailable">("loading");
   const [degradedReasons, setDegradedReasons] = useState<string[]>([]);
   const [reloadKey, setReloadKey] = useState(0);
@@ -220,15 +220,20 @@ export default function ForecastDashboard() {
   const mapInstanceRef = useRef<import("leaflet").Map | null>(null);
   const surfaceLayerRef = useRef<import("leaflet").ImageOverlay | null>(null);
   const boundaryLayerRef = useRef<import("leaflet").GeoJSON | null>(null);
+  const selectedProvince = getProvince(selectedProvinceId);
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    const requestedProvince = new URLSearchParams(window.location.search).get("province");
+    Promise.resolve().then(() => setSelectedProvinceId(getProvince(requestedProvince).id));
   }, []);
 
   useEffect(() => {
     let active = true;
 
-    fetch(reloadKey ? `/api/forecast?refresh=${reloadKey}` : "/api/forecast", { cache: reloadKey ? "reload" : "default" })
+    const query = new URLSearchParams({ horizon: String(FORECAST_DAYS), province: selectedProvinceId });
+    if (reloadKey) query.set("refresh", String(reloadKey));
+    fetch(`/api/forecast?${query}`, { cache: reloadKey ? "reload" : "default" })
       .then((response) => {
         if (!response.ok) throw new Error("forecast unavailable");
         return response.json() as Promise<ForecastPayload>;
@@ -238,6 +243,8 @@ export default function ForecastDashboard() {
         setDays(payload.days);
         setStations(payload.stations);
         setIssuedAt(payload.issuedAt);
+        setModel(payload.model ?? "แบบจำลอง PM2.5");
+        setDisclaimer(payload.disclaimer ?? "ค่าบนแผนที่เป็นค่าพยากรณ์และการประมาณเชิงพื้นที่");
         const nextStatus = payload.status === "fallback" ? "unavailable" : payload.status;
         setDataState(nextStatus);
         setDegradedReasons(payload.degradedReasons ?? []);
@@ -248,11 +255,12 @@ export default function ForecastDashboard() {
     return () => {
       active = false;
     };
-  }, [reloadKey]);
+  }, [reloadKey, selectedProvinceId]);
 
   useEffect(() => {
     let active = true;
-    fetch("/api/bangkok-boundary")
+    const boundaryUrl = selectedProvinceId === "bangkok" ? "/api/bangkok-boundary" : `/api/province-boundary?province=${selectedProvinceId}`;
+    fetch(boundaryUrl)
       .then((response) => {
         if (!response.ok) throw new Error("boundary unavailable");
         return response.json() as Promise<BoundaryCollection>;
@@ -264,13 +272,13 @@ export default function ForecastDashboard() {
       })
       .catch(() => {
         if (!active) return;
-        setBoundary(fallbackBoundary);
+        setBoundary(buildFallbackBoundary(selectedProvinceId) as BoundaryCollection);
         setBoundaryState("fallback");
       });
     return () => {
       active = false;
     };
-  }, []);
+  }, [selectedProvinceId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -326,7 +334,7 @@ export default function ForecastDashboard() {
 
       if ((dataState === "live" || dataState === "degraded") && stations.length) {
         const stationDataVersion = stations.map((station) => `${station.id}:${station.values.join(",")}`).join("|");
-        const boundaryVersion = `${boundaryState}:${boundary.features.length}`;
+        const boundaryVersion = `${selectedProvinceId}:${boundaryState}:${boundary.features.length}`;
         const cacheKey = `${selectedDay}:${stationDataVersion}:${boundaryVersion}`;
         let surface = surfaceCache.get(cacheKey);
         if (!surface) {
@@ -355,7 +363,17 @@ export default function ForecastDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [boundary, boundaryState, dataState, mapReady, selectedDay, stations]);
+  }, [boundary, boundaryState, dataState, mapReady, selectedDay, selectedProvinceId, stations]);
+
+  const selectProvince = (provinceId: ProvinceId) => {
+    setDataState("loading");
+    setBoundaryState("loading");
+    setSelectedDay(0);
+    setSelectedProvinceId(provinceId);
+    const url = new URL(window.location.href);
+    url.searchParams.set("province", provinceId);
+    window.history.replaceState({}, "", url);
+  };
 
   const day = days[selectedDay];
   const values = useMemo(
@@ -373,10 +391,6 @@ export default function ForecastDashboard() {
     () => days.map((_, index) => average(stations.map((station) => station.values[index]))),
     [days, stations],
   );
-  const numericDailyMeans = dailyMeans.filter((value): value is number => value !== null);
-  const trendMin = numericDailyMeans.length ? Math.min(...numericDailyMeans) : 0;
-  const trendMax = numericDailyMeans.length ? Math.max(...numericDailyMeans) : 0;
-  const trendRange = trendMax - trendMin;
   const highestStation = sortedStations[0];
 
   return (
@@ -384,10 +398,11 @@ export default function ForecastDashboard() {
       <header className={`dashboard-banner ${dataState}`} id="top">
         <div className="banner-copy">
           <span className="banner-kicker">BKK Air Forecast</span>
-          <h1>แผนที่พยากรณ์ <em>PM2.5 กรุงเทพฯ</em></h1>
-          <p>ดูล่วงหน้า 1–5 วัน เลือกวันแล้วตรวจพื้นที่ที่ควรเฝ้าระวังได้ทันที</p>
+          <h1>แผนที่พยากรณ์ <em>PM2.5 {selectedProvince.shortNameTh}</em></h1>
+          <p>ดูล่วงหน้า 1–7 วัน เลือกวันแล้วตรวจพื้นที่ที่ควรเฝ้าระวังได้ทันที</p>
         </div>
-        <OutlookNav active="air" />
+        <ProvinceSelector value={selectedProvinceId} onChange={selectProvince} />
+        <OutlookNav active="air" province={selectedProvinceId} />
         <div className="banner-status" role="status">
           <span className={`status-dot ${dataState}`} aria-hidden="true" />
           <div>
@@ -400,11 +415,11 @@ export default function ForecastDashboard() {
       <section className="workspace air-workspace">
         {/* LEFT CONTROL PANEL */}
         <aside className="control-panel air-control-panel" aria-label="แถบเลือกวันและแนวโน้มพยากรณ์ฝุ่น">
-          {/* Section 1: 5-Day Outlook Selector */}
+          {/* Section 1: 7-Day Outlook Selector */}
           <div className="panel-section">
             <div className="panel-title">
               <span>📅 เลือกวันพยากรณ์</span>
-              <small>5 วันล่วงหน้า</small>
+              <small>7 วันล่วงหน้า</small>
             </div>
             <nav className="sidebar-days" aria-label="เลือกวันพยากรณ์">
               {days.map((forecastDay, index) => {
@@ -435,16 +450,16 @@ export default function ForecastDashboard() {
             </nav>
           </div>
 
-          {/* Section 2: 5-Day Trend Line Curve Graph */}
+          {/* Section 2: 7-Day Trend Line Curve Graph */}
           <div className="panel-section trend-line-section">
             <div className="panel-title">
-              <span>📈 แนวโน้ม 5 วัน</span>
-              <small>ค่าเฉลี่ย กทม.</small>
+              <span>📈 แนวโน้ม 7 วัน</span>
+              <small>ค่าเฉลี่ย {selectedProvince.shortNameTh}</small>
             </div>
             <div className="air-trend-graph-wrap">
               {(() => {
                 const svgPts = dailyMeans.map((val, i) => {
-                  const x = i * (240 / 4);
+                  const x = i * (240 / Math.max(1, dailyMeans.length - 1));
                   const safeVal = val ?? 20;
                   const y = Math.max(6, Math.min(38, 38 - ((safeVal - 0) / 75) * 32));
                   return { x, y };
@@ -468,10 +483,10 @@ export default function ForecastDashboard() {
                       {areaD && <path d={areaD} fill="url(#airAreaGrad)" />}
                       {lineD && <path d={lineD} stroke="url(#airLineGrad)" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />}
                     </svg>
-                    <div className="air-trend-nodes" role="group" aria-label="กราฟแนวโน้มค่าฝุ่นเฉลี่ย 5 วัน">
+                    <div className="air-trend-nodes" role="group" aria-label="กราฟแนวโน้มค่าฝุ่นเฉลี่ย 7 วัน">
                       {dailyMeans.map((value, index) => {
-                        const leftPct = (index / 4) * 100;
-                        const alignClass = index === 0 ? "align-left" : index === 4 ? "align-right" : "align-center";
+                        const leftPct = (index / Math.max(1, dailyMeans.length - 1)) * 100;
+                        const alignClass = index === 0 ? "align-left" : index === dailyMeans.length - 1 ? "align-right" : "align-center";
                         const level = value === null ? { color: "#94a3b8" } : getLevel(value);
                         return (
                           <button
@@ -522,7 +537,7 @@ export default function ForecastDashboard() {
         {/* CENTER MAP CANVAS */}
         <div className="map-card air-map-card">
           <div className="map-wrap">
-            <div ref={mapElementRef} className="map" role="application" aria-label={`แผนที่ PM2.5 พยากรณ์ล่วงหน้า ${day.lead} วัน`} />
+            <div ref={mapElementRef} className="map" role="application" aria-label={`แผนที่ PM2.5 ${selectedProvince.nameTh} พยากรณ์ล่วงหน้า ${day.lead} วัน`} />
             {dataState === "unavailable" && <div className="forecast-unavailable" role="alert"><b>ไม่สามารถโหลดข้อมูลพยากรณ์ล่าสุดได้</b><span>ค่าที่แสดงบนแผนที่ถูกปิดไว้เพื่อป้องกันการเข้าใจผิด</span><button type="button" onClick={() => { setDataState("loading"); setReloadKey((value) => value + 1); }}>ลองใหม่</button></div>}
             <div className="layer-menu">
               <button
@@ -544,7 +559,7 @@ export default function ForecastDashboard() {
               </div>
             </div>
             <div className="map-metric">
-              <span>ค่าเฉลี่ย กทม.</span>
+              <span>ค่าเฉลี่ย {selectedProvince.shortNameTh}</span>
               <strong>{mean ?? "—"}<small>µg/m³</small></strong>
               <b style={{ color: meanLevel.color }}>{meanLevel.label}</b>
               {showRange && mean !== null && <em>ช่วงคาดการณ์ {Math.max(0, mean - day.uncertainty)}–{mean + day.uncertainty}</em>}
@@ -552,8 +567,8 @@ export default function ForecastDashboard() {
             <div className={`surface-status ${boundaryState}`}>
               <b>{dataState === "live" ? "ข้อมูลอัปเดตแล้ว" : dataState === "degraded" ? "ข้อมูลอัปเดตบางส่วน" : dataState === "unavailable" ? "ข้อมูลไม่พร้อมใช้งาน" : "กำลังโหลด"}</b>
               <span>{stations.length ? `พื้นผิว IDW · คำนวณจากข้อมูล ${stations.length} พิกัด` : "ปิดพื้นผิวพยากรณ์จนกว่าจะมีข้อมูลจริง"}</span>
-              {dataState === "degraded" && degradedReasons.length > 0 && <em>ข้อมูลขาด: {degradedReasons.join(", ")}</em>}
-              <em>{boundaryState === "official" ? "ครอบคลุมพื้นที่ 50 เขต" : boundaryState === "fallback" ? "กำลังใช้ขอบเขตสำรอง" : "กำลังโหลดขอบเขตกรุงเทพฯ"}</em>
+              {dataState === "degraded" && degradedReasons.length > 0 && <em>ข้อจำกัด: {degradedReasons.map(degradedReasonLabel).join(" · ")}</em>}
+              <em>{boundaryState === "official" ? selectedProvinceId === "bangkok" ? "ครอบคลุมพื้นที่ 50 เขต" : `ขอบเขตจังหวัด${selectedProvince.nameTh}` : boundaryState === "fallback" ? "กำลังใช้ขอบเขตสำรอง" : `กำลังโหลดขอบเขต${selectedProvince.nameTh}`}</em>
             </div>
             <div className="legend" aria-label="คำอธิบายระดับ PM2.5">
               <span><i style={{ background: "#38bdf8" }} />0–15</span>
@@ -579,9 +594,9 @@ export default function ForecastDashboard() {
               <span>{mean ?? "—"}<small>µg/m³</small></span>
             </div>
             <div>
-              <p>ค่าฝุ่นเฉลี่ย กทม.</p>
+              <p>ค่าฝุ่นเฉลี่ย {selectedProvince.shortNameTh}</p>
               <strong style={{ color: meanLevel.color }}>{meanLevel.label}</strong>
-              <em>เฉลี่ย {mean ?? "—"} µg/m³ · 50 เขต</em>
+              <em>เฉลี่ย {mean ?? "—"} µg/m³ · {stations.length} จุดข้อมูล</em>
             </div>
           </div>
 
@@ -611,7 +626,7 @@ export default function ForecastDashboard() {
 
           <div className="forecast-note">
             <span aria-hidden="true">!</span>
-            <p><b>สรุปวันนี้</b>{mean === null ? "ยังไม่มีข้อมูลพยากรณ์ที่พร้อมแสดง" : `ค่าเฉลี่ยอยู่ในระดับ${meanLevel.label}${highestStation ? ` พื้นที่ที่ควรติดตามมากที่สุดคือ${highestStation.district}` : ""}`}</p>
+            <p><b>สรุปวันนี้</b>{mean === null ? "ยังไม่มีข้อมูลพยากรณ์ที่พร้อมแสดง" : `ค่าเฉลี่ยอยู่ในระดับ${meanLevel.label}${highestStation ? ` พื้นที่ที่ควรติดตามมากที่สุดคือ${highestStation.district}` : ""}`}<small>{model} · {disclaimer}</small></p>
           </div>
         </aside>
       </section>

@@ -1,3 +1,6 @@
+import { FORECAST_DAYS } from "./forecast-horizon.ts";
+import type { ProvinceId } from "./provinces.ts";
+
 export type RainStatus = "live" | "degraded" | "unavailable";
 
 export type RainDay = {
@@ -49,6 +52,7 @@ export type RainPoint = {
 };
 
 export type RainForecastPayload = {
+  province: { id: ProvinceId; nameTh: string; shortNameTh: string; nameEn: string };
   status: RainStatus;
   fetchedAt: string;
   model: string;
@@ -91,7 +95,7 @@ export function buildRainDayShells(startDateKey?: string): RainDay[] {
     timeZone: "Asia/Bangkok",
   }).format(new Date());
 
-  return Array.from({ length: 5 }, (_, index) => {
+  return Array.from({ length: FORECAST_DAYS }, (_, index) => {
     const dateKey = addDays(bangkokToday, index);
     const formatted = formatRainDate(dateKey);
     return {

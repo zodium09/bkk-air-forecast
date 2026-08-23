@@ -155,6 +155,33 @@ body:has(.home-shell) {
 .banner-copy h1 em { color: #0d9488; font-style: normal; background: linear-gradient(135deg, #0d9488, #0284c7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 .banner-copy p { margin: 2px 0 0; color: #64748b; font-size: 10.5px; font-weight: 500; line-height: 1.25; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; max-width: 480px; }
 
+.province-selector {
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 5px 4px 10px;
+  border: 1px solid rgba(203, 213, 225, .9);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .92);
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 700;
+  backdrop-filter: blur(16px);
+}
+.province-selector select {
+  min-width: 128px;
+  min-height: 34px;
+  padding: 0 30px 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background-color: #f1f5f9;
+  color: #0f172a;
+  font: 700 11px/1.2 "IBM Plex Sans Thai", sans-serif;
+  cursor: pointer;
+}
+.province-selector select:focus-visible { outline: 2px solid #0284c7; outline-offset: 2px; }
+
 .banner-status {
   position: static;
   display: flex;
@@ -214,12 +241,12 @@ body:has(.home-shell) {
 .product-nav .product-nav-home span { font-size: 15px; }
 .product-nav a:focus-visible, .day-tabs button:focus-visible, .trend-chart button:focus-visible { outline: 3px solid #38bdf8; outline-offset: 2px; }
 
-/* 1-5 Day Selector Tabs Bar - Single Screen Height */
+/* 1-7 Day Selector Tabs Bar - Single Screen Height */
 .day-tabs {
   height: 62px;
   margin-top: 0;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(7, 1fr);
   gap: 6px;
   padding: 4px;
   overflow: hidden;
@@ -292,7 +319,7 @@ body:has(.home-shell) {
 /* Map Overlay Controls */
 .layer-menu { position: absolute; z-index: 700; top: 14px; right: 14px; }
 .layer-menu-trigger {
-  width: 42px; height: 42px; padding: 0;
+  width: 44px; height: 44px; padding: 0;
   display: grid; place-items: center;
   border: 1px solid rgba(226, 232, 240, 0.9);
   border-radius: 14px;
@@ -320,9 +347,11 @@ body:has(.home-shell) {
 .layer-menu-panel > strong { padding-bottom: 6px; border-bottom: 1px solid var(--line); font-size: 11px; color: #0f172a; font-weight: 700; }
 .layer-toggle, .range-toggle { display: flex; align-items: center; gap: 7px; color: #475569; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .layer-toggle input, .range-toggle input { position: absolute; opacity: 0; pointer-events: none; }
-.layer-toggle > span { width: 15px; height: 15px; border: 1.5px solid #cbd5e1; border-radius: 4px; background: #fff; position: relative; }
+.layer-toggle > input + span { width: 15px; height: 15px; border: 1.5px solid #cbd5e1; border-radius: 4px; background: #fff; position: relative; }
 .layer-toggle input:checked + span { border-color: #0d9488; background: #0d9488; }
 .layer-toggle input:checked + span::after { content: ""; position: absolute; width: 6px; height: 3.5px; left: 3px; top: 2.5px; border-left: 2px solid #fff; border-bottom: 2px solid #fff; transform: rotate(-45deg); }
+.layer-toggle input:focus-visible + span, .range-toggle input:focus-visible + span { outline: 3px solid #38bdf8; outline-offset: 2px; }
+.layer-toggle:has(input:disabled) { cursor: not-allowed; opacity: .55; }
 
 .range-toggle > span { width: 34px; height: 20px; padding: 2px; border-radius: 20px; background: #cbd5e1; transition: background .2s; }
 .range-toggle > span::after { content: ""; display: block; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.15); transition: transform .2s; }
@@ -335,7 +364,7 @@ body:has(.home-shell) {
 
 /* Leaflet Canvas Map Box */
 .map-wrap { min-height: 0; flex: 1; height: 100%; position: relative; overflow: hidden; background: #f1f5f9; }
-.map { width: 100%; height: 100%; z-index: 1; }
+.map { position: absolute; inset: 0; width: 100%; height: auto; z-index: 1; }
 .map::after { content: ""; position: absolute; inset: 0; z-index: 500; pointer-events: none; box-shadow: inset 0 0 50px rgba(15, 23, 42, 0.05); }
 .leaflet-container { font-family: "Plus Jakarta Sans", "IBM Plex Sans Thai", sans-serif; background: #f1f5f9; }
 .leaflet-tile { filter: saturate(.65) contrast(1.02) brightness(1.04); }
@@ -390,7 +419,7 @@ body:has(.home-shell) {
 .trend-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
 .trend-heading p { margin: 0; color: #0f172a; font-size: 11.5px; font-weight: 700; }
 .trend-heading span { color: #64748b; font-size: 8.5px; font-weight: 600; }
-.trend-chart { height: 56px; margin-top: 6px; display: grid; grid-template-columns: repeat(5, 1fr); align-items: stretch; gap: 4px; }
+.trend-chart { height: 56px; margin-top: 6px; display: grid; grid-template-columns: repeat(7, 1fr); align-items: stretch; gap: 3px; }
 .trend-chart button { min-width: 0; padding: 0 2px; display: grid; grid-template-rows: 14px minmax(0, 1fr) 12px; align-items: end; border: 0; border-radius: 6px; background: transparent; cursor: pointer; transition: all .18s; }
 .trend-chart button:hover { background: #f1f5f9; transform: translateY(-1px); }
 .trend-chart button.active { background: #e0f2fe; box-shadow: inset 0 0 0 1.5px #38bdf8; }
@@ -411,6 +440,7 @@ body:has(.home-shell) {
 .forecast-note > span { width: 22px; height: 22px; flex: 0 0 auto; border-radius: 50%; display: grid; place-items: center; background: #fef3c7; color: #b45309; font-size: 11px; font-weight: 800; }
 .forecast-note p { margin: 0; color: #475569; font-size: 10px; line-height: 1.45; }
 .forecast-note b { display: block; margin-bottom: 2px; color: #0f172a; font-size: 11px; font-weight: 700; }
+.forecast-note small { display: block; margin-top: 5px; color: #64748b; font-size: 8.5px; line-height: 1.45; }
 
 /* Unified 3-Panel GIS Command Center Layout (Air & Rain) */
 .air-shell, .rain-shell {
@@ -850,6 +880,42 @@ body:has(.home-shell) {
 }
 .rain-metric-options button[aria-pressed="true"] { border-color: #2563eb; color: #fff; background: #2563eb; box-shadow: 0 3px 10px rgba(37, 99, 235, 0.2); }
 
+.rain-layer-panel { width: min(300px, calc(100vw - 32px)); max-height: min(540px, calc(100vh - 92px)); overflow-y: auto; }
+.radar-layer-toggle { min-height: 44px; white-space: normal; }
+.radar-layer-toggle > span:first-of-type { flex: 0 0 17px; width: 17px; height: 17px; }
+.layer-toggle-copy { min-width: 0; display: flex; flex: 1; flex-direction: column; gap: 1px; }
+.layer-toggle-copy b { color: #0f172a; font-size: 11px; line-height: 1.35; }
+.layer-toggle-copy small { color: #64748b; font-size: 9px; line-height: 1.35; font-weight: 500; }
+.radar-layer-controls { padding-top: 10px; display: grid; gap: 10px; border-top: 1px solid var(--line); }
+.radar-mode-options { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.radar-mode-options button {
+  min-height: 38px; padding: 6px 10px;
+  border: 1px solid #cbd5e1; border-radius: 8px;
+  background: #f8fafc; color: #475569;
+  font: inherit; font-size: 10px; font-weight: 700; cursor: pointer;
+}
+.radar-mode-options button[aria-pressed="true"] { border-color: #075985; background: #075985; color: #fff; }
+.radar-mode-options button:focus-visible, .radar-frame-picker button:focus-visible, .radar-layer-message button:focus-visible, .radar-source-link:focus-visible { outline: 3px solid #38bdf8; outline-offset: 2px; }
+.radar-frame-meta { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.radar-frame-meta b { overflow: hidden; color: #0f172a; font-size: 10.5px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+.radar-frame-meta span { color: #64748b; font-size: 9px; line-height: 1.4; }
+.radar-frame-picker { display: grid; grid-template-columns: 38px minmax(0, 1fr) 38px; align-items: center; gap: 7px; }
+.radar-frame-picker button {
+  width: 38px; height: 38px; padding: 0;
+  border: 1px solid #cbd5e1; border-radius: 8px;
+  background: #fff; color: #075985; font-size: 22px; line-height: 1; cursor: pointer;
+}
+.radar-frame-picker button:disabled { color: #94a3b8; background: #f8fafc; cursor: not-allowed; }
+.radar-frame-picker input, .radar-opacity-control input { width: 100%; accent-color: #075985; cursor: pointer; }
+.radar-opacity-control { display: grid; grid-template-columns: auto minmax(90px, 1fr); align-items: center; gap: 10px; color: #475569; font-size: 9.5px; font-weight: 600; }
+.radar-source-link { width: fit-content; color: #075985; font-size: 9.5px; font-weight: 700; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+.radar-layer-message { min-height: 44px; padding: 9px 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-radius: 8px; background: #f0f9ff; color: #075985; font-size: 9.5px; font-weight: 700; }
+.radar-layer-message.error { background: #fff7ed; color: #9a3412; }
+.radar-layer-message button { min-height: 34px; padding: 5px 9px; border: 1px solid currentColor; border-radius: 7px; background: #fff; color: inherit; font: inherit; cursor: pointer; }
+.radar-legend { max-width: calc(100% - 28px); }
+.rain-surface-status.degraded b { color: #b45309; }
+.rain-surface-status.unavailable b, .rain-surface-status.error b { color: #b91c1c; }
+
 .rain-average-card { background: linear-gradient(135deg, rgba(56, 189, 248, 0.1), rgba(79, 70, 229, 0.1)); }
 .rain-average-ring { --metric-color: #2563eb; }
 
@@ -954,8 +1020,10 @@ body:has(.home-shell) {
   .banner-copy { width: 100%; }
   .banner-copy h1 { font-size: 24px; }
   .banner-copy p { max-width: 100%; font-size: 10.5px; }
+  .province-selector { width: 100%; justify-content: space-between; }
+  .province-selector select { flex: 1; min-height: 44px; }
   .banner-status { width: 100%; justify-content: space-between; }
-  .day-tabs { height: 72px; margin-top: 8px; grid-template-columns: repeat(5, minmax(120px, 1fr)); overflow-x: auto; border-radius: 16px; }
+  .day-tabs { height: 72px; margin-top: 8px; grid-template-columns: repeat(7, minmax(120px, 1fr)); overflow-x: auto; border-radius: 16px; }
   .workspace { display: block; border-radius: 0 0 16px 16px; }
   .map-wrap { height: 56vh; min-height: 400px; }
   .map-metric { top: 10px; left: 10px; }
@@ -968,7 +1036,7 @@ body:has(.home-shell) {
   .legend { right: 10px; left: 10px; gap: 7px; overflow-x: auto; }
   .rain-window-strip { grid-template-columns: 76px minmax(0, 1fr); overflow: hidden; }
   .rain-window-buttons { overflow-x: auto; grid-template-columns: repeat(8, minmax(56px, 1fr)); }
-  .rain-map-wrap { height: 52vh; min-height: 400px; }
+  .rain-map-wrap { height: 52vh; min-height: 460px; }
 }
 
 @media (max-width: 520px) {

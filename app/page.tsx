@@ -14,18 +14,18 @@ export default function Home() {
           </span>
           <span>
             <b>BKK AIR FORECAST</b>
-            <small>Bangkok environmental forecast</small>
+            <small>Bangkok metropolitan forecast</small>
           </span>
         </Link>
         <div className="home-header-note">
           <span aria-hidden="true">●</span>
-          พยากรณ์ล่วงหน้า 1–5 วัน
+          พยากรณ์ล่วงหน้า 1–7 วัน
         </div>
       </header>
 
       <section className="home-intro" aria-labelledby="home-title">
         <p>BANGKOK ENVIRONMENTAL FORECAST</p>
-        <h1 id="home-title">มองกรุงเทพฯ ล่วงหน้า<br />ก่อนออกจากบ้าน</h1>
+        <h1 id="home-title">มองกรุงเทพฯ และปริมณฑล<br />ล่วงหน้าก่อนออกจากบ้าน</h1>
         <div className="home-intro-bottom">
           <span>เลือกเรื่องที่ต้องการติดตาม</span>
           <p>รวมข้อมูลฝุ่น PM2.5 และฝนไว้ในจุดเดียว เพื่อช่วยวางแผนวันของคุณได้ง่ายขึ้น</p>
@@ -33,21 +33,21 @@ export default function Home() {
       </section>
 
       <section className="home-topics" aria-label="เลือกหัวข้อพยากรณ์">
-        <Link className="home-topic home-topic-air" href="/air" aria-label="เปิดแผนที่พยากรณ์ฝุ่น PM2.5 กรุงเทพฯ" title="เปิดพยากรณ์ฝุ่น PM2.5">
+        <Link className="home-topic home-topic-air" href="/air" aria-label="เปิดแผนที่พยากรณ์ฝุ่น PM2.5 กรุงเทพฯ และปริมณฑล" title="เปิดพยากรณ์ฝุ่น PM2.5">
           <span className="home-topic-number" aria-hidden="true">01</span>
           <span className="home-topic-copy">
             <span className="home-topic-kicker"><i aria-hidden="true" /> AIR QUALITY</span>
-            <strong>พยากรณ์ฝุ่น<br />PM2.5 กรุงเทพฯ</strong>
-            <small>ดูค่าฝุ่นรายพื้นที่ แนวโน้ม 5 วัน และพื้นที่ที่ควรเฝ้าระวัง</small>
+            <strong>พยากรณ์ฝุ่น<br />PM2.5 กรุงเทพฯ–ปริมณฑล</strong>
+            <small>ดูค่าฝุ่นรายพื้นที่ แนวโน้ม 7 วัน และพื้นที่ที่ควรเฝ้าระวัง</small>
             <span className="home-topic-action">เปิดแผนที่พยากรณ์ <b aria-hidden="true">↗</b></span>
           </span>
         </Link>
 
-        <Link className="home-topic home-topic-rain" href="/rain" aria-label="เปิดแผนที่พยากรณ์ฝนกรุงเทพฯ" title="เปิดพยากรณ์ฝนกรุงเทพฯ">
+        <Link className="home-topic home-topic-rain" href="/rain" aria-label="เปิดแผนที่พยากรณ์ฝนกรุงเทพฯ และปริมณฑล" title="เปิดพยากรณ์ฝนกรุงเทพฯ และปริมณฑล">
           <span className="home-topic-number" aria-hidden="true">02</span>
           <span className="home-topic-copy">
             <span className="home-topic-kicker"><i aria-hidden="true" /> RAIN OUTLOOK</span>
-            <strong>พยากรณ์ฝน<br />กรุงเทพฯ</strong>
+            <strong>พยากรณ์ฝน<br />กรุงเทพฯ–ปริมณฑล</strong>
             <small>เช็กโอกาสฝน ปริมาณฝน และช่วงเวลาที่ควรเตรียมพร้อม</small>
             <span className="home-topic-action">เปิดแผนที่พยากรณ์ <b aria-hidden="true">↗</b></span>
           </span>
