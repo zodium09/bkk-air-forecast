@@ -1,5 +1,6 @@
 import { addDays, bangkokDateKey } from "./forecast/timestamps.ts";
 import { FORECAST_DAYS } from "./forecast-horizon.ts";
+import { METRO_REGION_ID, metroRegion, provinces, type RegionId } from "./provinces.ts";
 
 export type ForecastStatus = "live" | "degraded" | "unavailable";
 export type UpstreamStatus = "ok" | "timeout" | "error";
@@ -14,6 +15,53 @@ export type ForecastDay = {
   /** @deprecated Migration alias. This heuristic is not statistical confidence. */
   confidence?: number;
 };
+
+export type ForecastPayload = {
+  province?: { id: RegionId; nameTh: string; shortNameTh: string; nameEn: string };
+  dataMode?: "airbkk-cams" | "airbkk-air4thai-cams" | "air4thai-cams" | "cams-only";
+  status: ForecastStatus | "fallback";
+  issuedAt: string;
+  model?: string;
+  disclaimer?: string;
+  sources?: string[];
+  degradedReasons?: string[];
+  dataQuality?: {
+    acceptedStations?: number;
+    observationAgeHours?: number;
+    camsMinimumCoverageHours?: number;
+    upstream?: Record<string, UpstreamStatus>;
+    provinceCoverage?: number;
+    [key: string]: unknown;
+  };
+  days: ForecastDay[];
+  stations: ForecastStation[];
+};
+
+export function aggregateMetroForecast(payloads: ForecastPayload[]): ForecastPayload {
+  const usable = payloads.filter((payload) => payload.status !== "unavailable");
+  const primary = usable[0] ?? payloads[0];
+  if (!primary) throw new Error("metropolitan forecast unavailable");
+  return {
+    ...primary,
+    province: metroRegion,
+    status: usable.length
+      ? (payloads.length === provinces.length && payloads.every((payload) => payload.status === "live") ? "live" : "degraded")
+      : "unavailable",
+    model: "AirBKK + Air4Thai + CAMS Global · ภาพรวมกรุงเทพฯ และปริมณฑล 6 จังหวัด",
+    disclaimer: "ภาพรวมรวมสถานีและกริดแบบจำลองจากทั้ง 6 จังหวัด ค่าบนแผนที่เป็นค่าพยากรณ์และการประมาณเชิงพื้นที่",
+    sources: [...new Set(usable.flatMap((payload) => payload.sources ?? []))],
+    degradedReasons: [...new Set(payloads.flatMap((payload) => payload.degradedReasons ?? []))],
+    dataQuality: {
+      ...primary.dataQuality,
+      acceptedStations: usable.reduce((sum, payload) => sum + (payload.dataQuality?.acceptedStations ?? payload.stations.length), 0),
+      provinceCoverage: usable.length,
+    },
+    stations: usable.flatMap((payload) => payload.stations.map((station) => ({
+      ...station,
+      id: `${payload.province?.id ?? METRO_REGION_ID}-${station.id}`,
+    }))),
+  };
+}
 
 function formatDate(dateKey: string) {
   const [year, month, day] = dateKey.split("-").map(Number);

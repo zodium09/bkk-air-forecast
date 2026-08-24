@@ -6,29 +6,15 @@ import {
   forecastStations as bundledStations,
   getLevel,
   issuedAt as bundledIssuedAt,
-  type ForecastDay,
+  type ForecastPayload,
   type ForecastStation,
 } from "./lib/forecast-data";
 import { FORECAST_DAYS } from "./lib/forecast-horizon";
 import OutlookNav from "./components/outlook-nav";
 import ProvinceSelector from "./components/province-selector";
-import { DEFAULT_REGION_ID, METRO_REGION_ID, buildFallbackBoundary, getRegion, provinces, type ProvinceId, type RegionId } from "./lib/provinces";
+import { DEFAULT_REGION_ID, METRO_REGION_ID, buildFallbackBoundary, getRegion, type RegionId } from "./lib/provinces";
 import "leaflet/dist/leaflet.css";
 import "./reliability.css";
-
-type ForecastPayload = {
-  province?: { id: ProvinceId; nameTh: string; shortNameTh: string; nameEn: string };
-  dataMode?: "airbkk-cams" | "airbkk-air4thai-cams" | "air4thai-cams" | "cams-only";
-  status: "live" | "degraded" | "unavailable" | "fallback";
-  issuedAt: string;
-  model?: string;
-  disclaimer?: string;
-  sources?: string[];
-  degradedReasons?: string[];
-  dataQuality?: { acceptedStations?: number; observationAgeHours?: number; camsMinimumCoverageHours?: number; upstream?: Record<string, "ok" | "timeout" | "error"> };
-  days: ForecastDay[];
-  stations: ForecastStation[];
-};
 
 type Coordinate = [number, number];
 type PolygonCoordinates = Coordinate[][];
@@ -206,57 +192,21 @@ function buildAirSvgCurve(pts: Array<{ x: number; y: number }>) {
 }
 
 async function fetchAirPayload(regionId: RegionId, reloadKey: number): Promise<ForecastPayload> {
-  const fetchProvince = async (provinceId: ProvinceId) => {
-    const query = new URLSearchParams({ horizon: String(FORECAST_DAYS), province: provinceId });
-    if (reloadKey) query.set("refresh", String(reloadKey));
-    const response = await fetch(`/api/forecast?${query}`, { cache: reloadKey ? "reload" : "default" });
-    if (!response.ok) throw new Error("forecast unavailable");
-    return response.json() as Promise<ForecastPayload>;
-  };
-  if (regionId !== METRO_REGION_ID) return fetchProvince(regionId);
-
-  const results = await Promise.allSettled(provinces.map((province) => fetchProvince(province.id)));
-  const payloads = results
-    .filter((result): result is PromiseFulfilledResult<ForecastPayload> => result.status === "fulfilled")
-    .map((result) => result.value);
-  if (!payloads.length) throw new Error("metropolitan forecast unavailable");
-  const usable = payloads.filter((payload) => payload.status !== "unavailable");
-  const primary = usable[0] ?? payloads[0];
-  return {
-    ...primary,
-    status: usable.length ? (payloads.length === provinces.length && payloads.every((payload) => payload.status === "live") ? "live" : "degraded") : "unavailable",
-    model: "AirBKK + CAMS Global · ภาพรวมกรุงเทพฯ และปริมณฑล 6 จังหวัด",
-    disclaimer: "ภาพรวมรวมสถานีและกริดแบบจำลองจากทั้ง 6 จังหวัด ค่าบนแผนที่เป็นค่าพยากรณ์และการประมาณเชิงพื้นที่",
-    degradedReasons: [...new Set(payloads.flatMap((payload) => payload.degradedReasons ?? []))],
-    stations: usable.flatMap((payload) => payload.stations.map((station) => ({
-      ...station,
-      id: `${payload.province?.id ?? "province"}-${station.id}`,
-    }))),
-  };
+  const query = new URLSearchParams({ horizon: String(FORECAST_DAYS), province: regionId });
+  const response = await fetch(`/api/forecast?${query}`, { cache: reloadKey ? "no-cache" : "default" });
+  if (!response.ok) throw new Error("forecast unavailable");
+  return response.json() as Promise<ForecastPayload>;
 }
-
 async function fetchRegionBoundary(regionId: RegionId): Promise<{ boundary: BoundaryCollection; state: "official" | "fallback" }> {
-  const fetchProvinceBoundary = async (provinceId: ProvinceId) => {
-    const url = provinceId === "bangkok" ? "/api/bangkok-boundary" : `/api/province-boundary?province=${provinceId}`;
-    try {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error("boundary unavailable");
-      return { boundary: await response.json() as BoundaryCollection, official: true };
-    } catch {
-      return { boundary: buildFallbackBoundary(provinceId) as BoundaryCollection, official: false };
-    }
-  };
-  if (regionId !== METRO_REGION_ID) {
-    const result = await fetchProvinceBoundary(regionId);
-    return { boundary: result.boundary, state: result.official ? "official" : "fallback" };
+  const url = regionId === "bangkok" ? "/api/bangkok-boundary" : `/api/province-boundary?province=${regionId}`;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("boundary unavailable");
+    return { boundary: await response.json() as BoundaryCollection, state: "official" };
+  } catch {
+    return { boundary: buildFallbackBoundary(regionId) as BoundaryCollection, state: "fallback" };
   }
-  const results = await Promise.all(provinces.map((province) => fetchProvinceBoundary(province.id)));
-  return {
-    boundary: { type: "FeatureCollection", features: results.flatMap((result) => result.boundary.features) },
-    state: results.every((result) => result.official) ? "official" : "fallback",
-  };
-}
-export default function ForecastDashboard() {
+}export default function ForecastDashboard() {
   const [selectedProvinceId, setSelectedProvinceId] = useState<RegionId>(DEFAULT_REGION_ID);
   const [selectedDay, setSelectedDay] = useState(0);
   const [days, setDays] = useState(bundledDays);

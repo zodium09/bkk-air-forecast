@@ -6,7 +6,7 @@ BKK Air Forecast is a Bangkok-metropolitan web application for viewing seven-day
 
 - Seven-day PM2.5 outlook with Bangkok station observations, province model grids, and spatial IDW surfaces
 - Seven-day rain outlook with 3-hour windows, probability and rain-amount views
-- Province selector shared across air and rain views, defaulting to Bangkok
+- Province selector shared across air and rain views, defaulting to the six-province metropolitan overview
 - Optional TMD RadarGIS observed and 0–3 hour nowcast layers
 - Explicit `live`, `degraded`, and `unavailable` data states
 - Upstream timeout handling, quality-control summaries, and safe no-data behavior
@@ -17,6 +17,8 @@ BKK Air Forecast is a Bangkok-metropolitan web application for viewing seven-day
 The application uses React 19 and vinext with file-based routes under `app/`. Server routes adapt upstream sources into stable JSON contracts. Pure PM2.5 logic lives under `app/lib/forecast/` so timestamps, quality control, interpolation, CAMS aggregation, bias correction, and reliability scoring can be tested without network access.
 
 The browser renders Leaflet base maps and generates clipped raster IDW surfaces. Generated PM2.5 surfaces are cached by day, station-data version, and boundary version. Rain surfaces use a 24-entry LRU-style cache keyed by day, 3-hour window, metric, data version, and boundary version.
+
+The default metropolitan views call one consolidated forecast endpoint and one consolidated boundary endpoint instead of six province endpoints. Successful public-data responses are stored in Cloudflare Cache API with normalized cache keys: PM2.5 for 10 minutes, rain for 30 minutes, radar for 5 minutes, and boundaries for 7 days. Client-generated refresh values are excluded from cache keys, and Air4Thai downloads are deduplicated within each metropolitan refresh. This design requires no D1, KV, R2, or paid add-on.
 
 ## Data Sources
 

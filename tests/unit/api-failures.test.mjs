@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createForecastResponse } from "../../app/api/forecast/route.ts";
-import { createRainForecastResponse } from "../../app/api/rain-forecast/route.ts";
+import { createForecastResponse, createMetroForecastResponse } from "../../app/api/forecast/route.ts";
+import { createMetroRainForecastResponse, createRainForecastResponse } from "../../app/api/rain-forecast/route.ts";
 
 const NOW = Date.UTC(2026, 7, 21, 3);
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json" } });
@@ -58,6 +58,24 @@ test("PM API is live when all sources are complete", async () => {
   assert.equal(payload.stations.length, 24);
   assert.equal(payload.days.length, 7);
   assert.ok(payload.stations.every((station) => station.values.length === 7));
+});
+
+test("metro PM endpoint consolidates six provinces and downloads Air4Thai once", async () => {
+  const requested = [];
+  const baseFetch = forecastFetch();
+  const payload = await (await createMetroForecastResponse({
+    fetchImpl: async (input, init) => {
+      requested.push(String(input));
+      return baseFetch(input, init);
+    },
+    now: () => NOW,
+  })).json();
+  assert.equal(payload.province.id, "metro");
+  assert.equal(payload.dataQuality.provinceCoverage, 6);
+  assert.equal(payload.stations.length, 69);
+  assert.equal(requested.filter((url) => url.includes("air4thai.pcd.go.th")).length, 1);
+  assert.equal(requested.filter((url) => url.includes("air-quality-api")).length, 6);
+  assert.equal(requested.filter((url) => url.includes("api.open-meteo.com/v1/forecast")).length, 6);
 });
 
 test("weather timeout degrades PM forecast without hiding the heatmap data", async () => {
@@ -162,6 +180,18 @@ test("rain provider failover uses GFS after Best Match fails", async () => {
   assert.equal(payload.days.length, 7);
   assert.equal(payload.windows.length, 56);
   assert.ok(payload.points.every((point) => point.daily.length === 7));
+});
+
+test("metro rain endpoint consolidates six province forecasts into 54 points", async () => {
+  let calls = 0;
+  const payload = await (await createMetroRainForecastResponse({
+    fetchImpl: async () => { calls += 1; return json(rainRaw(9)); },
+  })).json();
+  assert.equal(payload.province.id, "metro");
+  assert.equal(payload.status, "live");
+  assert.equal(payload.points.length, 54);
+  assert.equal(payload.dataQuality.expectedPoints, 54);
+  assert.equal(calls, 6);
 });
 
 test("rain forecast uses coordinates and metadata for the selected metro province", async () => {

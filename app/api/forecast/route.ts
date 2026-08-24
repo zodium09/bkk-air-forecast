@@ -1,10 +1,11 @@
-import { buildForecastDayShells, type ForecastDay, type ForecastStation, type ForecastStatus, type UpstreamStatus } from "../../lib/forecast-data.ts";
+import { aggregateMetroForecast, buildForecastDayShells, type ForecastDay, type ForecastPayload, type ForecastStation, type ForecastStatus, type UpstreamStatus } from "../../lib/forecast-data.ts";
 import { buildCamsDailyForecast, calculateBiasCorrection, calculateReliabilityScore, clamp } from "../../lib/forecast/forecast-model.ts";
 import { spatialIdw } from "../../lib/forecast/interpolation.ts";
 import { deduplicateStations, filterFreshStations, filterOutliers, isValidStation, type RejectedStations } from "../../lib/forecast/quality-control.ts";
 import { addDays, parseBangkokTimestamp } from "../../lib/forecast/timestamps.ts";
 import { FORECAST_DAYS } from "../../lib/forecast-horizon.ts";
-import { getProvince, getProvincePoints, type ProvinceId } from "../../lib/provinces.ts";
+import { METRO_REGION_ID, getProvince, getProvincePoints, provinces, type ProvinceId } from "../../lib/provinces.ts";
+import { createDeduplicatedFetch } from "../../lib/deduplicated-fetch.ts";
 
 const AIRBKK_URL = "https://official.airbkk.com/airbkk/Api";
 const AIR4THAI_URL = "https://air4thai.pcd.go.th/services/getNewAQI_JSON.php";
@@ -260,7 +261,7 @@ export async function createForecastResponse(options: ForecastHandlerOptions = {
       sources: [...(hasAir4Bias ? ["Air4Thai PCD observations"] : []), "CAMS Global via Open-Meteo", "Open-Meteo Weather Forecast", isBangkok ? "BMA GIS district boundary" : "DMR province boundary"], degradedReasons,
       dataQuality: { upstream, acceptedStations: stations.length, air4thaiStations: freshAir4thaiRecords.length, regionalBias: Math.round(regionalBias * 10) / 10, camsMinimumCoverageHours: Math.min(...coverageByDay), camsCoverageHoursByDay: coverageByDay, weatherAvailable, qualityControl: hasAir4Bias ? "CAMS 9-point spatial grid with median Air4Thai bias correction" : "CAMS 9-point spatial grid without local station bias correction" },
       days, stations,
-    }, { headers: { "Cache-Control": "public, max-age=300, s-maxage=900, stale-while-revalidate=3600", "X-Forecast-Status": "degraded", "X-Province": province.id } });
+    }, { headers: { "Cache-Control": "public, max-age=60, stale-while-revalidate=3600", "CDN-Cache-Control": "public, max-age=600, stale-while-revalidate=3600", "X-Forecast-Status": "degraded", "X-Province": province.id } });
   }
 
   const rawRecords = observationRecords.map((record) => ({
@@ -340,14 +341,44 @@ export async function createForecastResponse(options: ForecastHandlerOptions = {
       observationAgeHours: Math.round(observationAgeHours * 10) / 10, camsMinimumCoverageHours: Math.min(...coverageByDay),
       camsCoverageHoursByDay: coverageByDay, weatherAvailable, qualityControl: "validation + freshness + deduplication + global MAD with local corroboration",
     }, days, stations,
-  }, { headers: { "Cache-Control": "public, max-age=300, s-maxage=900, stale-while-revalidate=3600", "X-Forecast-Status": status } });
+  }, { headers: { "Cache-Control": "public, max-age=60, stale-while-revalidate=3600", "CDN-Cache-Control": "public, max-age=600, stale-while-revalidate=3600", "X-Forecast-Status": status } });
+}
+
+export async function createMetroForecastResponse(options: Omit<ForecastHandlerOptions, "provinceId"> = {}) {
+  const fetchImpl = createDeduplicatedFetch(options.fetchImpl ?? fetch);
+  const results = await Promise.allSettled(provinces.map(async (province) => {
+    const response = await createForecastResponse({ ...options, fetchImpl, provinceId: province.id });
+    if (!response.ok) throw new Error(`${province.id} forecast unavailable`);
+    return response.json() as Promise<ForecastPayload>;
+  }));
+  const payloads = results
+    .filter((result): result is PromiseFulfilledResult<ForecastPayload> => result.status === "fulfilled")
+    .map((result) => result.value);
+  if (!payloads.length) {
+    return Response.json({ error: "metropolitan forecast unavailable" }, {
+      status: 503,
+      headers: { "Cache-Control": "no-store", "X-Forecast-Status": "unavailable" },
+    });
+  }
+  const payload = aggregateMetroForecast(payloads);
+  return Response.json(payload, {
+    headers: {
+      "Cache-Control": "public, max-age=60, stale-while-revalidate=3600",
+      "CDN-Cache-Control": "public, max-age=600, stale-while-revalidate=3600",
+      "X-Forecast-Status": payload.status,
+      "X-Province": METRO_REGION_ID,
+    },
+  });
 }
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const isLocalPreview = url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "::1";
-  return createForecastResponse({
-    provinceId: url.searchParams.get("province"),
+  const provinceId = url.searchParams.get("province");
+  const options = {
     air4ThaiFallbackUrl: isLocalPreview ? `${url.origin}/__air4thai` : undefined,
-  });
+  };
+  return provinceId === METRO_REGION_ID
+    ? createMetroForecastResponse(options)
+    : createForecastResponse({ ...options, provinceId });
 }

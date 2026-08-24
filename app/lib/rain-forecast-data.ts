@@ -1,5 +1,5 @@
 import { FORECAST_DAYS } from "./forecast-horizon.ts";
-import type { RegionId } from "./provinces.ts";
+import { metroRegion, provinces, type RegionId } from "./provinces.ts";
 
 export type RainStatus = "live" | "degraded" | "unavailable";
 
@@ -110,6 +110,72 @@ export function buildRainDayShells(startDateKey?: string): RainDay[] {
       weatherCode: null,
     };
   });
+}
+
+function meanNullable(values: Array<number | null | undefined>) {
+  const valid = values.filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+  return valid.length ? Math.round((valid.reduce((sum, value) => sum + value, 0) / valid.length) * 10) / 10 : null;
+}
+
+function maxNullable(values: Array<number | null | undefined>) {
+  const valid = values.filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+  return valid.length ? Math.max(...valid) : null;
+}
+
+export function aggregateMetroRain(payloads: RainForecastPayload[]): RainForecastPayload {
+  const usable = payloads.filter((payload) => payload.status !== "unavailable");
+  const primary = usable[0] ?? payloads[0];
+  if (!primary) throw new Error("metropolitan rain forecast unavailable");
+  if (!usable.length) return { ...primary, province: metroRegion, points: [], windows: [] };
+
+  const windows = primary.windows.map((baseWindow) => {
+    const matches = usable.map((payload) => payload.windows.find((window) =>
+      window.dayIndex === baseWindow.dayIndex && window.windowIndex === baseWindow.windowIndex,
+    )).filter(Boolean);
+    return {
+      ...baseWindow,
+      probabilityMax: maxNullable(matches.map((window) => window?.probabilityMax)),
+      rainMeanMm: meanNullable(matches.map((window) => window?.rainMeanMm)),
+      rainMaxMm: maxNullable(matches.map((window) => window?.rainMaxMm)),
+    };
+  });
+  const days = primary.days.map((baseDay, dayIndex) => {
+    const matches = usable.map((payload) => payload.days[dayIndex]).filter(Boolean);
+    const peak = windows
+      .filter((window) => window.dayIndex === dayIndex)
+      .sort((a, b) => (b.rainMeanMm ?? -1) - (a.rainMeanMm ?? -1) || (b.probabilityMax ?? -1) - (a.probabilityMax ?? -1))[0];
+    return {
+      ...baseDay,
+      probabilityMax: maxNullable(matches.map((day) => day?.probabilityMax)),
+      rainMeanMm: meanNullable(matches.map((day) => day?.rainMeanMm)),
+      rainMaxMm: maxNullable(matches.map((day) => day?.rainMaxMm)),
+      wetHours: meanNullable(matches.map((day) => day?.wetHours)),
+      peakWindow: peak?.label ?? null,
+    };
+  });
+  return {
+    ...primary,
+    province: metroRegion,
+    status: payloads.length === provinces.length && payloads.every((payload) => payload.status === "live") ? "live" : "degraded",
+    fetchedAt: usable.map((payload) => payload.fetchedAt).sort().at(-1) ?? primary.fetchedAt,
+    model: "Open-Meteo Best Match / GFS · 54-point metropolitan grid",
+    disclaimer: "ภาพรวมพยากรณ์ฝนจากกริด 9 จุดต่อจังหวัด รวม 6 จังหวัด ไม่ใช่เรดาร์ฝนหรือประกาศเตือนภัย",
+    sources: [...new Set(usable.flatMap((payload) => payload.sources))],
+    dataQuality: {
+      ...primary.dataQuality,
+      expectedPoints: usable.reduce((sum, payload) => sum + payload.dataQuality.expectedPoints, 0),
+      acceptedPoints: usable.reduce((sum, payload) => sum + payload.dataQuality.acceptedPoints, 0),
+      rejectedPoints: usable.reduce((sum, payload) => sum + (payload.dataQuality.rejectedPoints ?? 0), 0),
+      coverageHours: Math.min(...usable.map((payload) => payload.dataQuality.coverageHours)),
+    },
+    days,
+    windows,
+    points: usable.flatMap((payload) => payload.points.map((point) => ({
+      ...point,
+      id: `${payload.province.id}-${point.id}`,
+      label: `${payload.province.shortNameTh} · ${point.label}`,
+    }))),
+  };
 }
 
 export function rainAmountLevel(value: number | null) {

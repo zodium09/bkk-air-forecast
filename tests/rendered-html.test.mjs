@@ -123,7 +123,8 @@ test("boundary adapter uses the official BMA district layer", async () => {
   const route = await readFile(new URL("../app/api/bangkok-boundary/route.ts", import.meta.url), "utf8");
   assert.match(route, /bmagis\.bangkok\.go\.th\/arcgis\/rest\/services\/BMA\/DISTRICT\/MapServer\/0\/query/);
   assert.match(route, /outSR=4326/);
-  assert.match(route, /s-maxage=86400/);
+  assert.match(route, /CDN-Cache-Control/);
+  assert.match(route, /max-age=604800/);
 });
 
 test("metro boundary adapter uses the official DMR province layer", async () => {
@@ -201,6 +202,23 @@ test("rain forecast API normalizes a real-provider browser fallback payload", as
   assert.equal(response.headers.get("X-Rain-Forecast-Delivery"), "browser-fallback");
 });
 
+test("Cloudflare free architecture consolidates metro requests and normalizes cache keys", async () => {
+  const worker = await readFile(new URL("../worker/index.ts", import.meta.url), "utf8");
+  const airRoute = await readFile(new URL("../app/api/forecast/route.ts", import.meta.url), "utf8");
+  const rainRoute = await readFile(new URL("../app/api/rain-forecast/route.ts", import.meta.url), "utf8");
+  const airDashboard = await readFile(new URL("../app/forecast-dashboard.tsx", import.meta.url), "utf8");
+  const rainDashboard = await readFile(new URL("../app/rain/rain-dashboard.tsx", import.meta.url), "utf8");
+  assert.match(worker, /caches\.default/);
+  assert.match(worker, /searchParams\.delete\("refresh"\)/);
+  assert.match(worker, /X-Edge-Cache/);
+  assert.match(airRoute, /createMetroForecastResponse/);
+  assert.match(rainRoute, /createMetroRainForecastResponse/);
+  assert.doesNotMatch(airDashboard, /Promise\.allSettled\(provinces/);
+  assert.doesNotMatch(rainDashboard, /Promise\.allSettled\(provinces/);
+  assert.doesNotMatch(airDashboard, /query\.set\("refresh"/);
+  assert.doesNotMatch(rainDashboard, /query\.set\("refresh"/);
+});
+
 test("rain adapter uses cached nine-point live Open-Meteo providers without fake fallback values", async () => {
   const route = await readFile(new URL("../app/api/rain-forecast/route.ts", import.meta.url), "utf8");
   const provider = await readFile(new URL("../app/lib/rain-forecast-provider.ts", import.meta.url), "utf8");
@@ -209,7 +227,8 @@ test("rain adapter uses cached nine-point live Open-Meteo providers without fake
   assert.match(provider, /api\.open-meteo\.com\/v1\/gfs/);
   assert.match(provider, /precipitation_probability,precipitation,rain,showers,weather_code/);
   assert.match(route, /forecastPoints\.length/);
-  assert.match(route, /s-maxage=1800/);
+  assert.match(route, /CDN-Cache-Control/);
+  assert.match(route, /max-age=1800/);
   assert.match(route, /MINIMUM_HOURLY_COVERAGE/);
   assert.match(route, /rejectedPoints/);
   assert.match(route, /X-Rain-Forecast-Status/);

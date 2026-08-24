@@ -1,4 +1,5 @@
 import {
+  aggregateMetroRain,
   buildRainDayShells,
   formatRainDate,
   type RainDay,
@@ -6,8 +7,10 @@ import {
   type RainPointDay,
   type RainPointWindow,
   type RainWindow,
+  type RainForecastPayload,
 } from "../../lib/rain-forecast-data.ts";
 import { FORECAST_DAYS } from "../../lib/forecast-horizon.ts";
+import { METRO_REGION_ID, provinces } from "../../lib/provinces.ts";
 import {
   buildRainForecastUrl,
   getRainForecastProvider,
@@ -231,7 +234,8 @@ function normalizedResponse(raw: OpenMeteoLocation[] | OpenMeteoLocation, provid
       "X-Rain-Forecast-Provider": provider.id,
       "X-Rain-Forecast-Delivery": "browser-fallback",
     } : {
-      "Cache-Control": "public, max-age=300, s-maxage=1800, stale-while-revalidate=7200",
+      "Cache-Control": "public, max-age=60, stale-while-revalidate=7200",
+      "CDN-Cache-Control": "public, max-age=1800, stale-while-revalidate=7200",
       "X-Rain-Forecast-Status": status,
       "X-Rain-Forecast-Provider": provider.id,
     },
@@ -261,8 +265,37 @@ export async function createRainForecastResponse(options: { fetchImpl?: typeof f
   return unavailableResponse(new Error(failures.join("; ")), province.id);
 }
 
+export async function createMetroRainForecastResponse(options: { fetchImpl?: typeof fetch; timeoutMs?: number } = {}) {
+  const results = await Promise.allSettled(provinces.map(async (province) => {
+    const response = await createRainForecastResponse({ ...options, provinceId: province.id });
+    if (!response.ok) throw new Error(`${province.id} rain forecast unavailable`);
+    return response.json() as Promise<RainForecastPayload>;
+  }));
+  const payloads = results
+    .filter((result): result is PromiseFulfilledResult<RainForecastPayload> => result.status === "fulfilled")
+    .map((result) => result.value);
+  if (!payloads.length) {
+    return Response.json({ error: "metropolitan rain forecast unavailable" }, {
+      status: 503,
+      headers: { "Cache-Control": "no-store", "X-Rain-Forecast-Status": "unavailable" },
+    });
+  }
+  const payload = aggregateMetroRain(payloads);
+  return Response.json(payload, {
+    headers: {
+      "Cache-Control": "public, max-age=60, stale-while-revalidate=7200",
+      "CDN-Cache-Control": "public, max-age=1800, stale-while-revalidate=7200",
+      "X-Rain-Forecast-Status": payload.status,
+      "X-Province": METRO_REGION_ID,
+    },
+  });
+}
+
 export async function GET(request: Request) {
-  return createRainForecastResponse({ provinceId: new URL(request.url).searchParams.get("province") });
+  const provinceId = new URL(request.url).searchParams.get("province");
+  return provinceId === METRO_REGION_ID
+    ? createMetroRainForecastResponse()
+    : createRainForecastResponse({ provinceId });
 }
 export async function POST(request: Request) {
   try {

@@ -20,7 +20,8 @@ export async function GET() {
 
     return Response.json(boundary, {
       headers: {
-        "Cache-Control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
+        "Cache-Control": "public, max-age=3600, stale-while-revalidate=604800",
+        "CDN-Cache-Control": "public, max-age=604800, stale-while-revalidate=604800",
         "X-Boundary-Source": "BMA GIS DISTRICT MapServer/0",
       },
     });

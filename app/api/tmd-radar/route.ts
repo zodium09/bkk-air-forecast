@@ -147,7 +147,8 @@ export async function createTmdRadarResponse(options: {
     };
     return Response.json(payload, {
       headers: status === "live" ? {
-        "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
+        "Cache-Control": "public, max-age=60, stale-while-revalidate=600",
+        "CDN-Cache-Control": "public, max-age=300, stale-while-revalidate=600",
         "X-TMD-Radar-Status": status,
       } : {
         "Cache-Control": "no-store",
