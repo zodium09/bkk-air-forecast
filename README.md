@@ -21,6 +21,7 @@ The browser renders Leaflet base maps and generates clipped raster IDW surfaces.
 ## Data Sources
 
 - **AirBKK:** current PM2.5 observations from Bangkok monitoring stations; it is observation data, not a forecast model.
+- **Air4Thai (Pollution Control Department):** official PM2.5 observations used to supplement and deduplicate AirBKK stations, bias-correct metropolitan province grids, and replace AirBKK observations during an outage.
 - **CAMS Global via Open-Meteo Air Quality:** model forecast used as the PM2.5 background field.
 - **Open-Meteo Weather Forecast:** wind and precipitation context for PM2.5.
 - **Open-Meteo Best Match and GFS:** rain model providers, queried in that order.
@@ -45,7 +46,7 @@ Rain values come from nine model grid points covering the selected province. Hou
 - `degraded`: a usable forecast exists, but a secondary source, hourly coverage, or freshness criterion is incomplete. `degradedReasons` explains why.
 - `unavailable`: a trustworthy forecast cannot be produced. The API returns current date placeholders and no PM2.5 stations/rain points; the UI disables the heatmap and offers retry.
 
-Every upstream request has a bounded timeout. PM2.5 `dataQuality.upstream` reports `ok`, `timeout`, or `error` for AirBKK, CAMS, and weather. AirBKK bias correction is used only for Bangkok; the five neighbouring provinces are explicitly labelled as CAMS-only model grids. Bundled dated demo values are not used in the production failure path. A simplified province boundary may be shown when an official GIS service is unavailable, and the UI labels this boundary fallback explicitly.
+Every upstream request has a bounded timeout. PM2.5 `dataQuality.upstream` reports `ok`, `timeout`, or `error` for AirBKK, Air4Thai, CAMS, and weather. AirBKK remains the primary Bangkok observation source; Air4Thai supplements non-duplicate stations, replaces AirBKK during an outage, and supplies a median bias correction for province CAMS grids when fresh local stations are available. Bundled dated demo values are not used in the production failure path. A simplified province boundary may be shown when an official GIS service is unavailable, and the UI labels this boundary fallback explicitly.
 
 ## Local Development
 

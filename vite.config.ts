@@ -1,5 +1,6 @@
 import vinext from "vinext";
-import { defineConfig } from "vite";
+import { getCACertificates, setDefaultCACertificates } from "node:tls";
+import { defineConfig, type Plugin } from "vite";
 import hostingConfig from "./.openai/hosting.json";
 import { sites } from "./build/sites-vite-plugin";
 
@@ -10,6 +11,36 @@ const { d1, r2 } = hostingConfig;
 
 // macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
+
+function air4ThaiPreviewBridge(): Plugin {
+  return {
+    name: "air4thai-preview-bridge",
+    configureServer(server) {
+      // Air4Thai omits an intermediate certificate. Node can build the chain
+      // from the Windows system store, while the local workerd runtime cannot.
+      setDefaultCACertificates([
+        ...getCACertificates("default"),
+        ...getCACertificates("system"),
+      ]);
+      server.middlewares.use("/__air4thai", async (_request, response) => {
+        try {
+          const upstream = await fetch("https://air4thai.pcd.go.th/services/getNewAQI_JSON.php", {
+            headers: { Accept: "application/json" },
+            signal: AbortSignal.timeout(9_000),
+          });
+          response.statusCode = upstream.status;
+          response.setHeader("Content-Type", "application/json; charset=utf-8");
+          response.setHeader("Cache-Control", "no-store");
+          response.end(await upstream.text());
+        } catch {
+          response.statusCode = 502;
+          response.setHeader("Content-Type", "application/json; charset=utf-8");
+          response.end('{"error":"air4thai_unavailable"}');
+        }
+      });
+    },
+  };
+}
 
 const localBindingConfig = {
   main: "./worker/index.ts",
@@ -48,6 +79,7 @@ export default defineConfig(async () => {
       ? { watch: { useFsEvents: false, usePolling: true } }
       : undefined,
     plugins: [
+      air4ThaiPreviewBridge(),
       vinext(),
       sites(),
       cloudflare({

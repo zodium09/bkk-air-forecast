@@ -4,20 +4,79 @@ import { spatialIdw } from "../../lib/forecast/interpolation.ts";
 import { deduplicateStations, filterFreshStations, filterOutliers, isValidStation, type RejectedStations } from "../../lib/forecast/quality-control.ts";
 import { addDays, parseBangkokTimestamp } from "../../lib/forecast/timestamps.ts";
 import { FORECAST_DAYS } from "../../lib/forecast-horizon.ts";
-import { getProvince, getProvincePoints } from "../../lib/provinces.ts";
+import { getProvince, getProvincePoints, type ProvinceId } from "../../lib/provinces.ts";
 
 const AIRBKK_URL = "https://official.airbkk.com/airbkk/Api";
+const AIR4THAI_URL = "https://air4thai.pcd.go.th/services/getNewAQI_JSON.php";
 const CAMS_URL = "https://air-quality-api.open-meteo.com/v1/air-quality";
 const WEATHER_URL = "https://api.open-meteo.com/v1/forecast";
-const DEFAULT_TIMEOUTS = { airbkk: 9_000, cams: 9_000, weather: 7_000 } as const;
+const DEFAULT_TIMEOUTS = { airbkk: 9_000, air4thai: 9_000, cams: 9_000, weather: 7_000 } as const;
 
 type AirBkkRecord = { MeasIndex: string; District: string; Area: string; Lat: string; Long: string; DateTime: string; Type: string; "PM2.5": number | string | null };
 type AirBkkResponse = { status: string; message: AirBkkRecord[] };
-type CamsLocation = { latitude: number; longitude: number; current?: { time: string; pm2_5: number | null }; hourly: { time: string[]; pm2_5: Array<number | null> } };
+type Air4ThaiStation = {
+  stationID?: unknown;
+  nameTH?: unknown;
+  areaTH?: unknown;
+  lat?: unknown;
+  long?: unknown;
+  AQILast?: { date?: unknown; time?: unknown; PM25?: { value?: unknown } };
+};
+type Air4ThaiResponse = { stations?: unknown };type CamsLocation = { latitude: number; longitude: number; current?: { time: string; pm2_5: number | null }; hourly: { time: string[]; pm2_5: Array<number | null> } };
 type WeatherResponse = { daily: { time: string[]; wind_speed_10m_max: Array<number | null>; wind_direction_10m_dominant: Array<number | null>; precipitation_probability_max: Array<number | null> } };
 type SourceResult = { status: UpstreamStatus; data?: unknown };
-export type ForecastHandlerOptions = { fetchImpl?: typeof fetch; now?: () => number; timeouts?: Partial<typeof DEFAULT_TIMEOUTS>; provinceId?: unknown };
+export type ForecastHandlerOptions = { fetchImpl?: typeof fetch; now?: () => number; timeouts?: Partial<typeof DEFAULT_TIMEOUTS>; provinceId?: unknown; air4ThaiFallbackUrl?: string };
 
+const AIR4THAI_PROVINCE_NAMES: Record<ProvinceId, string> = {
+  bangkok: "กรุงเทพ",
+  nonthaburi: "นนทบุรี",
+  "pathum-thani": "ปทุมธานี",
+  "samut-prakan": "สมุทรปราการ",
+  "samut-sakhon": "สมุทรสาคร",
+  "nakhon-pathom": "นครปฐม",
+};
+
+function normalizeAir4ThaiRecords(raw: Air4ThaiResponse | undefined, provinceId: ProvinceId): AirBkkRecord[] {
+  if (!Array.isArray(raw?.stations)) return [];
+  const province = getProvince(provinceId);
+  const provinceName = AIR4THAI_PROVINCE_NAMES[province.id];
+  return (raw.stations as Air4ThaiStation[]).flatMap((station) => {
+    const area = typeof station.areaTH === "string" ? station.areaTH.trim() : "";
+    const lat = Number(station.lat);
+    const lng = Number(station.long);
+    const value = Number(station.AQILast?.PM25?.value);
+    const date = station.AQILast?.date;
+    const time = station.AQILast?.time;
+    if (!area.includes(provinceName) || !Number.isFinite(lat) || !Number.isFinite(lng) || !Number.isFinite(value) || value < 0) return [];
+    if (lat < province.bounds.minLat || lat > province.bounds.maxLat || lng < province.bounds.minLng || lng > province.bounds.maxLng) return [];
+    if (typeof date !== "string" || typeof time !== "string") return [];
+    const dateTime = `${date} ${time.length === 5 ? `${time}:00` : time}`;
+    return [{
+      MeasIndex: `air4thai-${String(station.stationID ?? `${lat},${lng}`)}`,
+      District: area.split(",")[0] || province.nameTh,
+      Area: typeof station.nameTH === "string" ? station.nameTH.trim() : area,
+      Lat: String(lat),
+      Long: String(lng),
+      DateTime: dateTime,
+      Type: "Air4Thai PCD",
+      "PM2.5": value,
+    }];
+  });
+}
+
+function mergeObservationRecords(primary: AirBkkRecord[], secondary: AirBkkRecord[]) {
+  return [...primary, ...secondary.filter((candidate) => !primary.some((record) =>
+    Math.abs(Number(record.Lat) - Number(candidate.Lat)) < 0.0007 &&
+    Math.abs(Number(record.Long) - Number(candidate.Long)) < 0.0007,
+  ))];
+}
+
+function medianNumber(values: number[]) {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
 function sourceFailure(error: unknown): UpstreamStatus {
   return error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError") ? "timeout" : "error";
 }
@@ -30,6 +89,13 @@ async function requestJson(fetchImpl: typeof fetch, url: URL | string, init: Req
   } catch (error) {
     return { status: sourceFailure(error) };
   }
+}
+
+async function requestJsonWithFallback(fetchImpl: typeof fetch, url: string, fallbackUrl: string | undefined, init: RequestInit, timeoutMs: number) {
+  const primary = await requestJson(fetchImpl, url, init, timeoutMs);
+  return primary.status === "ok" || !fallbackUrl
+    ? primary
+    : requestJson(fetchImpl, fallbackUrl, init, timeoutMs);
 }
 
 function buildCamsUrl(provinceId: unknown) {
@@ -70,7 +136,7 @@ function windDirectionLabel(degrees: number | null) {
   return directions[Math.round(degrees / 45) % 8];
 }
 
-function unavailableResponse(now: number, upstream: Record<"airbkk" | "cams" | "weather", UpstreamStatus>, reasons: string[], rejectedStations: RejectedStations, provinceId: unknown) {
+function unavailableResponse(now: number, upstream: Record<"airbkk" | "air4thai" | "cams" | "weather", UpstreamStatus>, reasons: string[], rejectedStations: RejectedStations, provinceId: unknown) {
   const province = getProvince(provinceId);
   return Response.json({
     province: { id: province.id, nameTh: province.nameTh, shortNameTh: province.shortNameTh, nameEn: province.nameEn },
@@ -92,17 +158,28 @@ export async function createForecastResponse(options: ForecastHandlerOptions = {
   const timeouts = { ...DEFAULT_TIMEOUTS, ...options.timeouts };
   const province = getProvince(options.provinceId);
   const isBangkok = province.id === "bangkok";
-  const [airResult, camsResult, weatherResult] = await Promise.all([
+  const [airResult, air4ThaiResult, camsResult, weatherResult] = await Promise.all([
     isBangkok ? requestJson(fetchImpl, AIRBKK_URL, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: "{}" }, timeouts.airbkk) : Promise.resolve({ status: "ok" as const }),
+    requestJsonWithFallback(fetchImpl, AIR4THAI_URL, options.air4ThaiFallbackUrl, { headers: { Accept: "application/json" } }, timeouts.air4thai),
     requestJson(fetchImpl, buildCamsUrl(province.id), { headers: { Accept: "application/json" } }, timeouts.cams),
     requestJson(fetchImpl, buildWeatherUrl(province.id), { headers: { Accept: "application/json" } }, timeouts.weather),
   ]);
-  const upstream = { airbkk: airResult.status, cams: camsResult.status, weather: weatherResult.status };
+  const upstream = { airbkk: airResult.status, air4thai: air4ThaiResult.status, cams: camsResult.status, weather: weatherResult.status };
   const rejectedStations: RejectedStations = { stale: 0, invalid: 0, duplicate: 0, outlier: 0 };
   const airbkk = airResult.data as AirBkkResponse | undefined;
+  const air4thai = air4ThaiResult.data as Air4ThaiResponse | undefined;
   const camsRaw = camsResult.data as CamsLocation[] | CamsLocation | undefined;
   const weather = weatherResult.data as WeatherResponse | undefined;
   if (isBangkok && airResult.status === "ok" && (airbkk?.status !== "Success" || !Array.isArray(airbkk.message))) upstream.airbkk = "error";
+  if (air4ThaiResult.status === "ok" && !Array.isArray(air4thai?.stations)) upstream.air4thai = "error";
+  const air4thaiRecords = upstream.air4thai === "ok" ? normalizeAir4ThaiRecords(air4thai, province.id) : [];
+  const freshAir4thaiRecords = air4thaiRecords.filter((record) => {
+    const timestamp = parseBangkokTimestamp(record.DateTime);
+    return Number.isFinite(timestamp) && timestamp <= now + 3_600_000 && now - timestamp <= 6 * 3_600_000;
+  });
+  const airbkkRecords = isBangkok && upstream.airbkk === "ok" ? airbkk!.message : [];
+  const observationRecords = isBangkok ? mergeObservationRecords(airbkkRecords, freshAir4thaiRecords) : freshAir4thaiRecords;
+  const useDetailedStationBias = isBangkok && observationRecords.length >= 20;
 
   const camsLocations = camsRaw === undefined ? [] : (Array.isArray(camsRaw) ? camsRaw : [camsRaw]).filter((location) =>
     Number.isFinite(Number(location?.latitude)) && Number.isFinite(Number(location?.longitude)) &&
@@ -112,7 +189,7 @@ export async function createForecastResponse(options: ForecastHandlerOptions = {
   const weatherAvailable = upstream.weather === "ok" && Array.isArray(weather?.daily?.time) && weather.daily.time.length > 0;
   if (upstream.weather === "ok" && !weatherAvailable) upstream.weather = "error";
 
-  if ((isBangkok && upstream.airbkk !== "ok") || upstream.cams !== "ok") {
+  if (upstream.cams !== "ok") {
     return unavailableResponse(now, upstream, [
       ...(isBangkok && upstream.airbkk !== "ok" ? [`airbkk_${upstream.airbkk}`] : []),
       ...(upstream.cams !== "ok" ? [`cams_${upstream.cams}`] : []),
@@ -120,7 +197,7 @@ export async function createForecastResponse(options: ForecastHandlerOptions = {
     ], rejectedStations, province.id);
   }
 
-  if (!isBangkok) {
+  if (!useDetailedStationBias) {
     const today = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Bangkok" }).format(new Date(now));
     const targetDates = Array.from({ length: FORECAST_DAYS }, (_, index) => addDays(today, index + 1));
     const anchorForecasts = camsLocations.map((location) => ({
@@ -129,6 +206,18 @@ export async function createForecastResponse(options: ForecastHandlerOptions = {
       ...buildCamsDailyForecast({ current: location.current?.pm2_5 ?? null, hourly: location.hourly }, targetDates),
     }));
     anchorForecasts.forEach((anchor) => { if (anchor.current === null) anchor.current = anchor.values[0] ?? 0; });
+    const air4BiasSamples = freshAir4thaiRecords.map((record) => {
+      const modelCurrent = spatialIdw(Number(record.Lat), Number(record.Long), anchorForecasts.map((anchor) => ({
+        lat: anchor.lat, lng: anchor.lng, value: anchor.current ?? 0,
+      })));
+      return calculateBiasCorrection(Number(record["PM2.5"]), modelCurrent);
+    });
+    const regionalBias = medianNumber(air4BiasSamples);
+    const latestAir4Timestamp = freshAir4thaiRecords.length
+      ? Math.max(...freshAir4thaiRecords.map((record) => parseBangkokTimestamp(record.DateTime)))
+      : now;
+    const air4ObservationAgeHours = Math.max(0, (now - latestAir4Timestamp) / 3_600_000);
+    const hasAir4Bias = air4BiasSamples.length > 0;
     const coverageByDay = targetDates.map((_, index) => Math.min(...anchorForecasts.map((anchor) => anchor.coverage[index])));
     const weatherByDate = new Map((weatherAvailable ? weather!.daily.time : []).map((dateKey, index) => [dateKey, {
       windSpeed: weather!.daily.wind_speed_10m_max[index] ?? null,
@@ -136,7 +225,8 @@ export async function createForecastResponse(options: ForecastHandlerOptions = {
       rainProbability: weather!.daily.precipitation_probability_max[index] ?? null,
     }]));
     const degradedReasons = [
-      "no_local_station_bias_correction",
+      hasAir4Bias ? "air4thai_bias_correction" : "no_local_station_bias_correction",
+      ...(isBangkok && upstream.airbkk !== "ok" ? [`airbkk_${upstream.airbkk}`] : []),
       ...(upstream.weather !== "ok" ? ["weather_unavailable"] : []),
       ...(coverageByDay.some((coverage) => coverage < 6) ? ["cams_partial_coverage"] : []),
     ];
@@ -144,12 +234,12 @@ export async function createForecastResponse(options: ForecastHandlerOptions = {
     const sourceAvailability = (1 + (weatherAvailable ? 1 : 0)) / 2;
     const days: ForecastDay[] = targetDates.map((dateKey, index) => {
       const weatherDay = weatherByDate.get(dateKey);
-      const score = calculateReliabilityScore({ leadDays: index + 1, sourceAvailability, camsCoverageHours: coverageByDay[index], observationAgeHours: 0 });
+      const score = calculateReliabilityScore({ leadDays: index + 1, sourceAvailability, camsCoverageHours: coverageByDay[index], observationAgeHours: hasAir4Bias ? air4ObservationAgeHours : 0 });
       return {
         lead: index + 1, ...formatThaiDate(dateKey), forecastReliabilityScore: score, confidence: score, uncertainty: uncertainty[index],
         wind: weatherDay ? `ลม${windDirectionLabel(weatherDay.windDirection)} สูงสุด ${weatherDay.windSpeed === null ? "—" : Math.round(weatherDay.windSpeed)} กม./ชม.` : "ไม่มีข้อมูลสภาพอากาศประกอบ",
         weather: weatherDay ? `โอกาสฝนสูงสุด ${weatherDay.rainProbability === null ? "—" : Math.round(weatherDay.rainProbability)}%` : "Weather source ไม่พร้อมใช้งาน",
-        note: coverageByDay[index] >= 6 ? `CAMS มีข้อมูล ${coverageByDay[index]} ชั่วโมง; ไม่มีการปรับด้วยสถานีท้องถิ่น` : "CAMS ครอบคลุมไม่ครบ จึง extrapolate และลดคะแนนความน่าเชื่อถือ",
+        note: coverageByDay[index] >= 6 ? `CAMS มีข้อมูล ${coverageByDay[index]} ชั่วโมง; ${hasAir4Bias ? `ปรับ bias ด้วย Air4Thai ${air4BiasSamples.length} สถานี` : "ไม่มีการปรับด้วยสถานีท้องถิ่น"}` : "CAMS ครอบคลุมไม่ครบ จึง extrapolate และลดคะแนนความน่าเชื่อถือ",
         sourceMode: coverageByDay[index] >= 6 ? "cams" : "extrapolated", coverageHours: coverageByDay[index],
       };
     });
@@ -157,22 +247,23 @@ export async function createForecastResponse(options: ForecastHandlerOptions = {
       id: point.id, district: point.label, label: point.label, lat: point.lat, lng: point.lng,
       values: targetDates.map((_, index) => {
         const value = spatialIdw(point.lat, point.lng, anchorForecasts.map((anchor) => ({ lat: anchor.lat, lng: anchor.lng, value: anchor.values[index] }))) ?? 0;
-        return Math.round(clamp(value, 0, 500) * 10) / 10;
+        const adjusted = value + regionalBias * Math.exp(-(((index + 1) * 24) + air4ObservationAgeHours) / 48);
+        return Math.round(clamp(adjusted, 0, 500) * 10) / 10;
       }),
       sourceType: "CAMS model grid",
     }));
     return Response.json({
       province: { id: province.id, nameTh: province.nameTh, shortNameTh: province.shortNameTh, nameEn: province.nameEn },
-      dataMode: "cams-only", status: "degraded" satisfies ForecastStatus, issuedAt: formatIssuedAt(now),
-      model: `CAMS Global model grid · ${province.nameEn} · no local bias correction`,
-      disclaimer: `ค่าล่วงหน้าของ${province.nameTh}มาจากแบบจำลอง CAMS โดยไม่มีการปรับด้วยสถานีตรวจวัดท้องถิ่น คะแนนความน่าเชื่อถือเป็น heuristic ไม่ใช่ probability หรือคำแนะนำสุขภาพทางการ`,
-      sources: ["CAMS Global via Open-Meteo", "Open-Meteo Weather Forecast", "DMR province boundary"], degradedReasons,
-      dataQuality: { upstream, acceptedStations: stations.length, camsMinimumCoverageHours: Math.min(...coverageByDay), camsCoverageHoursByDay: coverageByDay, weatherAvailable, qualityControl: "CAMS 9-point spatial grid without local station bias correction" },
+      dataMode: hasAir4Bias ? "air4thai-cams" : "cams-only", status: "degraded" satisfies ForecastStatus, issuedAt: formatIssuedAt(hasAir4Bias ? latestAir4Timestamp : now),
+      model: `CAMS Global model grid · ${province.nameEn} · ${hasAir4Bias ? "Air4Thai bias correction" : "no local bias correction"}`,
+      disclaimer: `ค่าล่วงหน้าของ${province.nameTh}มาจากแบบจำลอง CAMS${hasAir4Bias ? "ที่ปรับด้วยค่าตรวจวัด Air4Thai ล่าสุด" : "โดยไม่มีการปรับด้วยสถานีตรวจวัดท้องถิ่น"} คะแนนความน่าเชื่อถือเป็น heuristic ไม่ใช่ probability หรือคำแนะนำสุขภาพทางการ`,
+      sources: [...(hasAir4Bias ? ["Air4Thai PCD observations"] : []), "CAMS Global via Open-Meteo", "Open-Meteo Weather Forecast", isBangkok ? "BMA GIS district boundary" : "DMR province boundary"], degradedReasons,
+      dataQuality: { upstream, acceptedStations: stations.length, air4thaiStations: freshAir4thaiRecords.length, regionalBias: Math.round(regionalBias * 10) / 10, camsMinimumCoverageHours: Math.min(...coverageByDay), camsCoverageHoursByDay: coverageByDay, weatherAvailable, qualityControl: hasAir4Bias ? "CAMS 9-point spatial grid with median Air4Thai bias correction" : "CAMS 9-point spatial grid without local station bias correction" },
       days, stations,
     }, { headers: { "Cache-Control": "public, max-age=300, s-maxage=900, stale-while-revalidate=3600", "X-Forecast-Status": "degraded", "X-Province": province.id } });
   }
 
-  const rawRecords = airbkk!.message.map((record) => ({
+  const rawRecords = observationRecords.map((record) => ({
     record, id: String(record.MeasIndex || `${record.Lat},${record.Long}`), lat: Number(record.Lat), lng: Number(record.Long),
     pm25: Number(record["PM2.5"]), timestamp: parseBangkokTimestamp(record.DateTime),
   }));
@@ -199,6 +290,7 @@ export async function createForecastResponse(options: ForecastHandlerOptions = {
   anchorForecasts.forEach((anchor) => { if (anchor.current === null) anchor.current = anchor.values[0] ?? 0; });
   const coverageByDay = targetDates.map((_, index) => Math.min(...anchorForecasts.map((anchor) => anchor.coverage[index])));
   const degradedReasons = [
+    ...(upstream.airbkk !== "ok" ? [`airbkk_${upstream.airbkk}`] : []),
     ...(upstream.weather !== "ok" ? ["weather_unavailable"] : []),
     ...(coverageByDay.some((coverage) => coverage < 6) ? ["cams_partial_coverage"] : []),
     ...(observationAgeHours > 3 ? ["observations_older_than_3h"] : []),
@@ -218,7 +310,7 @@ export async function createForecastResponse(options: ForecastHandlerOptions = {
       lead: index + 1, ...formatThaiDate(dateKey), forecastReliabilityScore: score, confidence: score, uncertainty: uncertainty[index],
       wind: weatherDay ? `ลม${windDirectionLabel(weatherDay.windDirection)} สูงสุด ${weatherDay.windSpeed === null ? "—" : Math.round(weatherDay.windSpeed)} กม./ชม.` : "ไม่มีข้อมูลสภาพอากาศประกอบ",
       weather: weatherDay ? `โอกาสฝนสูงสุด ${weatherDay.rainProbability === null ? "—" : Math.round(weatherDay.rainProbability)}%` : "Weather source ไม่พร้อมใช้งาน",
-      note: coverageByDay[index] >= 6 ? `CAMS มีข้อมูล ${coverageByDay[index]} ชั่วโมง; ปรับ bias ด้วย AirBKK ล่าสุด` : "CAMS ครอบคลุมไม่ครบ จึง extrapolate และลดคะแนนความน่าเชื่อถือ",
+      note: coverageByDay[index] >= 6 ? `CAMS มีข้อมูล ${coverageByDay[index]} ชั่วโมง; ปรับ bias ด้วย ${upstream.airbkk === "ok" ? "AirBKK + Air4Thai" : "Air4Thai"} ล่าสุด` : "CAMS ครอบคลุมไม่ครบ จึง extrapolate และลดคะแนนความน่าเชื่อถือ",
       sourceMode: coverageByDay[index] >= 6 ? "cams" : "extrapolated", coverageHours: coverageByDay[index],
     };
   });
@@ -237,12 +329,13 @@ export async function createForecastResponse(options: ForecastHandlerOptions = {
   });
   return Response.json({
     province: { id: province.id, nameTh: province.nameTh, shortNameTh: province.shortNameTh, nameEn: province.nameEn },
-    dataMode: "airbkk-cams",
-    status, issuedAt: formatIssuedAt(latestObservation), model: "AirBKK + CAMS quality-controlled bias-corrected IDW baseline 0.4",
-    disclaimer: "AirBKK เป็นค่าตรวจวัด ส่วนค่าล่วงหน้าเป็น CAMS ที่ปรับ bias; คะแนนความน่าเชื่อถือเป็น heuristic ไม่ใช่ probability หรือคำแนะนำสุขภาพทางการ",
-    sources: ["AirBKK observations", "CAMS Global via Open-Meteo", "Open-Meteo Weather Forecast", "BMA GIS district boundary"], degradedReasons,
+    dataMode: upstream.airbkk === "ok" ? "airbkk-air4thai-cams" : "air4thai-cams",
+    status, issuedAt: formatIssuedAt(latestObservation),
+    model: `${upstream.airbkk === "ok" ? "AirBKK + Air4Thai" : "Air4Thai"} + CAMS quality-controlled bias-corrected IDW`,
+    disclaimer: `${upstream.airbkk === "ok" ? "AirBKK และ Air4Thai เป็นค่าตรวจวัด" : "Air4Thai เป็นค่าตรวจวัดสำรอง"} ส่วนค่าล่วงหน้าเป็น CAMS ที่ปรับ bias; คะแนนความน่าเชื่อถือเป็น heuristic ไม่ใช่ probability หรือคำแนะนำสุขภาพทางการ`,
+    sources: [...(upstream.airbkk === "ok" ? ["AirBKK observations"] : []), ...(freshAir4thaiRecords.length ? ["Air4Thai PCD observations"] : []), "CAMS Global via Open-Meteo", "Open-Meteo Weather Forecast", "BMA GIS district boundary"], degradedReasons,
     dataQuality: {
-      upstream, rawStations: airbkk!.message.length, freshStations: fresh.records.length, deduplicatedStations: deduplicated.records.length,
+      upstream, rawStations: observationRecords.length, airbkkStations: airbkkRecords.length, air4thaiStations: freshAir4thaiRecords.length, freshStations: fresh.records.length, deduplicatedStations: deduplicated.records.length,
       acceptedStations: stations.length, rejectedStations, latestObservation: latestRecord.record.DateTime,
       observationAgeHours: Math.round(observationAgeHours * 10) / 10, camsMinimumCoverageHours: Math.min(...coverageByDay),
       camsCoverageHoursByDay: coverageByDay, weatherAvailable, qualityControl: "validation + freshness + deduplication + global MAD with local corroboration",
@@ -251,5 +344,10 @@ export async function createForecastResponse(options: ForecastHandlerOptions = {
 }
 
 export async function GET(request: Request) {
-  return createForecastResponse({ provinceId: new URL(request.url).searchParams.get("province") });
+  const url = new URL(request.url);
+  const isLocalPreview = url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "::1";
+  return createForecastResponse({
+    provinceId: url.searchParams.get("province"),
+    air4ThaiFallbackUrl: isLocalPreview ? `${url.origin}/__air4thai` : undefined,
+  });
 }

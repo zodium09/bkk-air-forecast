@@ -1,5 +1,5 @@
 import { FORECAST_DAYS } from "./forecast-horizon.ts";
-import type { ProvinceId } from "./provinces.ts";
+import type { RegionId } from "./provinces.ts";
 
 export type RainStatus = "live" | "degraded" | "unavailable";
 
@@ -52,7 +52,7 @@ export type RainPoint = {
 };
 
 export type RainForecastPayload = {
-  province: { id: ProvinceId; nameTh: string; shortNameTh: string; nameEn: string };
+  province: { id: RegionId; nameTh: string; shortNameTh: string; nameEn: string };
   status: RainStatus;
   fetchedAt: string;
   model: string;

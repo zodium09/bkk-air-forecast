@@ -73,17 +73,17 @@ test("server-renders the BKK Air forecast product", async () => {
   assert.match(html, /กำลังโหลดข้อมูล/);
   assert.doesNotMatch(html, /D\+(?:<!-- -->)?[1-7]/);
   assert.match(html, /ค่าฝุ่นเฉลี่ย (?:<!-- -->)?กรุงเทพฯ/);
-  assert.match(html, /<option value="bangkok" selected="">กรุงเทพมหานคร<\/option>/);
+  assert.match(html, /<option value="metro" selected="">กรุงเทพมหานครและปริมณฑล(?:<!-- -->)? \(ภาพรวม\)<\/option>/);
   assert.match(html, /<option value="nonthaburi">นนทบุรี<\/option>/);
-  assert.equal((html.match(/<option value=/g) ?? []).length, 6);
+  assert.equal((html.match(/<option value=/g) ?? []).length, 7);
   assert.match(html, /แนวโน้ม 7 วัน/);
   assert.match(html, /7 วันล่วงหน้า/);
   assert.match(html, /เลือกชั้นข้อมูลแผนที่/);
   assert.doesNotMatch(html, /ความเชื่อมั่นของโมเดล/);
   assert.match(html, /พื้นผิว IDW ค่าฝุ่น/);
   assert.doesNotMatch(html, /จุดตรวจวัด<\/label>|จุดตรวจวัด<\/span>/);
-  assert.match(html, /กำลังโหลดขอบเขต(?:<!-- -->)?กรุงเทพมหานคร/);
-  assert.match(html, /href="\/rain\?province=bangkok"/);
+  assert.match(html, /กำลังโหลดขอบเขต(?:<!-- -->)?กรุงเทพมหานครและปริมณฑล/);
+  assert.match(html, /href="\/rain\?province=metro"/);
   assert.match(html, /href="\/"/);
   assert.doesNotMatch(html, /IDW power 2|interpolation|backtest/);
   assert.doesNotMatch(html, /codex-preview|Building your site|react-loading-skeleton/i);
@@ -105,6 +105,7 @@ test("server-renders the Bangkok rain forecast page", async () => {
   assert.match(html, /ฝน(?:<!-- -->)? · (?:<!-- -->)?กรุงเทพฯ/);
   assert.match(html, /กำลังโหลดพยากรณ์ฝน/);
   assert.match(html, /เลือกวันพยากรณ์ฝน/);
+  assert.match(html, /day-peak-time/);
   assert.match(html, /7 วันล่วงหน้า/);
   assert.match(html, /แนวโน้ม 7 วัน/);
   assert.match(html, /จุดประมาณการ/);
@@ -145,6 +146,7 @@ test("TMD radar adapter uses RadarGIS with explicit freshness and cache contract
 test("forecast adapter combines AirBKK and CAMS with explicit unavailable contract", async () => {
   const route = await readFile(new URL("../app/api/forecast/route.ts", import.meta.url), "utf8");
   assert.match(route, /official\.airbkk\.com\/airbkk\/Api/);
+  assert.match(route, /air4thai\.pcd\.go\.th\/services\/getNewAQI_JSON\.php/);
   assert.match(route, /air-quality-api\.open-meteo\.com/);
   assert.match(route, /domains.*cams_global/s);
   assert.match(route, /calculateBiasCorrection/);

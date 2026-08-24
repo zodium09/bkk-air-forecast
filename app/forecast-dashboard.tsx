@@ -12,13 +12,13 @@ import {
 import { FORECAST_DAYS } from "./lib/forecast-horizon";
 import OutlookNav from "./components/outlook-nav";
 import ProvinceSelector from "./components/province-selector";
-import { DEFAULT_PROVINCE_ID, buildFallbackBoundary, getProvince, type ProvinceId } from "./lib/provinces";
+import { DEFAULT_REGION_ID, METRO_REGION_ID, buildFallbackBoundary, getRegion, provinces, type ProvinceId, type RegionId } from "./lib/provinces";
 import "leaflet/dist/leaflet.css";
 import "./reliability.css";
 
 type ForecastPayload = {
   province?: { id: ProvinceId; nameTh: string; shortNameTh: string; nameEn: string };
-  dataMode?: "airbkk-cams" | "cams-only";
+  dataMode?: "airbkk-cams" | "airbkk-air4thai-cams" | "air4thai-cams" | "cams-only";
   status: "live" | "degraded" | "unavailable" | "fallback";
   issuedAt: string;
   model?: string;
@@ -177,6 +177,11 @@ function degradedReasonLabel(reason: string) {
     cams_partial_coverage: "แบบจำลอง CAMS ครอบคลุมบางช่วง",
     weather_unavailable: "ข้อมูลสภาพอากาศประกอบไม่พร้อม",
     observations_older_than_3h: "ข้อมูลสถานีล่าสุดเกิน 3 ชั่วโมง",
+    airbkk_timeout: "AirBKK ตอบสนองช้า จึงใช้ CAMS โดยไม่ปรับด้วยสถานี",
+    airbkk_error: "AirBKK ไม่พร้อมใช้งาน จึงใช้ Air4Thai หรือ CAMS สำรอง",
+    air4thai_bias_correction: "ปรับแบบจำลอง CAMS ด้วยสถานี Air4Thai ล่าสุด",
+    air4thai_timeout: "Air4Thai ตอบสนองช้า",
+    air4thai_error: "Air4Thai ไม่พร้อมใช้งาน",
   };
   return labels[reason] ?? reason;
 }
@@ -200,8 +205,59 @@ function buildAirSvgCurve(pts: Array<{ x: number; y: number }>) {
   return d;
 }
 
+async function fetchAirPayload(regionId: RegionId, reloadKey: number): Promise<ForecastPayload> {
+  const fetchProvince = async (provinceId: ProvinceId) => {
+    const query = new URLSearchParams({ horizon: String(FORECAST_DAYS), province: provinceId });
+    if (reloadKey) query.set("refresh", String(reloadKey));
+    const response = await fetch(`/api/forecast?${query}`, { cache: reloadKey ? "reload" : "default" });
+    if (!response.ok) throw new Error("forecast unavailable");
+    return response.json() as Promise<ForecastPayload>;
+  };
+  if (regionId !== METRO_REGION_ID) return fetchProvince(regionId);
+
+  const results = await Promise.allSettled(provinces.map((province) => fetchProvince(province.id)));
+  const payloads = results
+    .filter((result): result is PromiseFulfilledResult<ForecastPayload> => result.status === "fulfilled")
+    .map((result) => result.value);
+  if (!payloads.length) throw new Error("metropolitan forecast unavailable");
+  const usable = payloads.filter((payload) => payload.status !== "unavailable");
+  const primary = usable[0] ?? payloads[0];
+  return {
+    ...primary,
+    status: usable.length ? (payloads.length === provinces.length && payloads.every((payload) => payload.status === "live") ? "live" : "degraded") : "unavailable",
+    model: "AirBKK + CAMS Global · ภาพรวมกรุงเทพฯ และปริมณฑล 6 จังหวัด",
+    disclaimer: "ภาพรวมรวมสถานีและกริดแบบจำลองจากทั้ง 6 จังหวัด ค่าบนแผนที่เป็นค่าพยากรณ์และการประมาณเชิงพื้นที่",
+    degradedReasons: [...new Set(payloads.flatMap((payload) => payload.degradedReasons ?? []))],
+    stations: usable.flatMap((payload) => payload.stations.map((station) => ({
+      ...station,
+      id: `${payload.province?.id ?? "province"}-${station.id}`,
+    }))),
+  };
+}
+
+async function fetchRegionBoundary(regionId: RegionId): Promise<{ boundary: BoundaryCollection; state: "official" | "fallback" }> {
+  const fetchProvinceBoundary = async (provinceId: ProvinceId) => {
+    const url = provinceId === "bangkok" ? "/api/bangkok-boundary" : `/api/province-boundary?province=${provinceId}`;
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("boundary unavailable");
+      return { boundary: await response.json() as BoundaryCollection, official: true };
+    } catch {
+      return { boundary: buildFallbackBoundary(provinceId) as BoundaryCollection, official: false };
+    }
+  };
+  if (regionId !== METRO_REGION_ID) {
+    const result = await fetchProvinceBoundary(regionId);
+    return { boundary: result.boundary, state: result.official ? "official" : "fallback" };
+  }
+  const results = await Promise.all(provinces.map((province) => fetchProvinceBoundary(province.id)));
+  return {
+    boundary: { type: "FeatureCollection", features: results.flatMap((result) => result.boundary.features) },
+    state: results.every((result) => result.official) ? "official" : "fallback",
+  };
+}
 export default function ForecastDashboard() {
-  const [selectedProvinceId, setSelectedProvinceId] = useState<ProvinceId>(DEFAULT_PROVINCE_ID);
+  const [selectedProvinceId, setSelectedProvinceId] = useState<RegionId>(DEFAULT_REGION_ID);
   const [selectedDay, setSelectedDay] = useState(0);
   const [days, setDays] = useState(bundledDays);
   const [stations, setStations] = useState(bundledStations);
@@ -220,20 +276,18 @@ export default function ForecastDashboard() {
   const mapInstanceRef = useRef<import("leaflet").Map | null>(null);
   const surfaceLayerRef = useRef<import("leaflet").ImageOverlay | null>(null);
   const boundaryLayerRef = useRef<import("leaflet").GeoJSON | null>(null);
-  const selectedProvince = getProvince(selectedProvinceId);
+  const selectedRegion = getRegion(selectedProvinceId);
 
   useEffect(() => {
     window.scrollTo(0, 0);
     const requestedProvince = new URLSearchParams(window.location.search).get("province");
-    Promise.resolve().then(() => setSelectedProvinceId(getProvince(requestedProvince).id));
+    Promise.resolve().then(() => setSelectedProvinceId(getRegion(requestedProvince).id));
   }, []);
 
   useEffect(() => {
     let active = true;
 
-    const query = new URLSearchParams({ horizon: String(FORECAST_DAYS), province: selectedProvinceId });
-    if (reloadKey) query.set("refresh", String(reloadKey));
-    fetch(`/api/forecast?${query}`, { cache: reloadKey ? "reload" : "default" })
+    fetchAirPayload(selectedProvinceId, reloadKey)
       .then((response) => {
         if (!response.ok) throw new Error("forecast unavailable");
         return response.json() as Promise<ForecastPayload>;
@@ -259,22 +313,11 @@ export default function ForecastDashboard() {
 
   useEffect(() => {
     let active = true;
-    const boundaryUrl = selectedProvinceId === "bangkok" ? "/api/bangkok-boundary" : `/api/province-boundary?province=${selectedProvinceId}`;
-    fetch(boundaryUrl)
-      .then((response) => {
-        if (!response.ok) throw new Error("boundary unavailable");
-        return response.json() as Promise<BoundaryCollection>;
-      })
-      .then((payload) => {
-        if (!active) return;
-        setBoundary(payload);
-        setBoundaryState("official");
-      })
-      .catch(() => {
-        if (!active) return;
-        setBoundary(buildFallbackBoundary(selectedProvinceId) as BoundaryCollection);
-        setBoundaryState("fallback");
-      });
+    fetchRegionBoundary(selectedProvinceId).then((result) => {
+      if (!active) return;
+      setBoundary(result.boundary);
+      setBoundaryState(result.state);
+    });
     return () => {
       active = false;
     };
@@ -290,7 +333,7 @@ export default function ForecastDashboard() {
       const map = L.map(mapElementRef.current, {
         zoomControl: true,
         attributionControl: true,
-        minZoom: 9,
+        minZoom: 8,
         maxZoom: 15,
       }).setView([13.765, 100.595], 10);
 
@@ -355,9 +398,7 @@ export default function ForecastDashboard() {
         },
       }).addTo(map);
 
-      if (boundaryState === "official") {
-        map.fitBounds(boundaryLayerRef.current.getBounds(), { padding: [14, 14], animate: false });
-      }
+      map.fitBounds(boundaryLayerRef.current.getBounds(), { padding: [14, 14], animate: false });
     });
 
     return () => {
@@ -365,7 +406,7 @@ export default function ForecastDashboard() {
     };
   }, [boundary, boundaryState, dataState, mapReady, selectedDay, selectedProvinceId, stations]);
 
-  const selectProvince = (provinceId: ProvinceId) => {
+  const selectProvince = (provinceId: RegionId) => {
     setDataState("loading");
     setBoundaryState("loading");
     setSelectedDay(0);
@@ -398,7 +439,7 @@ export default function ForecastDashboard() {
       <header className={`dashboard-banner ${dataState}`} id="top">
         <div className="banner-copy">
           <span className="banner-kicker">BKK Air Forecast</span>
-          <h1>แผนที่พยากรณ์ <em>PM2.5 {selectedProvince.shortNameTh}</em></h1>
+          <h1>แผนที่พยากรณ์ <em>PM2.5 {selectedRegion.shortNameTh}</em></h1>
           <p>ดูล่วงหน้า 1–7 วัน เลือกวันแล้วตรวจพื้นที่ที่ควรเฝ้าระวังได้ทันที</p>
         </div>
         <ProvinceSelector value={selectedProvinceId} onChange={selectProvince} />
@@ -454,7 +495,7 @@ export default function ForecastDashboard() {
           <div className="panel-section trend-line-section">
             <div className="panel-title">
               <span>📈 แนวโน้ม 7 วัน</span>
-              <small>ค่าเฉลี่ย {selectedProvince.shortNameTh}</small>
+              <small>ค่าเฉลี่ย {selectedRegion.shortNameTh}</small>
             </div>
             <div className="air-trend-graph-wrap">
               {(() => {
@@ -537,7 +578,7 @@ export default function ForecastDashboard() {
         {/* CENTER MAP CANVAS */}
         <div className="map-card air-map-card">
           <div className="map-wrap">
-            <div ref={mapElementRef} className="map" role="application" aria-label={`แผนที่ PM2.5 ${selectedProvince.nameTh} พยากรณ์ล่วงหน้า ${day.lead} วัน`} />
+            <div ref={mapElementRef} className="map" role="application" aria-label={`แผนที่ PM2.5 ${selectedRegion.nameTh} พยากรณ์ล่วงหน้า ${day.lead} วัน`} />
             {dataState === "unavailable" && <div className="forecast-unavailable" role="alert"><b>ไม่สามารถโหลดข้อมูลพยากรณ์ล่าสุดได้</b><span>ค่าที่แสดงบนแผนที่ถูกปิดไว้เพื่อป้องกันการเข้าใจผิด</span><button type="button" onClick={() => { setDataState("loading"); setReloadKey((value) => value + 1); }}>ลองใหม่</button></div>}
             <div className="layer-menu">
               <button
@@ -559,7 +600,7 @@ export default function ForecastDashboard() {
               </div>
             </div>
             <div className="map-metric">
-              <span>ค่าเฉลี่ย {selectedProvince.shortNameTh}</span>
+              <span>ค่าเฉลี่ย {selectedRegion.shortNameTh}</span>
               <strong>{mean ?? "—"}<small>µg/m³</small></strong>
               <b style={{ color: meanLevel.color }}>{meanLevel.label}</b>
               {showRange && mean !== null && <em>ช่วงคาดการณ์ {Math.max(0, mean - day.uncertainty)}–{mean + day.uncertainty}</em>}
@@ -568,7 +609,7 @@ export default function ForecastDashboard() {
               <b>{dataState === "live" ? "ข้อมูลอัปเดตแล้ว" : dataState === "degraded" ? "ข้อมูลอัปเดตบางส่วน" : dataState === "unavailable" ? "ข้อมูลไม่พร้อมใช้งาน" : "กำลังโหลด"}</b>
               <span>{stations.length ? `พื้นผิว IDW · คำนวณจากข้อมูล ${stations.length} พิกัด` : "ปิดพื้นผิวพยากรณ์จนกว่าจะมีข้อมูลจริง"}</span>
               {dataState === "degraded" && degradedReasons.length > 0 && <em>ข้อจำกัด: {degradedReasons.map(degradedReasonLabel).join(" · ")}</em>}
-              <em>{boundaryState === "official" ? selectedProvinceId === "bangkok" ? "ครอบคลุมพื้นที่ 50 เขต" : `ขอบเขตจังหวัด${selectedProvince.nameTh}` : boundaryState === "fallback" ? "กำลังใช้ขอบเขตสำรอง" : `กำลังโหลดขอบเขต${selectedProvince.nameTh}`}</em>
+              <em>{boundaryState === "official" ? selectedProvinceId === METRO_REGION_ID ? "ครอบคลุมกรุงเทพฯ และปริมณฑล 6 จังหวัด" : selectedProvinceId === "bangkok" ? "ครอบคลุมพื้นที่ 50 เขต" : `ขอบเขตจังหวัด${selectedRegion.nameTh}` : boundaryState === "fallback" ? "กำลังใช้ขอบเขตสำรอง" : `กำลังโหลดขอบเขต${selectedRegion.nameTh}`}</em>
             </div>
             <div className="legend" aria-label="คำอธิบายระดับ PM2.5">
               <span><i style={{ background: "#38bdf8" }} />0–15</span>
@@ -594,7 +635,7 @@ export default function ForecastDashboard() {
               <span>{mean ?? "—"}<small>µg/m³</small></span>
             </div>
             <div>
-              <p>ค่าฝุ่นเฉลี่ย {selectedProvince.shortNameTh}</p>
+              <p>ค่าฝุ่นเฉลี่ย {selectedRegion.shortNameTh}</p>
               <strong style={{ color: meanLevel.color }}>{meanLevel.label}</strong>
               <em>เฉลี่ย {mean ?? "—"} µg/m³ · {stations.length} จุดข้อมูล</em>
             </div>

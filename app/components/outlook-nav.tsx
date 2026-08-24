@@ -1,9 +1,9 @@
 import Link from "next/link";
-import type { ProvinceId } from "../lib/provinces";
+import type { RegionId } from "../lib/provinces";
 
 type OutlookNavProps = {
   active: "air" | "rain";
-  province?: ProvinceId;
+  province?: RegionId;
 };
 
 export default function OutlookNav({ active, province }: OutlookNavProps) {

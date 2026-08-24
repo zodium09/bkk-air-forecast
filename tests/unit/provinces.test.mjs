@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { DEFAULT_PROVINCE_ID, buildFallbackBoundary, getProvince, getProvincePoints, provinces } from "../../app/lib/provinces.ts";
+import { DEFAULT_PROVINCE_ID, DEFAULT_REGION_ID, buildFallbackBoundary, getProvince, getProvincePoints, getRegion, provinces } from "../../app/lib/provinces.ts";
 
 test("province catalogue contains Bangkok and its five metropolitan neighbours", () => {
   assert.equal(DEFAULT_PROVINCE_ID, "bangkok");
@@ -18,4 +18,11 @@ test("every province supplies a finite nine-point model grid and fallback bounda
     assert.equal(fallback.features[0].properties.PROV_CODE, province.code);
     assert.equal(fallback.features[0].geometry.coordinates[0].length, 5);
   }
+});
+
+test("metropolitan overview is the default region and covers all six provinces", () => {
+  assert.equal(DEFAULT_REGION_ID, "metro");
+  assert.equal(getRegion("metro").nameEn, "Bangkok Metropolitan Region");
+  const fallback = buildFallbackBoundary("metro");
+  assert.equal(fallback.features.length, provinces.length);
 });

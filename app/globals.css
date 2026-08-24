@@ -735,6 +735,15 @@ body:has(.home-shell) {
 .rain-sidebar-day-btn.active .day-rain-mm {
   color: #dbeafe;
 }
+.day-peak-time {
+  font-size: 8px;
+  font-weight: 650;
+  color: #64748b;
+  white-space: nowrap;
+}
+.rain-sidebar-day-btn.active .day-peak-time {
+  color: #dbeafe;
+}
 
 /* Timeline & 24h Windows in Left Panel */
 .rain-timeline-section {

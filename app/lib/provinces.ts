@@ -1,4 +1,6 @@
 export const DEFAULT_PROVINCE_ID = "bangkok";
+export const METRO_REGION_ID = "metro";
+export const DEFAULT_REGION_ID = METRO_REGION_ID;
 
 export const provinces = [
   {
@@ -60,9 +62,23 @@ export const provinces = [
 export type ProvinceId = (typeof provinces)[number]["id"];
 export type Province = (typeof provinces)[number];
 export type ProvincePoint = { id: string; label: string; lat: number; lng: number };
+export type RegionId = ProvinceId | typeof METRO_REGION_ID;
+
+export const metroRegion = {
+  id: METRO_REGION_ID,
+  nameTh: "กรุงเทพมหานครและปริมณฑล",
+  shortNameTh: "กรุงเทพฯ–ปริมณฑล",
+  nameEn: "Bangkok Metropolitan Region",
+  bounds: { minLat: 13.42, maxLat: 14.29, minLng: 99.80, maxLng: 100.96 },
+} as const;
 
 export function getProvince(value: unknown): Province {
   return provinces.find((province) => province.id === value) ?? provinces[0];
+}
+
+export function getRegion(value: unknown) {
+  if (value === METRO_REGION_ID) return metroRegion;
+  return provinces.find((province) => province.id === value) ?? metroRegion;
 }
 
 export function getProvincePoints(value: unknown): ProvincePoint[] {
@@ -86,6 +102,12 @@ export function getProvincePoints(value: unknown): ProvincePoint[] {
 }
 
 export function buildFallbackBoundary(value: unknown) {
+  if (value === METRO_REGION_ID) {
+    return {
+      type: "FeatureCollection" as const,
+      features: provinces.flatMap((province) => buildFallbackBoundary(province.id).features),
+    };
+  }
   const province = getProvince(value);
   const { minLat, maxLat, minLng, maxLng } = province.bounds;
   return {

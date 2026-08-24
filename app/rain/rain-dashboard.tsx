@@ -12,7 +12,7 @@ import {
 import { buildRainForecastUrl, rainForecastProviders } from "../lib/rain-forecast-provider";
 import { FORECAST_DAYS } from "../lib/forecast-horizon";
 import type { TmdRadarMode, TmdRadarPayload } from "../lib/tmd-radar-data";
-import { DEFAULT_PROVINCE_ID, buildFallbackBoundary, getProvince, type ProvinceId } from "../lib/provinces";
+import { DEFAULT_REGION_ID, METRO_REGION_ID, buildFallbackBoundary, getRegion, metroRegion, provinces, type ProvinceId, type RegionId } from "../lib/provinces";
 import "leaflet/dist/leaflet.css";
 
 type Coordinate = [number, number];
@@ -297,6 +297,15 @@ function getPeakWindowIndex(windows: RainForecastPayload["windows"], dayIndex: n
   return peak?.windowIndex ?? 0;
 }
 
+function getMaxProbabilityWindow(windows: RainForecastPayload["windows"], dayIndex: number) {
+  return windows
+    .filter((window) => window.dayIndex === dayIndex && window.probabilityMax !== null)
+    .sort((a, b) =>
+      (b.probabilityMax ?? -1) - (a.probabilityMax ?? -1) ||
+      (b.rainMeanMm ?? -1) - (a.rainMeanMm ?? -1) ||
+      a.windowIndex - b.windowIndex,
+    )[0] ?? null;
+}
 async function fetchRainForecastPayload(provinceId: ProvinceId, forceRefresh = false) {
   let unavailablePayload: RainForecastPayload | null = null;
 
@@ -340,6 +349,102 @@ async function fetchRainForecastPayload(provinceId: ProvinceId, forceRefresh = f
   throw new Error("rain forecast unavailable");
 }
 
+function meanNullable(values: Array<number | null | undefined>) {
+  const valid = values.filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+  return valid.length ? Math.round((valid.reduce((sum, value) => sum + value, 0) / valid.length) * 10) / 10 : null;
+}
+
+function maxNullable(values: Array<number | null | undefined>) {
+  const valid = values.filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+  return valid.length ? Math.max(...valid) : null;
+}
+
+function aggregateMetroRain(payloads: RainForecastPayload[]): RainForecastPayload {
+  const usable = payloads.filter((payload) => payload.status !== "unavailable");
+  const primary = usable[0] ?? payloads[0];
+  if (!usable.length) return { ...primary, province: metroRegion, points: [], windows: [] };
+
+  const windows = primary.windows.map((baseWindow) => {
+    const matches = usable.map((payload) => payload.windows.find((window) =>
+      window.dayIndex === baseWindow.dayIndex && window.windowIndex === baseWindow.windowIndex,
+    )).filter(Boolean);
+    return {
+      ...baseWindow,
+      probabilityMax: maxNullable(matches.map((window) => window?.probabilityMax)),
+      rainMeanMm: meanNullable(matches.map((window) => window?.rainMeanMm)),
+      rainMaxMm: maxNullable(matches.map((window) => window?.rainMaxMm)),
+    };
+  });
+  const days = primary.days.map((baseDay, dayIndex) => {
+    const matches = usable.map((payload) => payload.days[dayIndex]).filter(Boolean);
+    const peak = windows
+      .filter((window) => window.dayIndex === dayIndex)
+      .sort((a, b) => (b.rainMeanMm ?? -1) - (a.rainMeanMm ?? -1) || (b.probabilityMax ?? -1) - (a.probabilityMax ?? -1))[0];
+    return {
+      ...baseDay,
+      probabilityMax: maxNullable(matches.map((day) => day?.probabilityMax)),
+      rainMeanMm: meanNullable(matches.map((day) => day?.rainMeanMm)),
+      rainMaxMm: maxNullable(matches.map((day) => day?.rainMaxMm)),
+      wetHours: meanNullable(matches.map((day) => day?.wetHours)),
+      peakWindow: peak?.label ?? null,
+    };
+  });
+  return {
+    ...primary,
+    province: metroRegion,
+    status: payloads.every((payload) => payload.status === "live") ? "live" : "degraded",
+    fetchedAt: usable.map((payload) => payload.fetchedAt).sort().at(-1) ?? primary.fetchedAt,
+    model: "Open-Meteo Best Match / GFS · 54-point metropolitan grid",
+    disclaimer: "ภาพรวมพยากรณ์ฝนจากกริด 9 จุดต่อจังหวัด รวม 6 จังหวัด ไม่ใช่เรดาร์ฝนหรือประกาศเตือนภัย",
+    sources: [...new Set(usable.flatMap((payload) => payload.sources))],
+    dataQuality: {
+      ...primary.dataQuality,
+      expectedPoints: usable.reduce((sum, payload) => sum + payload.dataQuality.expectedPoints, 0),
+      acceptedPoints: usable.reduce((sum, payload) => sum + payload.dataQuality.acceptedPoints, 0),
+      rejectedPoints: usable.reduce((sum, payload) => sum + (payload.dataQuality.rejectedPoints ?? 0), 0),
+      coverageHours: Math.min(...usable.map((payload) => payload.dataQuality.coverageHours)),
+    },
+    days,
+    windows,
+    points: usable.flatMap((payload) => payload.points.map((point) => ({
+      ...point,
+      id: `${payload.province.id}-${point.id}`,
+      label: `${payload.province.shortNameTh} · ${point.label}`,
+    }))),
+  };
+}
+
+async function fetchRainRegionPayload(regionId: RegionId, forceRefresh = false) {
+  if (regionId !== METRO_REGION_ID) return fetchRainForecastPayload(regionId, forceRefresh);
+  const results = await Promise.allSettled(provinces.map((province) => fetchRainForecastPayload(province.id, forceRefresh)));
+  const payloads = results
+    .filter((result): result is PromiseFulfilledResult<RainForecastPayload> => result.status === "fulfilled")
+    .map((result) => result.value);
+  if (!payloads.length) throw new Error("metropolitan rain forecast unavailable");
+  return aggregateMetroRain(payloads);
+}
+
+async function fetchRainRegionBoundary(regionId: RegionId): Promise<{ boundary: BoundaryCollection; state: "official" | "fallback" }> {
+  const fetchProvinceBoundary = async (provinceId: ProvinceId) => {
+    const url = provinceId === "bangkok" ? "/api/bangkok-boundary" : `/api/province-boundary?province=${provinceId}`;
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("boundary unavailable");
+      return { boundary: await response.json() as BoundaryCollection, official: true };
+    } catch {
+      return { boundary: buildFallbackBoundary(provinceId) as BoundaryCollection, official: false };
+    }
+  };
+  if (regionId !== METRO_REGION_ID) {
+    const result = await fetchProvinceBoundary(regionId);
+    return { boundary: result.boundary, state: result.official ? "official" : "fallback" };
+  }
+  const results = await Promise.all(provinces.map((province) => fetchProvinceBoundary(province.id)));
+  return {
+    boundary: { type: "FeatureCollection", features: results.flatMap((result) => result.boundary.features) },
+    state: results.every((result) => result.official) ? "official" : "fallback",
+  };
+}
 async function fetchTmdRadarPayload(forceRefresh = false, signal?: AbortSignal) {
   const response = await fetch("/api/tmd-radar", {
     cache: forceRefresh ? "reload" : "default",
@@ -350,7 +455,7 @@ async function fetchTmdRadarPayload(forceRefresh = false, signal?: AbortSignal) 
 }
 
 export default function RainDashboard() {
-  const [selectedProvinceId, setSelectedProvinceId] = useState<ProvinceId>(DEFAULT_PROVINCE_ID);
+  const [selectedProvinceId, setSelectedProvinceId] = useState<RegionId>(DEFAULT_REGION_ID);
   const [selectedDay, setSelectedDay] = useState(0);
   const [selectedWindowIndex, setSelectedWindowIndex] = useState(0);
   const [days, setDays] = useState(() => buildRainDayShells());
@@ -382,11 +487,11 @@ export default function RainDashboard() {
   const boundaryLayerRef = useRef<import("leaflet").GeoJSON | null>(null);
   const radarAbortRef = useRef<AbortController | null>(null);
   const selectedDayRef = useRef(0);
-  const selectedProvince = getProvince(selectedProvinceId);
+  const selectedRegion = getRegion(selectedProvinceId);
 
   const loadForecast = useCallback((forceRefresh = false) => {
     let active = true;
-    fetchRainForecastPayload(selectedProvinceId, forceRefresh)
+    fetchRainRegionPayload(selectedProvinceId, forceRefresh)
       .then((payload) => {
         if (!active) return;
         setDays(payload.days);
@@ -419,7 +524,7 @@ export default function RainDashboard() {
   useEffect(() => {
     window.scrollTo(0, 0);
     const requestedProvince = new URLSearchParams(window.location.search).get("province");
-    Promise.resolve().then(() => setSelectedProvinceId(getProvince(requestedProvince).id));
+    Promise.resolve().then(() => setSelectedProvinceId(getRegion(requestedProvince).id));
   }, []);
 
   const loadRadar = useCallback((forceRefresh = false) => {
@@ -446,22 +551,11 @@ export default function RainDashboard() {
 
   useEffect(() => {
     let active = true;
-    const boundaryUrl = selectedProvinceId === "bangkok" ? "/api/bangkok-boundary" : `/api/province-boundary?province=${selectedProvinceId}`;
-    fetch(boundaryUrl)
-      .then((response) => {
-        if (!response.ok) throw new Error("boundary unavailable");
-        return response.json() as Promise<BoundaryCollection>;
-      })
-      .then((payload) => {
-        if (!active) return;
-        setBoundary(payload);
-        setBoundaryState("official");
-      })
-      .catch(() => {
-        if (!active) return;
-        setBoundary(buildFallbackBoundary(selectedProvinceId) as BoundaryCollection);
-        setBoundaryState("fallback");
-      });
+    fetchRainRegionBoundary(selectedProvinceId).then((result) => {
+      if (!active) return;
+      setBoundary(result.boundary);
+      setBoundaryState(result.state);
+    });
     return () => {
       active = false;
     };
@@ -492,7 +586,7 @@ export default function RainDashboard() {
       const map = L.map(mapElementRef.current, {
         zoomControl: true,
         attributionControl: true,
-        minZoom: 9,
+        minZoom: 8,
         maxZoom: 15,
       }).setView([13.765, 100.595], 10);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -551,9 +645,7 @@ export default function RainDashboard() {
         pane: "rainBoundaryPane",
         style: { color: "#173d66", weight: 1.05, opacity: 0.76, fillOpacity: 0 },
       }).addTo(map);
-      if (boundaryState === "official") {
-        map.fitBounds(boundaryLayerRef.current.getBounds(), { padding: [14, 14], animate: false });
-      }
+      map.fitBounds(boundaryLayerRef.current.getBounds(), { padding: [14, 14], animate: false });
     });
     return () => {
       cancelled = true;
@@ -637,7 +729,7 @@ export default function RainDashboard() {
     setReloadKey((value) => value + 1);
   };
 
-  const selectProvince = (provinceId: ProvinceId) => {
+  const selectProvince = (provinceId: RegionId) => {
     selectedDayRef.current = 0;
     setDataState("loading");
     setBoundaryState("loading");
@@ -677,7 +769,7 @@ export default function RainDashboard() {
       <header className={`dashboard-banner rain-banner ${dataState}`} id="top">
         <div className="banner-copy">
           <span className="banner-kicker">BKK AIR FORECAST · RAIN</span>
-          <h1>แผนที่พยากรณ์ <em>ฝน · {selectedProvince.shortNameTh}</em></h1>
+          <h1>แผนที่พยากรณ์ <em>ฝน · {selectedRegion.shortNameTh}</em></h1>
           <p>เช็กโอกาสฝนและปริมาณฝนสะสมล่วงหน้า 1–7 วัน พร้อมช่วงเวลาที่ควรเฝ้าระวัง</p>
         </div>
         <ProvinceSelector value={selectedProvinceId} onChange={selectProvince} />
@@ -704,6 +796,7 @@ export default function RainDashboard() {
               {days.map((forecastDay, index) => {
                 const isActive = selectedDay === index;
                 const prob = forecastDay.probabilityMax;
+                const maxProbabilityWindow = getMaxProbabilityWindow(windows, index);
                 return (
                   <button
                     key={forecastDay.dateKey}
@@ -719,7 +812,9 @@ export default function RainDashboard() {
                       <span className="day-prob-badge" style={{ color: isActive ? "#ffffff" : getRainChanceColor(prob) }}>
                         {prob === null ? "—" : `${prob}%`}
                       </span>
-                      <small className="day-rain-mm">{forecastDay.rainMeanMm ?? "—"} มม.</small>
+                      <small className="day-peak-time">
+                        {maxProbabilityWindow ? maxProbabilityWindow.label.replace(" น.", "") : "—"}
+                      </small>
                     </div>
                   </button>
                 );
@@ -844,7 +939,7 @@ export default function RainDashboard() {
         {/* CENTER MAP CANVAS */}
         <div className="map-card rain-map-card">
           <div className="map-wrap rain-map-wrap">
-            <div ref={mapElementRef} className="map rain-map" role="region" aria-label={radarEnabled && selectedRadarFrame ? `แผนที่เรดาร์ฝน TMD ${selectedProvince.nameTh} ${selectedRadarFrame.label}` : `แผนที่พยากรณ์ฝน ${selectedProvince.nameTh} ${day?.weekday ?? ""} ${day?.date ?? ""} ${selectedWindow?.label ?? ""}`} />
+            <div ref={mapElementRef} className="map rain-map" role="region" aria-label={radarEnabled && selectedRadarFrame ? `แผนที่เรดาร์ฝน TMD ${selectedRegion.nameTh} ${selectedRadarFrame.label}` : `แผนที่พยากรณ์ฝน ${selectedRegion.nameTh} ${day?.weekday ?? ""} ${day?.date ?? ""} ${selectedWindow?.label ?? ""}`} />
             <div className="layer-menu" ref={layerMenuRef}>
               <button
                 className="layer-menu-trigger"
@@ -927,7 +1022,7 @@ export default function RainDashboard() {
             <div className={`surface-status rain-surface-status ${radarEnabled ? radarPayload?.status ?? radarLoadState : dataState}`} aria-live="polite">
               <b>{radarEnabled ? radarLoadState === "loading" ? "กำลังโหลดเรดาร์ TMD" : radarLoadState === "error" || radarImageError ? "เรดาร์ไม่พร้อมใช้งาน" : radarMode === "observed" ? "เรดาร์ตรวจจริง TMD" : "Radar Nowcast TMD" : dataStateLabel}</b>
               <span>{radarEnabled ? selectedRadarFrame ? `${selectedRadarFrame.label} · ${formatRadarTime(selectedRadarFrame.validAt)} น.` : "ยังไม่มีเฟรมเรดาร์" : points.length ? `พื้นผิว IDW · ${selectedWindow?.label ?? "ช่วงที่เลือก"}` : "ยังไม่มีข้อมูลพยากรณ์สำหรับช่วงนี้"}</span>
-              <em>{radarEnabled ? radarPayload?.status === "degraded" ? `ข้อมูลช้ากว่าปกติ · ${radarFreshnessLabel(radarPayload.ageMinutes)}` : "Rain Rate · mm/h · ข้อมูลกึ่งเวลาจริง" : boundaryState === "official" ? `${selectedProvinceId === "bangkok" ? "ขอบเขต 50 เขต" : `ขอบเขตจังหวัด${selectedProvince.nameTh}`} · สีเป็นการประมาณเชิงพื้นที่` : boundaryState === "fallback" ? "กำลังใช้ขอบเขตสำรอง" : `กำลังโหลดขอบเขต${selectedProvince.nameTh}`}</em>
+              <em>{radarEnabled ? radarPayload?.status === "degraded" ? `ข้อมูลช้ากว่าปกติ · ${radarFreshnessLabel(radarPayload.ageMinutes)}` : "Rain Rate · mm/h · ข้อมูลกึ่งเวลาจริง" : boundaryState === "official" ? `${selectedProvinceId === METRO_REGION_ID ? "ขอบเขตกรุงเทพฯ และปริมณฑล 6 จังหวัด" : selectedProvinceId === "bangkok" ? "ขอบเขต 50 เขต" : `ขอบเขตจังหวัด${selectedRegion.nameTh}`} · สีเป็นการประมาณเชิงพื้นที่` : boundaryState === "fallback" ? "กำลังใช้ขอบเขตสำรอง" : `กำลังโหลดขอบเขต${selectedRegion.nameTh}`}</em>
             </div>
 
             {dataState === "unavailable" && (
