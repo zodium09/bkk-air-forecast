@@ -161,7 +161,7 @@ export async function createForecastResponse(options: ForecastHandlerOptions = {
   const province = getProvince(options.provinceId);
   const isBangkok = province.id === "bangkok";
   const [airResult, air4ThaiResult, camsResult, weatherResult] = await Promise.all([
-    isBangkok ? requestJson(fetchImpl, AIRBKK_URL, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: "{}" }, timeouts.airbkk) : Promise.resolve({ status: "ok" as const }),
+    isBangkok ? requestJson(fetchImpl, AIRBKK_URL, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: "{}" }, timeouts.airbkk) : Promise.resolve<SourceResult>({ status: "ok" }),
     requestJsonWithFallback(fetchImpl, AIR4THAI_URL, options.air4ThaiFallbackUrl, { headers: { Accept: "application/json" } }, timeouts.air4thai),
     requestJson(fetchImpl, buildCamsUrl(province.id), { headers: { Accept: "application/json" } }, timeouts.cams),
     requestJson(fetchImpl, buildWeatherUrl(province.id), { headers: { Accept: "application/json" } }, timeouts.weather),
@@ -194,7 +194,7 @@ export async function createForecastResponse(options: ForecastHandlerOptions = {
   if (upstream.cams !== "ok") {
     return unavailableResponse(now, upstream, [
       ...(isBangkok && upstream.airbkk !== "ok" ? [`airbkk_${upstream.airbkk}`] : []),
-      ...(upstream.cams !== "ok" ? [`cams_${upstream.cams}`] : []),
+      `cams_${upstream.cams}`,
       ...(upstream.weather !== "ok" ? [`weather_${upstream.weather}`] : []),
     ], rejectedStations, province.id);
   }

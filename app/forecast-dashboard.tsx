@@ -238,10 +238,6 @@ async function fetchRegionBoundary(regionId: RegionId): Promise<{ boundary: Boun
     let active = true;
 
     fetchAirPayload(selectedProvinceId, reloadKey)
-      .then((response) => {
-        if (!response.ok) throw new Error("forecast unavailable");
-        return response.json() as Promise<ForecastPayload>;
-      })
       .then((payload) => {
         if (!active) return;
         setDays(payload.days);

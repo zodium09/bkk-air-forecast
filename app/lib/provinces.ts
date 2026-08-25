@@ -101,7 +101,16 @@ export function getProvincePoints(value: unknown): ProvincePoint[] {
   })));
 }
 
-export function buildFallbackBoundary(value: unknown) {
+type FallbackBoundaryCollection = {
+  type: "FeatureCollection";
+  features: Array<{
+    type: "Feature";
+    properties: { PROV_CODE: string; PROV_NAM_T: string };
+    geometry: { type: "Polygon"; coordinates: Array<Array<[number, number]>> };
+  }>;
+};
+
+export function buildFallbackBoundary(value: unknown): FallbackBoundaryCollection {
   if (value === METRO_REGION_ID) {
     return {
       type: "FeatureCollection" as const,
