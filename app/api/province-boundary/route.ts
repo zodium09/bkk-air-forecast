@@ -1,4 +1,6 @@
 import { METRO_REGION_ID, getProvince, provinces } from "../../lib/provinces.ts";
+import bangkokBoundarySnapshot from "../../data/bangkok-districts.json";
+import metroProvinceSnapshot from "../../data/metro-provinces.json";
 
 const PROVINCE_LAYER = "https://gisportal.dmr.go.th/arcgis/rest/services/Data_Production/WAB_VIEW/MapServer/8/query";
 const DISTRICT_GEOJSON_URL =
@@ -9,6 +11,25 @@ const DISTRICT_GEOJSON_URL =
 export const maxDuration = 30;
 const BOUNDARY_REVALIDATE_SECONDS = 60 * 60 * 24 * 7;
 const BOUNDARY_TIMEOUT_MS = 20_000;
+
+type BoundarySnapshot = {
+  type: "FeatureCollection";
+  features: Array<{ properties?: Record<string, unknown> }>;
+};
+
+function getBoundarySnapshot(provinceId: string | null): BoundarySnapshot {
+  const bangkok = bangkokBoundarySnapshot as BoundarySnapshot;
+  const surrounding = metroProvinceSnapshot as BoundarySnapshot;
+  if (provinceId === METRO_REGION_ID) {
+    return { type: "FeatureCollection", features: [...bangkok.features, ...surrounding.features] };
+  }
+  const province = getProvince(provinceId);
+  if (province.id === "bangkok") return bangkok;
+  return {
+    type: "FeatureCollection",
+    features: surrounding.features.filter((feature) => String(feature.properties?.PROV_CODE ?? "") === province.code),
+  };
+}
 
 function buildProvinceBoundaryUrl(where: string) {
   const url = new URL(PROVINCE_LAYER);
@@ -66,9 +87,14 @@ export async function GET(request: Request) {
     });
   } catch {
     const province = provinceId === METRO_REGION_ID ? null : getProvince(provinceId);
-    return Response.json({ error: `${province?.nameEn ?? "Metropolitan"} boundary is temporarily unavailable` }, {
-      status: 502,
-      headers: { "Cache-Control": "no-store", "X-Province": province?.id ?? METRO_REGION_ID },
+    return Response.json(getBoundarySnapshot(provinceId), {
+      headers: {
+        "Cache-Control": "public, max-age=3600, stale-while-revalidate=604800",
+        "CDN-Cache-Control": "public, max-age=604800, stale-while-revalidate=604800",
+        "X-Boundary-Source": "BMA + DMR verified snapshot",
+        "X-Boundary-State": "snapshot",
+        "X-Province": province?.id ?? METRO_REGION_ID,
+      },
     });
   }
 }
