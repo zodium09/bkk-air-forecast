@@ -91,8 +91,19 @@ function interpolateIdw(lng: number, lat: number, stations: ForecastStation[], d
   return weightedValue / totalWeight;
 }
 
-function createIdwSurface(boundary: BoundaryCollection, stations: ForecastStation[], dayIndex: number) {
-  const bounds = getBoundaryBounds(boundary);
+function createIdwSurface(
+  boundary: BoundaryCollection,
+  stations: ForecastStation[],
+  dayIndex: number,
+  viewportBounds: { minLat: number; maxLat: number; minLng: number; maxLng: number },
+) {
+  const boundaryBounds = getBoundaryBounds(boundary);
+  const bounds = {
+    minLat: Math.max(boundaryBounds.minLat, viewportBounds.minLat),
+    maxLat: boundaryBounds.maxLat,
+    minLng: boundaryBounds.minLng,
+    maxLng: boundaryBounds.maxLng,
+  };
   const width = 360;
   const height = Math.max(320, Math.round(width * (bounds.maxLat - bounds.minLat) / (bounds.maxLng - bounds.minLng)));
   const maskCanvas = document.createElement("canvas");
@@ -321,36 +332,45 @@ async function fetchRegionBoundary(regionId: RegionId): Promise<{ boundary: Boun
       if (surfaceLayerRef.current) map.removeLayer(surfaceLayerRef.current);
       if (boundaryLayerRef.current) map.removeLayer(boundaryLayerRef.current);
 
-      if ((dataState === "live" || dataState === "degraded") && stations.length) {
+      // The emergency boundary is intentionally only a viewport hint. It is made
+      // from province bounding boxes, so using it as an IDW mask creates the large
+      // overlapping rectangles that can otherwise obscure the map.
+      if (boundaryState === "official" && (dataState === "live" || dataState === "degraded") && stations.length) {
         const stationDataVersion = stations.map((station) => `${station.id}:${station.values.join(",")}`).join("|");
         const boundaryVersion = `${selectedProvinceId}:${boundaryState}:${boundary.features.length}`;
         const cacheKey = `${selectedDay}:${stationDataVersion}:${boundaryVersion}`;
         let surface = surfaceCache.get(cacheKey);
         if (!surface) {
-          surface = createIdwSurface(boundary, stations, selectedDay);
+          surface = createIdwSurface(boundary, stations, selectedDay, selectedRegion.bounds);
           surfaceCache.set(cacheKey, surface);
           if (surfaceCache.size > MAX_SURFACE_CACHE) surfaceCache.delete(surfaceCache.keys().next().value!);
         }
         surfaceLayerRef.current = L.imageOverlay(surface.url, surface.bounds, { pane: "surfacePane", opacity: 0.78, interactive: false }).addTo(map);
       }
 
-      boundaryLayerRef.current = L.geoJSON(boundary as GeoJSON.GeoJsonObject, {
-        pane: "boundaryPane",
-        style: {
-          color: "#0f766e",
-          weight: 1.2,
-          opacity: 0.8,
-          fillOpacity: 0,
-        },
-      }).addTo(map);
-
-      map.fitBounds(boundaryLayerRef.current.getBounds(), { padding: [14, 14], animate: false });
+      if (boundaryState === "official") {
+        boundaryLayerRef.current = L.geoJSON(boundary as GeoJSON.GeoJsonObject, {
+          pane: "boundaryPane",
+          style: {
+            color: "#0f766e",
+            weight: 1.2,
+            opacity: 0.8,
+            fillOpacity: 0,
+          },
+        }).addTo(map);
+        const { minLat, minLng, maxLat, maxLng } = selectedRegion.bounds;
+        map.fitBounds([[minLat, minLng], [maxLat, maxLng]], { padding: [14, 14], animate: false });
+      } else {
+        boundaryLayerRef.current = null;
+        const { minLat, minLng, maxLat, maxLng } = selectedRegion.bounds;
+        map.fitBounds([[minLat, minLng], [maxLat, maxLng]], { padding: [14, 14], animate: false });
+      }
     });
 
     return () => {
       cancelled = true;
     };
-  }, [boundary, boundaryState, dataState, mapReady, selectedDay, selectedProvinceId, stations]);
+  }, [boundary, boundaryState, dataState, mapReady, selectedDay, selectedProvinceId, selectedRegion, stations]);
 
   const selectProvince = (provinceId: RegionId) => {
     setDataState("loading");
@@ -553,9 +573,9 @@ async function fetchRegionBoundary(regionId: RegionId): Promise<{ boundary: Boun
             </div>
             <div className={`surface-status ${boundaryState}`}>
               <b>{dataState === "live" ? "ข้อมูลอัปเดตแล้ว" : dataState === "degraded" ? "ข้อมูลอัปเดตบางส่วน" : dataState === "unavailable" ? "ข้อมูลไม่พร้อมใช้งาน" : "กำลังโหลด"}</b>
-              <span>{stations.length ? `พื้นผิว IDW · คำนวณจากข้อมูล ${stations.length} พิกัด` : "ปิดพื้นผิวพยากรณ์จนกว่าจะมีข้อมูลจริง"}</span>
+              <span>{stations.length && boundaryState === "official" ? `พื้นผิว IDW · คำนวณจากข้อมูล ${stations.length} พิกัด` : stations.length ? "ซ่อนพื้นผิว IDW ชั่วคราวจนกว่าขอบเขตจริงพร้อมใช้งาน" : "ปิดพื้นผิวพยากรณ์จนกว่าจะมีข้อมูลจริง"}</span>
               {dataState === "degraded" && degradedReasons.length > 0 && <em>ข้อจำกัด: {degradedReasons.map(degradedReasonLabel).join(" · ")}</em>}
-              <em>{boundaryState === "official" ? selectedProvinceId === METRO_REGION_ID ? "ครอบคลุมกรุงเทพฯ และปริมณฑล 6 จังหวัด" : selectedProvinceId === "bangkok" ? "ครอบคลุมพื้นที่ 50 เขต" : `ขอบเขตจังหวัด${selectedRegion.nameTh}` : boundaryState === "fallback" ? "กำลังใช้ขอบเขตสำรอง" : `กำลังโหลดขอบเขต${selectedRegion.nameTh}`}</em>
+              <em>{boundaryState === "official" ? selectedProvinceId === METRO_REGION_ID ? "ครอบคลุมกรุงเทพฯ และปริมณฑล 6 จังหวัด" : selectedProvinceId === "bangkok" ? "ครอบคลุมพื้นที่ 50 เขต" : `ขอบเขตจังหวัด${selectedRegion.nameTh}` : boundaryState === "fallback" ? "ขอบเขตจริงไม่พร้อม จึงไม่แสดงกรอบสำรองบนแผนที่" : `กำลังโหลดขอบเขต${selectedRegion.nameTh}`}</em>
             </div>
             <div className="legend" aria-label="คำอธิบายระดับ PM2.5">
               <span><i style={{ background: "#38bdf8" }} />0–15</span>

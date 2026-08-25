@@ -6,6 +6,10 @@ const DISTRICT_GEOJSON_URL =
   "?where=1%3D1&outFields=OBJECTID%2CNAME_T%2CNAME_E&returnGeometry=true" +
   "&outSR=4326&geometryPrecision=5&maxAllowableOffset=0.0005&f=geojson";
 
+export const maxDuration = 30;
+const BOUNDARY_REVALIDATE_SECONDS = 60 * 60 * 24 * 7;
+const BOUNDARY_TIMEOUT_MS = 20_000;
+
 function buildProvinceBoundaryUrl(where: string) {
   const url = new URL(PROVINCE_LAYER);
   url.searchParams.set("where", where);
@@ -20,7 +24,8 @@ function buildProvinceBoundaryUrl(where: string) {
 async function fetchBoundary(url: URL | string) {
   const response = await fetch(url, {
     headers: { Accept: "application/geo+json, application/json" },
-    signal: AbortSignal.timeout(8_000),
+    signal: AbortSignal.timeout(BOUNDARY_TIMEOUT_MS),
+    next: { revalidate: BOUNDARY_REVALIDATE_SECONDS },
   });
   if (!response.ok) throw new Error(`boundary returned ${response.status}`);
   const boundary = await response.json();
