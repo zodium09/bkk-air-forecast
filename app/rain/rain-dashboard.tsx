@@ -393,7 +393,7 @@ export default function RainDashboard() {
   const [radarEnabled, setRadarEnabled] = useState(true);
   const [radarMode, setRadarMode] = useState<TmdRadarMode>("observed");
   const [radarPayload, setRadarPayload] = useState<TmdRadarPayload | null>(null);
-  const [radarLoadState, setRadarLoadState] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [radarLoadState, setRadarLoadState] = useState<"idle" | "loading" | "ready" | "error">("loading");
   const [radarFrameIndex, setRadarFrameIndex] = useState(0);
   const [radarOpacity, setRadarOpacity] = useState(0.76);
   const [radarImageError, setRadarImageError] = useState(false);
@@ -472,9 +472,26 @@ export default function RainDashboard() {
   }, []);
 
   useEffect(() => {
-    loadRadar(false);
-    return () => radarAbortRef.current?.abort();
-  }, [loadRadar]);
+    let active = true;
+    const controller = new AbortController();
+    radarAbortRef.current = controller;
+    fetchTmdRadarPayload(false, controller.signal)
+      .then((payload) => {
+        if (!active || controller.signal.aborted) return;
+        setRadarPayload(payload);
+        setRadarLoadState(payload.status === "unavailable" ? "error" : "ready");
+        setRadarFrameIndex(payload.observedFrames.length ? payload.observedFrames.length - 1 : 0);
+      })
+      .catch(() => {
+        if (!active || controller.signal.aborted) return;
+        setRadarPayload(null);
+        setRadarLoadState("error");
+      });
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
