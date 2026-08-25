@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-html-link-for-pages */
 export default function Home() {
   return (
     <main className="home-shell">
