@@ -13,7 +13,7 @@ export default function Home() {
           </span>
           <span>
             <b>BKK AIR FORECAST</b>
-            <small>Bangkok metropolitan forecast</small>
+            <small>มองกรุงเทพฯ และปริมณฑล ล่วงหน้า 1–7 วัน</small>
           </span>
         </a>
         <div className="home-header-note">
@@ -21,15 +21,6 @@ export default function Home() {
           พยากรณ์ล่วงหน้า 1–7 วัน
         </div>
       </header>
-
-      <section className="home-intro" aria-labelledby="home-title">
-        <p>BANGKOK ENVIRONMENTAL FORECAST</p>
-        <h1 id="home-title">มองกรุงเทพฯ และปริมณฑล<br />ล่วงหน้าก่อนออกจากบ้าน</h1>
-        <div className="home-intro-bottom">
-          <span>เลือกเรื่องที่ต้องการติดตาม</span>
-          <p>รวมข้อมูลฝุ่น PM2.5 และฝนไว้ในจุดเดียว เพื่อช่วยวางแผนวันของคุณได้ง่ายขึ้น</p>
-        </div>
-      </section>
 
       <section className="home-topics" aria-label="เลือกหัวข้อพยากรณ์">
         <a className="home-topic home-topic-air" href="/air" aria-label="เปิดแผนที่พยากรณ์ฝุ่น PM2.5 กรุงเทพฯ และปริมณฑล" title="เปิดพยากรณ์ฝุ่น PM2.5">
