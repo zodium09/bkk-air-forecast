@@ -217,7 +217,9 @@ async function fetchRegionBoundary(regionId: RegionId): Promise<{ boundary: Boun
   } catch {
     return { boundary: buildFallbackBoundary(regionId) as BoundaryCollection, state: "fallback" };
   }
-}export default function ForecastDashboard() {
+}
+
+export default function ForecastDashboard() {
   const [selectedProvinceId, setSelectedProvinceId] = useState<RegionId>(DEFAULT_REGION_ID);
   const [selectedDay, setSelectedDay] = useState(0);
   const [days, setDays] = useState(bundledDays);
@@ -229,6 +231,7 @@ async function fetchRegionBoundary(regionId: RegionId): Promise<{ boundary: Boun
   const [degradedReasons, setDegradedReasons] = useState<string[]>([]);
   const [reloadKey, setReloadKey] = useState(0);
   const [showRange, setShowRange] = useState(false);
+  const [showLabels, setShowLabels] = useState(false);
   const [layerMenuOpen, setLayerMenuOpen] = useState(false);
   const [boundary, setBoundary] = useState<BoundaryCollection | null>(null);
   const [boundaryState, setBoundaryState] = useState<"loading" | "official" | "fallback">("loading");
@@ -237,6 +240,7 @@ async function fetchRegionBoundary(regionId: RegionId): Promise<{ boundary: Boun
   const mapInstanceRef = useRef<import("leaflet").Map | null>(null);
   const surfaceLayerRef = useRef<import("leaflet").ImageOverlay | null>(null);
   const boundaryLayerRef = useRef<import("leaflet").GeoJSON | null>(null);
+  const labelsLayerRef = useRef<import("leaflet").LayerGroup | null>(null);
   const selectedRegion = getRegion(selectedProvinceId);
 
   useEffect(() => {
@@ -315,6 +319,7 @@ async function fetchRegionBoundary(regionId: RegionId): Promise<{ boundary: Boun
         mapInstanceRef.current = null;
         surfaceLayerRef.current = null;
         boundaryLayerRef.current = null;
+        labelsLayerRef.current = null;
         setMapReady(false);
       }
     };
@@ -371,6 +376,47 @@ async function fetchRegionBoundary(regionId: RegionId): Promise<{ boundary: Boun
       cancelled = true;
     };
   }, [boundary, boundaryState, dataState, mapReady, selectedDay, selectedProvinceId, selectedRegion, stations]);
+
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+    if (labelsLayerRef.current) {
+      map.removeLayer(labelsLayerRef.current);
+      labelsLayerRef.current = null;
+    }
+    if (!showLabels || !stations.length) return;
+
+    let cancelled = false;
+    import("leaflet").then((leafletModule) => {
+      if (cancelled || !mapInstanceRef.current) return;
+      const L = leafletModule.default;
+      const markers = stations.map((station) => {
+        const val = station.values[selectedDay];
+        const level = val !== null && val !== undefined ? getLevel(val) : { label: "—", color: "#94a3b8" };
+        const icon = L.divIcon({
+          className: "map-label-wrapper",
+          html: `
+            <div class="map-val-badge" style="--point-color: ${level.color}">
+              <span class="map-val-dot" style="background-color: ${level.color}"></span>
+              <span class="map-val-num">${val ?? "—"}</span>
+              <span class="map-val-name">${station.district}</span>
+            </div>
+          `,
+          iconSize: [0, 0],
+          iconAnchor: [0, 0],
+        });
+        return L.marker([station.lat, station.lng], { icon, interactive: false });
+      });
+
+      const group = L.layerGroup(markers);
+      group.addTo(map);
+      labelsLayerRef.current = group;
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mapReady, selectedDay, showLabels, stations]);
 
   const selectProvince = (provinceId: RegionId) => {
     setDataState("loading");
@@ -559,8 +605,12 @@ async function fetchRegionBoundary(regionId: RegionId): Promise<{ boundary: Boun
               <div className="layer-menu-panel" hidden={!layerMenuOpen}>
                 <strong>การแสดงผล</strong>
                 <div className="layer-static"><span aria-hidden="true">✓</span>พื้นผิว IDW ค่าฝุ่น</div>
-                <label className="range-toggle">
-                  <input type="checkbox" checked={showRange} onChange={(event) => setShowRange(event.target.checked)} />
+                <label className="range-toggle" htmlFor="air-labels-toggle">
+                  <input id="air-labels-toggle" type="checkbox" checked={showLabels} onChange={(event) => setShowLabels(event.target.checked)} />
+                  <span />แสดงป้ายค่าบนแผนที่
+                </label>
+                <label className="range-toggle" htmlFor="air-range-toggle">
+                  <input id="air-range-toggle" type="checkbox" checked={showRange} onChange={(event) => setShowRange(event.target.checked)} />
                   <span />แสดงช่วงค่า
                 </label>
               </div>

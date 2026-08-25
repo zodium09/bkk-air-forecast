@@ -388,6 +388,7 @@ export default function RainDashboard() {
   const [metricMode, setMetricMode] = useState<MetricMode>("probability");
   const [layerMenuOpen, setLayerMenuOpen] = useState(false);
   const [showForecastSurface, setShowForecastSurface] = useState(true);
+  const [showLabels, setShowLabels] = useState(false);
   const [radarEnabled, setRadarEnabled] = useState(false);
   const [radarMode, setRadarMode] = useState<TmdRadarMode>("observed");
   const [radarPayload, setRadarPayload] = useState<TmdRadarPayload | null>(null);
@@ -405,6 +406,7 @@ export default function RainDashboard() {
   const surfaceLayerRef = useRef<import("leaflet").ImageOverlay | null>(null);
   const radarLayerRef = useRef<import("leaflet").ImageOverlay | null>(null);
   const boundaryLayerRef = useRef<import("leaflet").GeoJSON | null>(null);
+  const labelsLayerRef = useRef<import("leaflet").LayerGroup | null>(null);
   const radarAbortRef = useRef<AbortController | null>(null);
   const selectedDayRef = useRef(0);
   const selectedRegion = getRegion(selectedProvinceId);
@@ -531,6 +533,7 @@ export default function RainDashboard() {
         surfaceLayerRef.current = null;
         radarLayerRef.current = null;
         boundaryLayerRef.current = null;
+        labelsLayerRef.current = null;
         setMapReady(false);
       }
     };
@@ -608,6 +611,53 @@ export default function RainDashboard() {
     observer.observe(mapElementRef.current);
     return () => observer.disconnect();
   }, [mapReady]);
+
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+    if (labelsLayerRef.current) {
+      map.removeLayer(labelsLayerRef.current);
+      labelsLayerRef.current = null;
+    }
+    if (!showLabels || !points.length) return;
+
+    let cancelled = false;
+    import("leaflet").then((leafletModule) => {
+      if (cancelled || !mapInstanceRef.current) return;
+      const L = leafletModule.default;
+      const markers = points.map((point) => {
+        const win = getPointWindow(point, selectedDay, selectedWindowIndex);
+        const prob = win?.probabilityMax ?? null;
+        const rainMm = win?.rainMm ?? null;
+        const isProb = metricMode === "probability";
+        const valText = isProb ? (prob !== null ? `${prob}%` : "—") : (rainMm !== null ? `${rainMm}มม.` : "—");
+        const color = isProb
+          ? (prob !== null && prob >= 70 ? "#0284c7" : prob !== null && prob >= 40 ? "#0ea5e9" : prob !== null && prob >= 20 ? "#38bdf8" : "#94a3b8")
+          : (rainMm !== null && rainMm >= 5 ? "#1d4ed8" : rainMm !== null && rainMm >= 2 ? "#0284c7" : rainMm !== null && rainMm >= 0.5 ? "#0ea5e9" : "#94a3b8");
+        const icon = L.divIcon({
+          className: "map-label-wrapper",
+          html: `
+            <div class="map-val-badge rain-badge" style="--point-color: ${color}">
+              <span class="map-val-dot" style="background-color: ${color}"></span>
+              <span class="map-val-num">${valText}</span>
+              <span class="map-val-name">${point.name}</span>
+            </div>
+          `,
+          iconSize: [0, 0],
+          iconAnchor: [0, 0],
+        });
+        return L.marker([point.lat, point.lng], { icon, interactive: false });
+      });
+
+      const group = L.layerGroup(markers);
+      group.addTo(map);
+      labelsLayerRef.current = group;
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mapReady, metricMode, points, selectedDay, selectedWindowIndex, showLabels]);
 
   const day = days[selectedDay] ?? days[0];
   const dayWindows = useMemo(
@@ -888,6 +938,11 @@ export default function RainDashboard() {
                   <input id="tmd-radar-layer-toggle" type="checkbox" checked={radarEnabled} onChange={(event) => toggleRadar(event.target.checked)} />
                   <span aria-hidden="true" />
                   <span className="layer-toggle-copy"><b>เรดาร์ฝน TMD</b><small>ตรวจจริงและ Nowcast 0–3 ชม.</small></span>
+                </label>
+                <label className="layer-toggle radar-layer-toggle" htmlFor="rain-labels-toggle" aria-label="แสดงป้ายค่าบนแผนที่">
+                  <input id="rain-labels-toggle" type="checkbox" checked={showLabels} onChange={(event) => setShowLabels(event.target.checked)} />
+                  <span aria-hidden="true" />
+                  <span className="layer-toggle-copy"><b>แสดงป้ายค่าบนแผนที่</b><small>แสดงตัวเลขรายพื้นที่</small></span>
                 </label>
                 {radarEnabled && (
                   <div className="radar-layer-controls">
