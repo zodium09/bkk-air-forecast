@@ -11,6 +11,7 @@ import {
 } from "../../lib/rain-forecast-data.ts";
 import { FORECAST_DAYS } from "../../lib/forecast-horizon.ts";
 import { METRO_REGION_ID, provinces } from "../../lib/provinces.ts";
+import { fetchWithTimeout } from "../../lib/fetch-with-timeout.ts";
 import {
   buildRainForecastUrl,
   getRainForecastProvider,
@@ -250,10 +251,9 @@ export async function createRainForecastResponse(options: { fetchImpl?: typeof f
 
   for (const provider of rainForecastProviders) {
     try {
-      const response = await fetchImpl(buildRainForecastUrl(provider.url, province.id), {
+      const response = await fetchWithTimeout(fetchImpl, buildRainForecastUrl(provider.url, province.id), {
         headers: { Accept: "application/json", "User-Agent": "BKK-Air-Forecast/1.0" },
-        signal: AbortSignal.timeout(timeoutMs),
-      });
+      }, timeoutMs);
       if (!response.ok) throw new Error(`status ${response.status}`);
       const raw = await response.json() as OpenMeteoLocation[] | OpenMeteoLocation;
       return normalizedResponse(raw, provider, province.id);

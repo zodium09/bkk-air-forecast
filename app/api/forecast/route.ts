@@ -6,6 +6,7 @@ import { addDays, parseBangkokTimestamp } from "../../lib/forecast/timestamps.ts
 import { FORECAST_DAYS } from "../../lib/forecast-horizon.ts";
 import { METRO_REGION_ID, getProvince, getProvincePoints, provinces, type ProvinceId } from "../../lib/provinces.ts";
 import { createDeduplicatedFetch } from "../../lib/deduplicated-fetch.ts";
+import { fetchWithTimeout } from "../../lib/fetch-with-timeout.ts";
 
 const AIRBKK_URL = "https://official.airbkk.com/airbkk/Api";
 const AIR4THAI_URL = "https://air4thai.pcd.go.th/services/getNewAQI_JSON.php";
@@ -84,7 +85,7 @@ function sourceFailure(error: unknown): UpstreamStatus {
 
 async function requestJson(fetchImpl: typeof fetch, url: URL | string, init: RequestInit, timeoutMs: number): Promise<SourceResult> {
   try {
-    const response = await fetchImpl(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+    const response = await fetchWithTimeout(fetchImpl, url, init, timeoutMs);
     if (!response.ok) return { status: "error" };
     return { status: "ok", data: await response.json() };
   } catch (error) {
