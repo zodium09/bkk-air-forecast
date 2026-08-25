@@ -1,5 +1,5 @@
 import vinext from "vinext";
-import { getCACertificates, setDefaultCACertificates } from "node:tls";
+import * as tls from "node:tls";
 import { defineConfig, type Plugin } from "vite";
 import hostingConfig from "./.openai/hosting.json";
 import { sites } from "./build/sites-vite-plugin";
@@ -18,10 +18,12 @@ function air4ThaiPreviewBridge(): Plugin {
     configureServer(server) {
       // Air4Thai omits an intermediate certificate. Node can build the chain
       // from the Windows system store, while the local workerd runtime cannot.
-      setDefaultCACertificates([
-        ...getCACertificates("default"),
-        ...getCACertificates("system"),
-      ]);
+      if (typeof tls.getCACertificates === "function" && typeof tls.setDefaultCACertificates === "function") {
+        tls.setDefaultCACertificates([
+          ...tls.getCACertificates("default"),
+          ...tls.getCACertificates("system"),
+        ]);
+      }
       server.middlewares.use("/__air4thai", async (_request, response) => {
         try {
           const upstream = await fetch("https://air4thai.pcd.go.th/services/getNewAQI_JSON.php", {
