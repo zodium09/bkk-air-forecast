@@ -640,7 +640,7 @@ export default function RainDashboard() {
             <div class="map-val-badge rain-badge" style="--point-color: ${color}">
               <span class="map-val-dot" style="background-color: ${color}"></span>
               <span class="map-val-num">${valText}</span>
-              <span class="map-val-name">${point.name}</span>
+              <span class="map-val-name">${point.label}</span>
             </div>
           `,
           iconSize: [0, 0],
