@@ -386,10 +386,11 @@ export default function RainDashboard() {
   const [disclaimer, setDisclaimer] = useState("ค่าประมาณจากแบบจำลอง ไม่ใช่เรดาร์ฝนหรือประกาศเตือนภัย");
   const [dataState, setDataState] = useState<RainForecastPayload["status"] | "loading">("loading");
   const [metricMode, setMetricMode] = useState<MetricMode>("probability");
+  const [basemap, setBasemap] = useState<"street" | "satellite">("street");
   const [layerMenuOpen, setLayerMenuOpen] = useState(false);
   const [showForecastSurface, setShowForecastSurface] = useState(true);
   const [showLabels, setShowLabels] = useState(false);
-  const [radarEnabled, setRadarEnabled] = useState(false);
+  const [radarEnabled, setRadarEnabled] = useState(true);
   const [radarMode, setRadarMode] = useState<TmdRadarMode>("observed");
   const [radarPayload, setRadarPayload] = useState<TmdRadarPayload | null>(null);
   const [radarLoadState, setRadarLoadState] = useState<"idle" | "loading" | "ready" | "error">("idle");
@@ -403,6 +404,7 @@ export default function RainDashboard() {
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const layerMenuRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<import("leaflet").Map | null>(null);
+  const tileLayerRef = useRef<import("leaflet").TileLayer | null>(null);
   const surfaceLayerRef = useRef<import("leaflet").ImageOverlay | null>(null);
   const radarLayerRef = useRef<import("leaflet").ImageOverlay | null>(null);
   const boundaryLayerRef = useRef<import("leaflet").GeoJSON | null>(null);
@@ -469,7 +471,10 @@ export default function RainDashboard() {
       });
   }, []);
 
-  useEffect(() => () => radarAbortRef.current?.abort(), []);
+  useEffect(() => {
+    loadRadar(false);
+    return () => radarAbortRef.current?.abort();
+  }, [loadRadar]);
 
   useEffect(() => {
     let active = true;
@@ -511,7 +516,7 @@ export default function RainDashboard() {
         minZoom: 8,
         maxZoom: 15,
       }).setView([13.765, 100.595], 10);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      tileLayerRef.current = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: "&copy; OpenStreetMap contributors",
         maxZoom: 19,
       }).addTo(map);
@@ -530,6 +535,7 @@ export default function RainDashboard() {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
+        tileLayerRef.current = null;
         surfaceLayerRef.current = null;
         radarLayerRef.current = null;
         boundaryLayerRef.current = null;
@@ -538,6 +544,25 @@ export default function RainDashboard() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+    if (tileLayerRef.current) {
+      map.removeLayer(tileLayerRef.current);
+      tileLayerRef.current = null;
+    }
+    import("leaflet").then((leafletModule) => {
+      const L = leafletModule.default;
+      const url = basemap === "satellite"
+        ? "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+        : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+      const attr = basemap === "satellite"
+        ? "&copy; Esri, Earthstar Geographics"
+        : "&copy; OpenStreetMap contributors";
+      tileLayerRef.current = L.tileLayer(url, { attribution: attr, maxZoom: 19 }).addTo(map);
+    });
+  }, [basemap, mapReady]);
 
   useEffect(() => {
     if (!mapReady || !mapInstanceRef.current || !boundary) return;
@@ -637,10 +662,9 @@ export default function RainDashboard() {
         const icon = L.divIcon({
           className: "map-label-wrapper",
           html: `
-            <div class="map-val-badge rain-badge" style="--point-color: ${color}">
+            <div class="map-val-badge ${isProb ? 'prob-badge' : 'rain-badge'}" style="--point-color: ${color}" title="${point.label}: ${valText}">
               <span class="map-val-dot" style="background-color: ${color}"></span>
               <span class="map-val-num">${valText}</span>
-              <span class="map-val-name">${point.label}</span>
             </div>
           `,
           iconSize: [0, 0],
@@ -944,6 +968,27 @@ export default function RainDashboard() {
                   <span aria-hidden="true" />
                   <span className="layer-toggle-copy"><b>แสดงป้ายค่าบนแผนที่</b><small>แสดงตัวเลขรายพื้นที่</small></span>
                 </label>
+                <div className="basemap-layer-section">
+                  <small className="basemap-section-title">แผนที่ฐาน (Basemap)</small>
+                  <div className="basemap-switcher-grid" role="group" aria-label="เลือกแผนที่ฐาน">
+                    <button
+                      type="button"
+                      className={`basemap-option-btn ${basemap === "street" ? "active" : ""}`}
+                      onClick={() => setBasemap("street")}
+                      aria-pressed={basemap === "street"}
+                    >
+                      🗺️ แผนที่ถนน
+                    </button>
+                    <button
+                      type="button"
+                      className={`basemap-option-btn ${basemap === "satellite" ? "active" : ""}`}
+                      onClick={() => setBasemap("satellite")}
+                      aria-pressed={basemap === "satellite"}
+                    >
+                      🛰️ ดาวเทียม
+                    </button>
+                  </div>
+                </div>
                 {radarEnabled && (
                   <div className="radar-layer-controls">
                     {radarLoadState === "loading" ? (

@@ -232,12 +232,14 @@ export default function ForecastDashboard() {
   const [reloadKey, setReloadKey] = useState(0);
   const [showRange, setShowRange] = useState(false);
   const [showLabels, setShowLabels] = useState(false);
+  const [basemap, setBasemap] = useState<"street" | "satellite">("street");
   const [layerMenuOpen, setLayerMenuOpen] = useState(false);
   const [boundary, setBoundary] = useState<BoundaryCollection | null>(null);
   const [boundaryState, setBoundaryState] = useState<"loading" | "official" | "fallback">("loading");
   const [mapReady, setMapReady] = useState(false);
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<import("leaflet").Map | null>(null);
+  const tileLayerRef = useRef<import("leaflet").TileLayer | null>(null);
   const surfaceLayerRef = useRef<import("leaflet").ImageOverlay | null>(null);
   const boundaryLayerRef = useRef<import("leaflet").GeoJSON | null>(null);
   const labelsLayerRef = useRef<import("leaflet").LayerGroup | null>(null);
@@ -298,7 +300,7 @@ export default function ForecastDashboard() {
         maxZoom: 15,
       }).setView([13.765, 100.595], 10);
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      tileLayerRef.current = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: "&copy; OpenStreetMap contributors",
         maxZoom: 19,
       }).addTo(map);
@@ -317,6 +319,7 @@ export default function ForecastDashboard() {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
+        tileLayerRef.current = null;
         surfaceLayerRef.current = null;
         boundaryLayerRef.current = null;
         labelsLayerRef.current = null;
@@ -324,6 +327,25 @@ export default function ForecastDashboard() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+    if (tileLayerRef.current) {
+      map.removeLayer(tileLayerRef.current);
+      tileLayerRef.current = null;
+    }
+    import("leaflet").then((leafletModule) => {
+      const L = leafletModule.default;
+      const url = basemap === "satellite"
+        ? "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+        : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+      const attr = basemap === "satellite"
+        ? "&copy; Esri, Earthstar Geographics"
+        : "&copy; OpenStreetMap contributors";
+      tileLayerRef.current = L.tileLayer(url, { attribution: attr, maxZoom: 19 }).addTo(map);
+    });
+  }, [basemap, mapReady]);
 
   useEffect(() => {
     if (!mapReady || !mapInstanceRef.current || !boundary) return;
@@ -396,10 +418,9 @@ export default function ForecastDashboard() {
         const icon = L.divIcon({
           className: "map-label-wrapper",
           html: `
-            <div class="map-val-badge" style="--point-color: ${level.color}">
+            <div class="map-val-badge" style="--point-color: ${level.color}" title="${station.district}: ${val ?? '—'} µg/m³">
               <span class="map-val-dot" style="background-color: ${level.color}"></span>
               <span class="map-val-num">${val ?? "—"}</span>
-              <span class="map-val-name">${station.district}</span>
             </div>
           `,
           iconSize: [0, 0],
@@ -613,6 +634,27 @@ export default function ForecastDashboard() {
                   <input id="air-range-toggle" type="checkbox" checked={showRange} onChange={(event) => setShowRange(event.target.checked)} />
                   <span />แสดงช่วงค่า
                 </label>
+                <div className="basemap-layer-section">
+                  <small className="basemap-section-title">แผนที่ฐาน (Basemap)</small>
+                  <div className="basemap-switcher-grid" role="group" aria-label="เลือกแผนที่ฐาน">
+                    <button
+                      type="button"
+                      className={`basemap-option-btn ${basemap === "street" ? "active" : ""}`}
+                      onClick={() => setBasemap("street")}
+                      aria-pressed={basemap === "street"}
+                    >
+                      🗺️ แผนที่ถนน
+                    </button>
+                    <button
+                      type="button"
+                      className={`basemap-option-btn ${basemap === "satellite" ? "active" : ""}`}
+                      onClick={() => setBasemap("satellite")}
+                      aria-pressed={basemap === "satellite"}
+                    >
+                      🛰️ ดาวเทียม
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
             <div className="map-metric">
