@@ -45,7 +45,7 @@ function air4ThaiPreviewBridge(): Plugin {
 }
 
 const localBindingConfig = {
-  name: "bkk-air-forecast",
+  name: "bkkplus-airforecast",
   main: "./worker/index.ts",
   compatibility_flags: ["nodejs_compat"],
   d1_databases: d1

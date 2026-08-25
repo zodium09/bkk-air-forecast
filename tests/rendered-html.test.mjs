@@ -46,15 +46,16 @@ test("server-renders the two-topic BKK Air Forecast homepage", async () => {
   assert.doesNotMatch(html, /กำลังโหลดข้อมูล|กำลังโหลดพยากรณ์ฝน/);
 });
 
-test("topic cards and product navigation use framework links", async () => {
+test("topic cards and product navigation use resilient document links", async () => {
   const homepage = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const productNav = await readFile(new URL("../app/components/outlook-nav.tsx", import.meta.url), "utf8");
-  assert.match(homepage, /from ["']next\/link["']/);
-  assert.match(productNav, /from ["']next\/link["']/);
-  assert.match(homepage, /<Link className="home-topic home-topic-air" href="\/air"/);
-  assert.match(homepage, /<Link className="home-topic home-topic-rain" href="\/rain"/);
+  assert.doesNotMatch(homepage, /from ["']next\/link["']/);
+  assert.doesNotMatch(productNav, /from ["']next\/link["']/);
+  assert.match(homepage, /<a className="home-topic home-topic-air" href="\/air"/);
+  assert.match(homepage, /<a className="home-topic home-topic-rain" href="\/rain"/);
+  assert.match(productNav, /<a href={`\/air\${query}`}/);
+  assert.match(productNav, /<a href={`\/rain\${query}`}/);
 });
-
 test("server-renders the BKK Air forecast product", async () => {
   const worker = await loadWorker();
   const response = await worker.fetch(
