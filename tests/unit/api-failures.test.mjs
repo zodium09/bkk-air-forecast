@@ -170,6 +170,50 @@ function rainRaw(pointCount = 9, corruptCount = 0) {
   });
 }
 
+function tmdRainRaw(value = 2) {
+  const dates = ["2026-08-21", "2026-08-22"];
+  const times = dates.flatMap((date) => Array.from({ length: 24 }, (_, hour) => `${date}T${String(hour).padStart(2, "0")}:00:00+07:00`));
+  return { WeatherForecasts: Array.from({ length: 9 }, (_, index) => ({
+    location: { lat: 13.64 + Math.floor(index / 3) * 0.16, lon: 100.34 + (index % 3) * 0.27 },
+    forecasts: times.map((time) => ({ time, data: { rain: value, cond: 6 } })),
+  })) };
+}
+
+test("TMD NWP overlays rainfall without exposing the token in the URL", async () => {
+  const requested = [];
+  const response = await createRainForecastResponse({
+    tmdToken: "test-secret-token",
+    now: () => NOW,
+    fetchImpl: async (input, init = {}) => {
+      requested.push({ url: String(input), authorization: new Headers(init.headers).get("authorization") });
+      return String(input).includes("data.tmd.go.th") ? json(tmdRainRaw()) : json(rainRaw(9));
+    },
+  });
+  const payload = await response.json();
+  assert.equal(payload.status, "live");
+  assert.equal(payload.dataQuality.provider, "tmd-nwp-hybrid");
+  assert.equal(payload.dataQuality.tmdStatus, "live");
+  assert.equal(payload.dataQuality.tmdAcceptedPoints, 9);
+  assert.equal(payload.dataQuality.tmdCadenceHours, 1);
+  assert.equal(payload.days[0].rainMeanMm, 48);
+  assert.ok(payload.sources.includes("กรมอุตุนิยมวิทยา (TMD NWP)"));
+  assert.equal(requested.some((request) => request.url.includes("test-secret-token")), false);
+  assert.equal(requested.filter((request) => request.url.includes("data.tmd.go.th")).length, 3);
+  assert.equal(requested.find((request) => request.url.includes("data.tmd.go.th")).authorization, "Bearer test-secret-token");
+});
+
+test("TMD NWP failure falls back to Open-Meteo without hiding the forecast", async () => {
+  const payload = await (await createRainForecastResponse({
+    tmdToken: "expired-token",
+    fetchImpl: async (input) => String(input).includes("data.tmd.go.th") ? json({}, 401) : json(rainRaw(9)),
+  })).json();
+  assert.equal(payload.status, "live");
+  assert.equal(payload.dataQuality.provider, "best-match");
+  assert.equal(payload.dataQuality.providerFallback, true);
+  assert.equal(payload.dataQuality.tmdStatus, "unavailable");
+  assert.equal(payload.points.length, 9);
+});
+
 test("rain provider failover uses GFS after Best Match fails", async () => {
   let calls = 0;
   const response = await createRainForecastResponse({ fetchImpl: async () => ++calls === 1 ? json({}, 500) : json(rainRaw(9)) });

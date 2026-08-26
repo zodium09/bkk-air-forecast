@@ -7,7 +7,15 @@ export const rainForecastProviders = [
 ] as const;
 
 export type RainForecastProvider = (typeof rainForecastProviders)[number];
+export type RainForecastProviderLike = { id: string; url: string; model: string; source: string };
 export type RainForecastProviderId = RainForecastProvider["id"];
+
+export const tmdHybridRainProvider: RainForecastProviderLike = {
+  id: "tmd-nwp-hybrid",
+  url: "https://data.tmd.go.th/nwpapi/v1/forecast/location/hourly/at",
+  model: "TMD NWP 3 km (0–48h) + Open-Meteo probability and extended-range fallback",
+  source: "กรมอุตุนิยมวิทยา (TMD NWP)",
+};
 
 export const rainForecastPoints = getProvincePoints(DEFAULT_PROVINCE_ID);
 

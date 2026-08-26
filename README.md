@@ -8,6 +8,7 @@ BKK Air Forecast is a Bangkok-metropolitan web application for viewing seven-day
 - Seven-day rain outlook with 3-hour windows, probability and rain-amount views
 - Province selector shared across air and rain views, defaulting to the six-province metropolitan overview
 - Optional TMD RadarGIS observed and 0–3 hour nowcast layers
+- Optional authenticated TMD NWP rainfall overlay (`TMD_NWP_TOKEN`) with Open-Meteo/GFS fallback
 - Explicit `live`, `degraded`, and `unavailable` data states
 - Upstream timeout handling, quality-control summaries, and safe no-data behavior
 - Responsive Leaflet maps with bounded surface caches
@@ -30,6 +31,7 @@ The default metropolitan views call one consolidated forecast endpoint and one c
 - **BMA GIS:** official Bangkok district boundary when available.
 - **Department of Mineral Resources GIS:** official province boundaries for the five metropolitan provinces.
 - **TMD RadarGIS:** observed radar and short-range nowcast image layers.
+- **TMD NWP:** authenticated 3 km hourly rainfall values for the first 48 hours when `TMD_NWP_TOKEN` is configured. Open-Meteo supplies probability fields, fills missing periods, and extends the outlook to seven days.
 - **OpenStreetMap:** basemap tiles.
 
 ## PM2.5 Forecast Method
@@ -40,7 +42,7 @@ The PM2.5 surface is an interpolation, not a direct measurement at every pixel. 
 
 ## Rain Forecast Method
 
-Rain values come from nine model grid points covering the selected province. Hourly model values are aggregated into eight 3-hour windows per day and then summarized for the province. The map interpolates those nine grid-point forecasts with IDW. The optional TMD RadarGIS layer is displayed separately from the model forecast.
+Rain values come from nine model grid points covering the selected province. When configured, three concurrent server-side TMD NWP point requests supply 3 km hourly rainfall amounts for the first 48 hours and are mapped to the nearest display-grid points; Open-Meteo supplies precipitation probability, fills missing TMD periods, and extends the outlook to seven days. Hourly values are aggregated into eight 3-hour windows per day and then summarized for the province. The map interpolates those nine grid-point forecasts with IDW. The optional TMD RadarGIS layer is displayed separately from the model forecast.
 
 ## Data Quality / Fallback Behavior
 
@@ -59,6 +61,8 @@ npm ci
 npm run dev
 ```
 
+To enable TMD NWP locally, copy `.env.example` to `.env.local` and set `TMD_NWP_TOKEN` to the OAuth access token. The token is read only by the server route and is sent in the `Authorization: Bearer` header; it is never added to a browser response or URL.
+
 The development server uses vinext. No database, login, or external credentials are required for the read-only forecast pages, but live upstream requests require internet access.
 
 ## Testing
@@ -74,7 +78,7 @@ Unit tests inject mock `fetch` implementations and do not call external provider
 
 ## Deployment
 
-Build the production bundle with `npm run build` and deploy the generated vinext application using the hosting environment configured for the repository. CDN caching is enabled on successful forecast responses with stale-while-revalidate windows; unavailable responses use `no-store`. The included CI workflow validates install, lint, tests, and build but does not deploy.
+Build the production bundle with `npm run build` and deploy the generated vinext application using the hosting environment configured for the repository. Configure `TMD_NWP_TOKEN` as an encrypted server-side deployment secret when TMD NWP is enabled. CDN caching is enabled on successful forecast responses with stale-while-revalidate windows; unavailable responses use `no-store`. The included CI workflow validates install, lint, tests, and build but does not deploy.
 
 ## Limitations
 

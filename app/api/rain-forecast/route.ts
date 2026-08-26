@@ -17,8 +17,10 @@ import {
   getRainForecastProvider,
   getRainForecastContext,
   rainForecastProviders,
-  type RainForecastProvider,
+  tmdHybridRainProvider,
+  type RainForecastProviderLike,
 } from "../../lib/rain-forecast-provider.ts";
+import { buildTmdPointForecastUrls, mergeTmdRainForecast, type TmdNwpPayload } from "../../lib/tmd-nwp-provider.ts";
 
 const EXPECTED_HOURLY_VALUES = FORECAST_DAYS * 24;
 const MINIMUM_HOURLY_COVERAGE = 0.8;
@@ -194,7 +196,20 @@ function unavailableResponse(error: unknown, provinceId: unknown) {
   });
 }
 
-function normalizedResponse(raw: OpenMeteoLocation[] | OpenMeteoLocation, provider: RainForecastProvider, provinceId: unknown, deliveryFallback = false) {
+type TmdIntegration = {
+  status: "live" | "unavailable" | "not-configured";
+  acceptedPoints?: number;
+  forecastValues?: number;
+  cadenceHours?: number | null;
+};
+
+function normalizedResponse(
+  raw: OpenMeteoLocation[] | OpenMeteoLocation,
+  provider: RainForecastProviderLike,
+  provinceId: unknown,
+  deliveryFallback = false,
+  tmdIntegration: TmdIntegration = { status: "not-configured" },
+) {
   const { province, points: forecastPoints } = getRainForecastContext(provinceId);
   const locations = Array.isArray(raw) ? raw : [raw];
   const points = locations
@@ -214,7 +229,7 @@ function normalizedResponse(raw: OpenMeteoLocation[] | OpenMeteoLocation, provid
     fetchedAt: new Date().toISOString(),
     model: `${provider.model} · 9-point ${province.nameEn} grid`,
     disclaimer: "ข้อมูลพยากรณ์จริงจากแบบจำลองอากาศ ไม่ใช่เรดาร์ฝนหรือประกาศเตือนภัย โอกาสฝนและปริมาณฝนเป็นคนละตัวชี้วัด และความละเอียดไม่เท่าการพยากรณ์รายเขต",
-    sources: [provider.source, province.id === "bangkok" ? "BMA GIS district boundary" : "DMR province boundary", "OpenStreetMap"],
+    sources: [provider.source, ...(provider.id === "tmd-nwp-hybrid" ? ["Open-Meteo Weather Forecast"] : []), province.id === "bangkok" ? "BMA GIS district boundary" : "DMR province boundary", "OpenStreetMap"],
     dataQuality: {
       expectedPoints: forecastPoints.length,
       acceptedPoints: points.length,
@@ -222,7 +237,11 @@ function normalizedResponse(raw: OpenMeteoLocation[] | OpenMeteoLocation, provid
       rejectedPoints: forecastPoints.length - points.length,
       minimumHourlyCoverage: MINIMUM_HOURLY_COVERAGE,
       provider: provider.id,
-      providerFallback: provider.id !== rainForecastProviders[0].id,
+      providerFallback: provider.id === rainForecastProviders[1].id || tmdIntegration.status === "unavailable",
+      tmdStatus: tmdIntegration.status,
+      tmdAcceptedPoints: tmdIntegration.acceptedPoints,
+      tmdForecastValues: tmdIntegration.forecastValues,
+      tmdCadenceHours: tmdIntegration.cadenceHours,
       deliveryFallback,
     },
     days,
@@ -243,11 +262,19 @@ function normalizedResponse(raw: OpenMeteoLocation[] | OpenMeteoLocation, provid
   });
 }
 
-export async function createRainForecastResponse(options: { fetchImpl?: typeof fetch; timeoutMs?: number; provinceId?: unknown } = {}) {
+export async function createRainForecastResponse(options: {
+  fetchImpl?: typeof fetch;
+  timeoutMs?: number;
+  provinceId?: unknown;
+  tmdToken?: string | null;
+  tmdBaseUrl?: string;
+  now?: () => number;
+} = {}) {
   const failures: string[] = [];
   const fetchImpl = options.fetchImpl ?? fetch;
   const timeoutMs = options.timeoutMs ?? 9_000;
   const { province } = getRainForecastContext(options.provinceId);
+  const tmdToken = options.tmdToken === undefined ? process.env.TMD_NWP_TOKEN?.trim() : options.tmdToken?.trim();
 
   for (const provider of rainForecastProviders) {
     try {
@@ -255,8 +282,29 @@ export async function createRainForecastResponse(options: { fetchImpl?: typeof f
         headers: { Accept: "application/json", "User-Agent": "BKK-Air-Forecast/1.0" },
       }, timeoutMs);
       if (!response.ok) throw new Error(`status ${response.status}`);
-      const raw = await response.json() as OpenMeteoLocation[] | OpenMeteoLocation;
-      return normalizedResponse(raw, provider, province.id);
+      let raw = await response.json() as OpenMeteoLocation[] | OpenMeteoLocation;
+      let effectiveProvider: RainForecastProviderLike = provider;
+      let tmdIntegration: TmdIntegration = { status: tmdToken ? "unavailable" : "not-configured" };
+      if (tmdToken) {
+        try {
+          const tmdPayloads = await Promise.all(buildTmdPointForecastUrls(province.id, options.tmdBaseUrl).map(async (tmdUrl) => {
+            const tmdResponse = await fetchWithTimeout(fetchImpl, tmdUrl, {
+              headers: { Accept: "application/json", Authorization: `Bearer ${tmdToken}`, "User-Agent": "BKK-Air-Forecast/1.0" },
+            }, timeoutMs);
+            if (!tmdResponse.ok) throw new Error(`status ${tmdResponse.status}`);
+            return tmdResponse.json() as Promise<TmdNwpPayload>;
+          }));
+          const tmdPayload = { WeatherForecasts: tmdPayloads.flatMap((payload) => Array.isArray(payload.WeatherForecasts) ? payload.WeatherForecasts : []) };
+          const merged = mergeTmdRainForecast(raw, tmdPayload, province.id);
+          if (merged.acceptedPoints < 6) throw new Error(`insufficient TMD points ${merged.acceptedPoints}`);
+          raw = merged.locations;
+          effectiveProvider = tmdHybridRainProvider;
+          tmdIntegration = { status: "live", acceptedPoints: merged.acceptedPoints, forecastValues: merged.forecastValues, cadenceHours: merged.cadenceHours };
+        } catch (error) {
+          failures.push(`tmd-nwp: ${error instanceof Error ? error.message : "unknown error"}`);
+        }
+      }
+      return normalizedResponse(raw, effectiveProvider, province.id, false, tmdIntegration);
     } catch (error) {
       failures.push(`${provider.id}: ${error instanceof Error ? error.message : "unknown error"}`);
     }
