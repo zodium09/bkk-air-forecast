@@ -34,15 +34,6 @@ type BoundaryCollection = {
 const surfaceCache = new Map<string, ReturnType<typeof createIdwSurface>>();
 const MAX_SURFACE_CACHE = 12;
 
-const colorStops = [
-  { value: 0, color: [56, 189, 248] },
-  { value: 15, color: [56, 189, 248] },
-  { value: 25, color: [52, 211, 153] },
-  { value: 37.5, color: [250, 204, 21] },
-  { value: 75, color: [251, 146, 60] },
-  { value: 120, color: [244, 63, 94] },
-];
-
 function getPolygons(boundary: BoundaryCollection): PolygonCoordinates[] {
   return boundary.features.flatMap((feature) =>
     feature.geometry.type === "Polygon"
@@ -64,13 +55,8 @@ function getBoundaryBounds(boundary: BoundaryCollection) {
 }
 
 function interpolateColor(value: number) {
-  const upperIndex = colorStops.findIndex((stop) => value <= stop.value);
-  if (upperIndex <= 0) return colorStops[0].color;
-  if (upperIndex === -1) return colorStops[colorStops.length - 1].color;
-  const lower = colorStops[upperIndex - 1];
-  const upper = colorStops[upperIndex];
-  const ratio = (value - lower.value) / (upper.value - lower.value || 1);
-  return lower.color.map((channel, index) => Math.round(channel + (upper.color[index] - channel) * ratio));
+  const hex = getLevel(value).color.slice(1);
+  return [0, 2, 4].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16));
 }
 
 function interpolateIdw(lng: number, lat: number, stations: ForecastStation[], dayIndex: number) {
@@ -670,11 +656,11 @@ export default function ForecastDashboard() {
               <em>{boundaryState === "official" ? selectedProvinceId === METRO_REGION_ID ? "ครอบคลุมกรุงเทพฯ และปริมณฑล 6 จังหวัด" : selectedProvinceId === "bangkok" ? "ครอบคลุมพื้นที่ 50 เขต" : `ขอบเขตจังหวัด${selectedRegion.nameTh}` : boundaryState === "fallback" ? "ขอบเขตจริงไม่พร้อม จึงไม่แสดงกรอบสำรองบนแผนที่" : `กำลังโหลดขอบเขต${selectedRegion.nameTh}`}</em>
             </div>
             <div className="legend" aria-label="คำอธิบายระดับ PM2.5">
-              <span><i style={{ background: "#38bdf8" }} />0–15</span>
-              <span><i style={{ background: "#34d399" }} />16–25</span>
-              <span><i style={{ background: "#facc15" }} />26–37.5</span>
-              <span><i style={{ background: "#fb923c" }} />38–75</span>
-              <span><i style={{ background: "#f43f5e" }} />&gt;75</span>
+              <span><i style={{ background: "#38bdf8" }} />ดีมาก 0–15</span>
+              <span><i style={{ background: "#34d399" }} />ดี 16–25</span>
+              <span><i style={{ background: "#facc15" }} />ปานกลาง 26–37.5</span>
+              <span><i style={{ background: "#fb923c" }} />เริ่มมีผลกระทบ 38–75</span>
+              <span><i style={{ background: "#f43f5e" }} />มีผลกระทบ &gt;75</span>
               <small>PM2.5 · µg/m³</small>
             </div>
           </div>
