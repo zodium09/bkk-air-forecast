@@ -42,7 +42,7 @@ function normalizedCacheRequest(request: Request) {
   return new Request(url.toString(), { method: "GET", headers: { Accept: request.headers.get("accept") ?? "*/*" } });
 }
 
-function responseWithCacheStatus(response: Response, status: "HIT" | "MISS") {
+function responseWithCacheStatus(response: Response, status: "HIT" | "MISS" | "BYPASS") {
   const headers = new Headers(response.headers);
   const browserCacheControl = headers.get("X-Browser-Cache-Control");
   if (browserCacheControl) headers.set("Cache-Control", browserCacheControl);
@@ -54,7 +54,18 @@ function responseWithCacheStatus(response: Response, status: "HIT" | "MISS") {
 async function fetchWithEdgeCache(request: Request, env: Env, ctx: ExecutionContext) {
   const cacheRequest = normalizedCacheRequest(request);
   if (!cacheRequest) return handler.fetch(request, env, ctx);
-  const cache = caches.default;
+
+  // Some managed Workers runtimes do not expose the default Cache API. Accessing
+  // the getter throws before a route can run, so degrade to the application
+  // response instead of taking every data endpoint down.
+  let cache: Cache;
+  try {
+    cache = caches.default;
+  } catch {
+    const response = await handler.fetch(request, env, ctx);
+    return responseWithCacheStatus(response, "BYPASS");
+  }
+
   const cached = await cache.match(cacheRequest);
   if (cached) return responseWithCacheStatus(cached, "HIT");
 
