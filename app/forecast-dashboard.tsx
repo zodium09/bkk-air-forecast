@@ -161,6 +161,7 @@ function degradedReasonLabel(reason: string) {
     air4thai_bias_correction: "ปรับแบบจำลอง CAMS ด้วยสถานี Air4Thai ล่าสุด",
     air4thai_timeout: "Air4Thai ตอบสนองช้า",
     air4thai_error: "Air4Thai ไม่พร้อมใช้งาน",
+    insufficient_regional_observations: "สถานีภูมิภาคที่ผ่านการตรวจคุณภาพมีน้อยกว่า 6 จุด",
   };
   return labels[reason] ?? reason;
 }
@@ -607,7 +608,7 @@ export default function ForecastDashboard() {
               </button>
               <div className="layer-menu-panel" hidden={!layerMenuOpen}>
                 <strong>การแสดงผล</strong>
-                <div className="layer-static"><span aria-hidden="true">✓</span>พื้นผิว IDW ค่าฝุ่น</div>
+                <div className="layer-static"><span aria-hidden="true">✓</span>พื้นผิว CAMS + residual ตามลม</div>
                 <label className="range-toggle" htmlFor="air-labels-toggle">
                   <input id="air-labels-toggle" type="checkbox" checked={showLabels} onChange={(event) => setShowLabels(event.target.checked)} />
                   <span />แสดงป้ายค่าบนแผนที่
@@ -647,9 +648,9 @@ export default function ForecastDashboard() {
             </div>
             <div className={`surface-status ${boundaryState}`}>
               <b>{dataState === "live" ? "ข้อมูลอัปเดตแล้ว" : dataState === "degraded" ? "ข้อมูลอัปเดตบางส่วน" : dataState === "unavailable" ? "ข้อมูลไม่พร้อมใช้งาน" : "กำลังโหลด"}</b>
-              <span>{stations.length && boundaryState === "official" ? `พื้นผิว IDW · คำนวณจากข้อมูล ${stations.length} พิกัด` : stations.length ? "ซ่อนพื้นผิว IDW ชั่วคราวจนกว่าขอบเขตจริงพร้อมใช้งาน" : "ปิดพื้นผิวพยากรณ์จนกว่าจะมีข้อมูลจริง"}</span>
+              <span>{stations.length && boundaryState === "official" ? `พื้นผิวภูมิภาคตามลม · ${stations.length} พิกัดแสดงผล` : stations.length ? "ซ่อนพื้นผิวชั่วคราวจนกว่าขอบเขตจริงพร้อมใช้งาน" : "ปิดพื้นผิวพยากรณ์จนกว่าจะมีข้อมูลจริง"}</span>
               {dataState === "degraded" && degradedReasons.length > 0 && <em>ข้อจำกัด: {degradedReasons.map(degradedReasonLabel).join(" · ")}</em>}
-              <em>{boundaryState === "official" ? selectedProvinceId === METRO_REGION_ID ? "ครอบคลุมกรุงเทพฯ และปริมณฑล 6 จังหวัด" : selectedProvinceId === "bangkok" ? "ครอบคลุมพื้นที่ 50 เขต" : `ขอบเขตจังหวัด${selectedRegion.nameTh}` : boundaryState === "fallback" ? "ขอบเขตจริงไม่พร้อม จึงไม่แสดงกรอบสำรองบนแผนที่" : `กำลังโหลดขอบเขต${selectedRegion.nameTh}`}</em>
+              <em>{boundaryState === "official" ? selectedProvinceId === METRO_REGION_ID ? "วิเคราะห์มวลอากาศรอบกรุงเทพฯ 100–200 กม. แล้วตัดแสดง 6 จังหวัด" : selectedProvinceId === "bangkok" ? "ครอบคลุมพื้นที่ 50 เขต" : `ขอบเขตจังหวัด${selectedRegion.nameTh}` : boundaryState === "fallback" ? "ขอบเขตจริงไม่พร้อม จึงไม่แสดงกรอบสำรองบนแผนที่" : `กำลังโหลดขอบเขต${selectedRegion.nameTh}`}</em>
             </div>
             <div className="legend" aria-label="คำอธิบายระดับ PM2.5">
               <span><i style={{ background: "#38bdf8" }} />ดีมาก 0–15</span>

@@ -81,7 +81,7 @@ test("server-renders the BKK Air forecast product", async () => {
   assert.match(html, /7 วันล่วงหน้า/);
   assert.match(html, /เลือกชั้นข้อมูลแผนที่/);
   assert.doesNotMatch(html, /ความเชื่อมั่นของโมเดล/);
-  assert.match(html, /พื้นผิว IDW ค่าฝุ่น/);
+  assert.match(html, /พื้นผิว CAMS \+ residual ตามลม/);
   assert.doesNotMatch(html, /จุดตรวจวัด<\/label>|จุดตรวจวัด<\/span>/);
   assert.match(html, /กำลังโหลดขอบเขต(?:<!-- -->)?กรุงเทพมหานครและปริมณฑล/);
   assert.match(html, /href="\/rain\?province=metro"/);
@@ -146,14 +146,25 @@ test("TMD radar adapter uses RadarGIS with explicit freshness and cache contract
   assert.match(route, /stale-while-revalidate=600/);
 });
 
-test("forecast adapter combines AirBKK and CAMS with explicit unavailable contract", async () => {
+test("forecast adapter uses a documented wind-aware regional CAMS residual model", async () => {
   const route = await readFile(new URL("../app/api/forecast/route.ts", import.meta.url), "utf8");
+  const influenceDomain = await readFile(new URL("../app/lib/forecast/influence-domain.ts", import.meta.url), "utf8");
+  const windAwareInterpolation = await readFile(new URL("../app/lib/forecast/wind-aware-interpolation.ts", import.meta.url), "utf8");
+  const manual = await readFile(new URL("../docs/WIND_AWARE_REGIONAL_PM25_MANUAL_TH.md", import.meta.url), "utf8");
   assert.match(route, /official\.airbkk\.com\/airbkk\/Api/);
   assert.match(route, /air4thai\.pcd\.go\.th\/services\/getNewAQI_JSON\.php/);
   assert.match(route, /air-quality-api\.open-meteo\.com/);
   assert.match(route, /domains.*cams_global/s);
-  assert.match(route, /calculateBiasCorrection/);
-  assert.match(route, /insufficient_fresh_airbkk_stations/);
+  assert.match(route, /estimateWindAwarePm25/);
+  assert.match(route, /getRegionalCamsPoints/);
+  assert.match(route, /regionalObservationStations/);
+  assert.match(influenceDomain, /ราชบุรี/);
+  assert.match(influenceDomain, /ฉะเชิงเทรา/);
+  assert.match(windAwareInterpolation, /effectiveDistance/);
+  assert.match(windAwareInterpolation, /temporalDecay/);
+  assert.match(manual, /CAMS Global/);
+  assert.match(manual, /residual/i);
+  assert.match(manual, /backtest/i);
   assert.match(route, /X-Forecast-Status/);
 });
 

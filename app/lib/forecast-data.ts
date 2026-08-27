@@ -12,6 +12,7 @@ export type ForecastDay = {
   lead: number; date: string; weekday: string; forecastReliabilityScore: number; uncertainty: number;
   wind: string; weather: string; note: string; year: number;
   sourceMode?: "cams" | "extrapolated" | "placeholder"; coverageHours?: number;
+  windSpeedKmh?: number | null; windDirectionDeg?: number | null;
   /** @deprecated Migration alias. This heuristic is not statistical confidence. */
   confidence?: number;
 };

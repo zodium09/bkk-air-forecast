@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { DEFAULT_PROVINCE_ID, DEFAULT_REGION_ID, buildFallbackBoundary, getProvince, getProvincePoints, getRegion, provinces } from "../../app/lib/provinces.ts";
+import { getMetroAnalysisTargets, getRegionalCamsPoints, isInsideRegionalInfluenceDomain } from "../../app/lib/forecast/influence-domain.ts";
 
 test("province catalogue contains Bangkok and its five metropolitan neighbours", () => {
   assert.equal(DEFAULT_PROVINCE_ID, "bangkok");
@@ -27,4 +28,11 @@ test("metropolitan overview is the default region and covers all six provinces",
   assert.equal(getRegion("metro").nameEn, "Bangkok Metropolitan Region");
   const fallback = buildFallbackBoundary("metro");
   assert.equal(fallback.features.length, provinces.length);
+});
+
+test("regional influence domain uses a CAMS-scale grid and combined metro targets", () => {
+  const camsPoints = getRegionalCamsPoints();
+  assert.equal(camsPoints.length, 49);
+  assert.ok(camsPoints.every((point) => isInsideRegionalInfluenceDomain(point.lat, point.lng)));
+  assert.equal(getMetroAnalysisTargets().length, 54);
 });

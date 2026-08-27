@@ -4,6 +4,7 @@ import { parseBangkokTimestamp } from "../../app/lib/forecast/timestamps.ts";
 import { deduplicateStations, filterFreshStations, filterOutliers, isValidStation } from "../../app/lib/forecast/quality-control.ts";
 import { spatialIdw } from "../../app/lib/forecast/interpolation.ts";
 import { buildCamsDailyForecast, calculateReliabilityScore } from "../../app/lib/forecast/forecast-model.ts";
+import { estimateWindAwarePm25, windAwareResidual } from "../../app/lib/forecast/wind-aware-interpolation.ts";
 
 test("Bangkok timestamps parse to UTC across midnight and reject invalid input", () => {
   assert.equal(parseBangkokTimestamp("2026-08-21 00:00:00"), Date.UTC(2026, 7, 20, 17));
@@ -47,6 +48,30 @@ test("bounded IDW uses nearby cross-boundary evidence and leaves unsupported are
   const local = spatialIdw(13.72, 100.52, anchors, { maxDistanceKm: 50, maxNeighbors: 3, minNeighbors: 3 });
   assert.equal(local, 30);
   assert.equal(spatialIdw(15.5, 102.5, anchors, { maxDistanceKm: 50, minNeighbors: 3 }), null);
+});
+
+test("wind-aware residual favours upwind evidence and reverses when wind reverses", () => {
+  const samples = [
+    { lat: 13.75, lng: 101.0, residual: 40, ageHours: 0 },
+    { lat: 13.75, lng: 100.0, residual: -40, ageHours: 0 },
+  ];
+  const fromEast = windAwareResidual(13.75, 100.5, samples, { speedKmh: 18, directionDeg: 90 }, 0);
+  const fromWest = windAwareResidual(13.75, 100.5, samples, { speedKmh: 18, directionDeg: 270 }, 0);
+  assert.ok(fromEast.correction > 0);
+  assert.ok(fromWest.correction < 0);
+});
+
+test("regional estimator keeps CAMS background when no station influence is supported", () => {
+  const estimate = estimateWindAwarePm25({
+    lat: 13.75,
+    lng: 100.5,
+    backgroundAnchors: [{ lat: 13.75, lng: 100.5, value: 28 }],
+    residualSamples: [{ lat: 16.5, lng: 103, residual: 50, ageHours: 0 }],
+    wind: { speedKmh: 10, directionDeg: 45 },
+    leadHours: 24,
+  });
+  assert.equal(estimate?.value, 28);
+  assert.equal(estimate?.usedSamples, 0);
 });
 
 test("CAMS aggregation reports full and partial coverage and extrapolates safely with null current", () => {

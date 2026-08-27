@@ -36,9 +36,9 @@ The default metropolitan views call one consolidated forecast endpoint and one c
 
 ## PM2.5 Forecast Method
 
-AirBKK records are validated, freshness-filtered, deduplicated, and checked using a global median absolute deviation sanity screen with nearby-station corroboration. CAMS hourly forecasts are aggregated into daily values at buffered model anchors and spatially interpolated using inverse-distance weighting (IDW). Metropolitan surfaces use anchors across all six provinces without administrative seams, limit each pixel to the nearest 12 anchors within 50 km, and leave unsupported areas transparent. The current AirBKK–CAMS difference supplies a bounded bias correction that decays with lead time.
+The default metropolitan PM2.5 forecast no longer aggregates six independently interpolated province products. It requests one 7×7 CAMS Global domain covering roughly 100–200 km around Greater Bangkok, validates AirBKK and regional Air4Thai observations, calculates station-minus-CAMS residuals, and applies an anisotropic upwind weighting that changes with forecast wind speed and direction. The corrected 54 metropolitan target points are then rendered as one continuous, boundary-clipped display surface. Individual province views retain the simpler local fallback pipeline.
 
-The PM2.5 surface is an interpolation, not a direct measurement at every pixel. `forecastReliabilityScore` is a heuristic based on lead time, source availability, CAMS coverage, and observation age. It is not a probability of forecast accuracy and has not been historically calibrated.
+The PM2.5 surface is an interpolation, not a direct measurement at every pixel or proof of a pollution source. `forecastReliabilityScore` is a heuristic based on lead time, source availability, CAMS coverage, and observation age. It is not a probability of forecast accuracy and has not been historically calibrated. The full scientific and operational manual is in `docs/WIND_AWARE_REGIONAL_PM25_MANUAL_TH.md`.
 
 ## Rain Forecast Method
 

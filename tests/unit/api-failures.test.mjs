@@ -60,9 +60,15 @@ test("PM API is live when all sources are complete", async () => {
   assert.ok(payload.stations.every((station) => station.values.length === 7));
 });
 
-test("metro PM endpoint consolidates six provinces and downloads Air4Thai once", async () => {
+test("metro PM endpoint uses one regional CAMS domain and one Air4Thai download", async () => {
   const requested = [];
-  const baseFetch = forecastFetch();
+  const baseFetch = forecastFetch({
+    air4thai: json(air4ThaiPayload(1, {
+      areaTH: "ต.หน้าเมือง อ.เมือง, ราชบุรี",
+      baseLat: 13.53,
+      baseLng: 99.82,
+    })),
+  });
   const payload = await (await createMetroForecastResponse({
     fetchImpl: async (input, init) => {
       requested.push(String(input));
@@ -72,10 +78,16 @@ test("metro PM endpoint consolidates six provinces and downloads Air4Thai once",
   })).json();
   assert.equal(payload.province.id, "metro");
   assert.equal(payload.dataQuality.provinceCoverage, 6);
-  assert.equal(payload.stations.length, 69);
+  assert.equal(payload.stations.length, 54);
+  assert.equal(payload.dataQuality.windMethod, "anisotropic upwind residual interpolation");
+  assert.equal(payload.dataQuality.analysisDomain.includes("ราชบุรี"), true);
+  assert.equal(payload.dataQuality.analysisDomain.includes("ฉะเชิงเทรา"), true);
+  assert.equal(payload.dataQuality.air4thaiRegionalStations, 1);
+  assert.ok(payload.dataQuality.regionalObservationStations >= 1);
+  assert.equal(payload.days[0].year, 2569);
   assert.equal(requested.filter((url) => url.includes("air4thai.pcd.go.th")).length, 1);
-  assert.equal(requested.filter((url) => url.includes("air-quality-api")).length, 6);
-  assert.equal(requested.filter((url) => url.includes("api.open-meteo.com/v1/forecast")).length, 6);
+  assert.equal(requested.filter((url) => url.includes("air-quality-api")).length, 1);
+  assert.equal(requested.filter((url) => url.includes("api.open-meteo.com/v1/forecast")).length, 1);
 });
 
 test("weather timeout degrades PM forecast without hiding the heatmap data", async () => {
