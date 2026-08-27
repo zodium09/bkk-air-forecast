@@ -11,6 +11,7 @@ import {
 } from "../lib/rain-forecast-data";
 import { buildRainForecastUrl, rainForecastProviders } from "../lib/rain-forecast-provider";
 import { FORECAST_DAYS } from "../lib/forecast-horizon";
+import { spatialIdw } from "../lib/forecast/interpolation";
 import type { TmdRadarMode, TmdRadarPayload } from "../lib/tmd-radar-data";
 import { DEFAULT_REGION_ID, METRO_REGION_ID, buildFallbackBoundary, getRegion, type RegionId } from "../lib/provinces";
 import "leaflet/dist/leaflet.css";
@@ -164,19 +165,15 @@ function getPointValue(point: RainPoint, dayIndex: number, windowIndex: number, 
 }
 
 function interpolateIdw(lng: number, lat: number, values: Array<{ point: RainPoint; value: number }>) {
-  const longitudeScale = Math.cos((lat * Math.PI) / 180);
-  let weightedValue = 0;
-  let totalWeight = 0;
-  for (const { point, value } of values) {
-    const dx = (lng - point.lng) * longitudeScale;
-    const dy = lat - point.lat;
-    const distanceSquared = dx * dx + dy * dy;
-    if (distanceSquared < 0.0000002) return value;
-    const weight = 1 / distanceSquared;
-    weightedValue += value * weight;
-    totalWeight += weight;
-  }
-  return totalWeight ? weightedValue / totalWeight : 0;
+  return spatialIdw(lat, lng, values.map(({ point, value }) => ({
+    lat: point.lat,
+    lng: point.lng,
+    value,
+  })), {
+    maxDistanceKm: 55,
+    maxNeighbors: 12,
+    minNeighbors: 3,
+  });
 }
 
 function createRainSurface(
@@ -227,6 +224,7 @@ function createRainSurface(
       if (mask[pixelIndex + 3] === 0) continue;
       const lng = bounds.minLng + ((x + 0.5) / width) * (bounds.maxLng - bounds.minLng);
       const value = interpolateIdw(lng, lat, values);
+      if (value === null) continue;
       const [red, green, blue] = interpolateColor(value, mode);
       image.data[pixelIndex] = red;
       image.data[pixelIndex + 1] = green;
@@ -269,6 +267,14 @@ function radarFreshnessLabel(ageMinutes: number | null) {
   if (ageMinutes === null) return "ตรวจสอบความสดไม่ได้";
   if (ageMinutes <= 1) return "ข้อมูลล่าสุด";
   return `${ageMinutes} นาทีที่แล้ว`;
+}
+
+function radarProblemLabel(payload: TmdRadarPayload | null, imageError: boolean) {
+  if (imageError) return "โหลดภาพเรดาร์จาก TMD ไม่สำเร็จ";
+  if (payload?.reason === "stale") return "ข้อมูลเรดาร์ล่าสุดเกิน 90 นาที";
+  if (payload?.reason === "missing-observed") return "TMD ยังไม่เผยแพร่เฟรมตรวจจริง";
+  if (payload?.reason === "upstream-error") return "เชื่อมต่อ TMD RadarGIS ไม่สำเร็จ";
+  return "เรดาร์ยังไม่พร้อมใช้งาน";
 }
 
 function getBangkokDateParts() {
@@ -967,7 +973,7 @@ export default function RainDashboard() {
                 <label className="layer-toggle radar-layer-toggle" htmlFor="rain-forecast-surface-toggle" aria-label="แสดงแบบจำลองพยากรณ์ฝนบนแผนที่">
                   <input id="rain-forecast-surface-toggle" type="checkbox" checked={showForecastSurface} onChange={(event) => setShowForecastSurface(event.target.checked)} disabled={dataState === "unavailable"} />
                   <span aria-hidden="true" />
-                  <span className="layer-toggle-copy"><b>แบบจำลองพยากรณ์</b><small>IDW จาก 9 จุดแบบจำลอง</small></span>
+                  <span className="layer-toggle-copy"><b>แบบจำลองพยากรณ์</b><small>IDW พื้นที่รวม · {points.length} จุดพร้อม buffer</small></span>
                 </label>
                 {showForecastSurface && (
                   <div className="rain-metric-options" role="group" aria-label="ตัวชี้วัดแบบจำลองบนแผนที่">
@@ -1012,14 +1018,14 @@ export default function RainDashboard() {
                       <div className="radar-layer-message" role="status">กำลังโหลดชั้นเรดาร์…</div>
                     ) : radarLoadState === "error" || radarImageError ? (
                       <div className="radar-layer-message error" role="alert">
-                        <span>{radarImageError ? "โหลดภาพเรดาร์ไม่สำเร็จ" : "เรดาร์ยังไม่พร้อมใช้งาน"}</span>
+                        <span>{radarProblemLabel(radarPayload, radarImageError)}</span>
                         <button type="button" onClick={() => loadRadar(true)}>ลองโหลดเรดาร์ใหม่</button>
                       </div>
                     ) : (
                       <>
                         <div className="radar-mode-options" role="group" aria-label="เลือกชนิดข้อมูลเรดาร์">
                           <button type="button" aria-pressed={radarMode === "observed"} onClick={() => selectRadarMode("observed")}>ตรวจจริง</button>
-                          <button type="button" aria-pressed={radarMode === "nowcast"} onClick={() => selectRadarMode("nowcast")}>Nowcast</button>
+                          <button type="button" aria-pressed={radarMode === "nowcast"} onClick={() => selectRadarMode("nowcast")} disabled={!radarPayload?.nowcastFrames.length}>Nowcast</button>
                         </div>
                         <div className="radar-frame-meta" aria-live="polite">
                           <b>{selectedRadarFrame?.label ?? "รอเฟรมเรดาร์"}</b>
@@ -1059,7 +1065,7 @@ export default function RainDashboard() {
             <div className={`surface-status rain-surface-status ${radarEnabled ? radarPayload?.status ?? radarLoadState : dataState}`} aria-live="polite">
               <b>{radarEnabled ? radarLoadState === "loading" ? "กำลังโหลดเรดาร์ TMD" : radarLoadState === "error" || radarImageError ? "เรดาร์ไม่พร้อมใช้งาน" : radarMode === "observed" ? "เรดาร์ตรวจจริง TMD" : "Radar Nowcast TMD" : dataStateLabel}</b>
               <span>{radarEnabled ? selectedRadarFrame ? `${selectedRadarFrame.label} · ${formatRadarTime(selectedRadarFrame.validAt)} น.` : "ยังไม่มีเฟรมเรดาร์" : points.length ? `พื้นผิว IDW · ${selectedWindow?.label ?? "ช่วงที่เลือก"}` : "ยังไม่มีข้อมูลพยากรณ์สำหรับช่วงนี้"}</span>
-              <em>{radarEnabled ? radarPayload?.status === "degraded" ? `ข้อมูลช้ากว่าปกติ · ${radarFreshnessLabel(radarPayload.ageMinutes)}` : "Rain Rate · mm/h · ข้อมูลกึ่งเวลาจริง" : boundaryState === "official" ? `${selectedProvinceId === METRO_REGION_ID ? "ขอบเขตกรุงเทพฯ และปริมณฑล 6 จังหวัด" : selectedProvinceId === "bangkok" ? "ขอบเขต 50 เขต" : `ขอบเขตจังหวัด${selectedRegion.nameTh}`} · สีเป็นการประมาณเชิงพื้นที่` : boundaryState === "fallback" ? "กำลังใช้ขอบเขตสำรอง" : `กำลังโหลดขอบเขต${selectedRegion.nameTh}`}</em>
+              <em>{radarEnabled ? radarPayload?.reason === "missing-nowcast" ? `เฟรมตรวจจริงพร้อม · Nowcast รออัปเดต · ${radarFreshnessLabel(radarPayload.ageMinutes)}` : radarPayload?.status === "degraded" ? `ข้อมูลช้ากว่าปกติ · ${radarFreshnessLabel(radarPayload.ageMinutes)}` : "Rain Rate · mm/h · ข้อมูลกึ่งเวลาจริง" : boundaryState === "official" ? `${selectedProvinceId === METRO_REGION_ID ? "ขอบเขตกรุงเทพฯ และปริมณฑล 6 จังหวัด" : selectedProvinceId === "bangkok" ? "ขอบเขต 50 เขต" : `ขอบเขตจังหวัด${selectedRegion.nameTh}`} · IDW จากจุดใกล้เคียงข้ามเขตและเว้นพื้นที่ไร้ข้อมูล` : boundaryState === "fallback" ? "กำลังใช้ขอบเขตสำรอง" : `กำลังโหลดขอบเขต${selectedRegion.nameTh}`}</em>
             </div>
 
             {dataState === "unavailable" && (

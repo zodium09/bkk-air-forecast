@@ -36,13 +36,13 @@ The default metropolitan views call one consolidated forecast endpoint and one c
 
 ## PM2.5 Forecast Method
 
-AirBKK records are validated, freshness-filtered, deduplicated, and checked using a global median absolute deviation sanity screen with nearby-station corroboration. CAMS hourly forecasts are aggregated into daily values at nine anchors and spatially interpolated using inverse-distance weighting (IDW). The current AirBKK–CAMS difference supplies a bounded bias correction that decays with lead time.
+AirBKK records are validated, freshness-filtered, deduplicated, and checked using a global median absolute deviation sanity screen with nearby-station corroboration. CAMS hourly forecasts are aggregated into daily values at buffered model anchors and spatially interpolated using inverse-distance weighting (IDW). Metropolitan surfaces use anchors across all six provinces without administrative seams, limit each pixel to the nearest 12 anchors within 50 km, and leave unsupported areas transparent. The current AirBKK–CAMS difference supplies a bounded bias correction that decays with lead time.
 
 The PM2.5 surface is an interpolation, not a direct measurement at every pixel. `forecastReliabilityScore` is a heuristic based on lead time, source availability, CAMS coverage, and observation age. It is not a probability of forecast accuracy and has not been historically calibrated.
 
 ## Rain Forecast Method
 
-Rain values come from nine model grid points covering the selected province. When configured, three concurrent server-side TMD NWP point requests supply 3 km hourly rainfall amounts for the first 48 hours and are mapped to the nearest display-grid points; Open-Meteo supplies precipitation probability, fills missing TMD periods, and extends the outlook to seven days. Hourly values are aggregated into eight 3-hour windows per day and then summarized for the province. The map interpolates those nine grid-point forecasts with IDW. The optional TMD RadarGIS layer is displayed separately from the model forecast.
+Rain values come from nine buffered model grid points around each selected province; the metropolitan view combines all 54 points into one continuous surface and clips it to the six official boundaries. When configured, three concurrent server-side TMD NWP point requests per province supply 3 km hourly rainfall amounts for the first 48 hours and are mapped to the nearest display-grid points; Open-Meteo supplies precipitation probability, fills missing TMD periods, and extends the outlook to seven days. Hourly values are aggregated into eight 3-hour windows per day. IDW uses the nearest 12 points within 55 km and leaves unsupported pixels transparent. The optional TMD RadarGIS layer is displayed separately and keeps observed frames available when the nowcast feed is temporarily incomplete.
 
 ## Data Quality / Fallback Behavior
 
@@ -83,9 +83,9 @@ Build the production bundle with `npm run build` and deploy the generated vinext
 ## Limitations
 
 - PM2.5 bias correction and reliability scoring have not been validated against a historical backtest.
-- IDW smooths between sparse observation/model points and can miss street-level variation.
+- IDW smooths between nearby observation/model points and can miss street-level variation; transparent gaps mean fewer than three anchors were available within the configured distance.
 - CAMS and global weather models have coarser resolution than Bangkok districts.
-- Rain is model output from nine grid points, not radar and not an official district forecast.
+- Rain is model output from buffered grid points, not radar and not an official district forecast.
 - Upstream outages, delayed observations, and boundary fallback reduce data quality.
 
 ## Disclaimer

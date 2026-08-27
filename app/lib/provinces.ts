@@ -84,10 +84,13 @@ export function getRegion(value: unknown) {
 export function getProvincePoints(value: unknown): ProvincePoint[] {
   const province = getProvince(value);
   const { minLat, maxLat, minLng, maxLng } = province.bounds;
-  const latPadding = (maxLat - minLat) * 0.22;
-  const lngPadding = (maxLng - minLng) * 0.22;
-  const latitudes = [minLat + latPadding, (minLat + maxLat) / 2, maxLat - latPadding];
-  const longitudes = [minLng + lngPadding, (minLng + maxLng) / 2, maxLng - lngPadding];
+  // Sample a small real-data buffer outside the administrative bounding box.
+  // The surface is still clipped to the official boundary, but edge pixels can
+  // now use nearby model values instead of extrapolating from distant interiors.
+  const latBuffer = (maxLat - minLat) * 0.08;
+  const lngBuffer = (maxLng - minLng) * 0.08;
+  const latitudes = [minLat - latBuffer, (minLat + maxLat) / 2, maxLat + latBuffer];
+  const longitudes = [minLng - lngBuffer, (minLng + maxLng) / 2, maxLng + lngBuffer];
   const labels = [
     "ตะวันตกเฉียงใต้", "ตอนใต้", "ตะวันออกเฉียงใต้",
     "ฝั่งตะวันตก", `ใจกลาง${province.shortNameTh}`, "ฝั่งตะวันออก",

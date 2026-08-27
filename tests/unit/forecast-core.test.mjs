@@ -37,6 +37,18 @@ test("IDW returns the station value, a finite midpoint, and null without anchors
   assert.equal(spatialIdw(13.8, 100.6, []), null);
 });
 
+test("bounded IDW uses nearby cross-boundary evidence and leaves unsupported areas blank", () => {
+  const anchors = [
+    { lat: 13.70, lng: 100.50, value: 20 },
+    { lat: 13.72, lng: 100.52, value: 30 },
+    { lat: 13.74, lng: 100.54, value: 40 },
+    { lat: 14.50, lng: 101.50, value: 500 },
+  ];
+  const local = spatialIdw(13.72, 100.52, anchors, { maxDistanceKm: 50, maxNeighbors: 3, minNeighbors: 3 });
+  assert.equal(local, 30);
+  assert.equal(spatialIdw(15.5, 102.5, anchors, { maxDistanceKm: 50, minNeighbors: 3 }), null);
+});
+
 test("CAMS aggregation reports full and partial coverage and extrapolates safely with null current", () => {
   const dates = ["2026-08-22", "2026-08-23"];
   const fullTimes = dates.flatMap((date) => Array.from({ length: 24 }, (_, hour) => `${date}T${String(hour).padStart(2, "0")}:00`));

@@ -141,7 +141,8 @@ test("TMD radar adapter uses RadarGIS with explicit freshness and cache contract
   assert.match(route, /radargis\.tmd\.go\.th\/api\/overlays/);
   assert.match(route, /X-TMD-Radar-Status/);
   assert.match(route, /ageMinutes <= 30/);
-  assert.match(route, /ageMinutes <= 60/);
+  assert.match(route, /ageMinutes <= 90/);
+  assert.match(route, /missing-nowcast/);
   assert.match(route, /stale-while-revalidate=600/);
 });
 

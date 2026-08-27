@@ -48,7 +48,7 @@ test("TMD radar adapter returns validated observed and nowcast frames", async ()
   assert.equal(response.headers.get("X-TMD-Radar-Status"), "live");
 });
 
-test("TMD radar adapter degrades at 31-60 minutes and hides stale frames after 60 minutes", async () => {
+test("TMD radar adapter degrades at 31-90 minutes and hides stale frames after 90 minutes", async () => {
   const degraded = await (await createTmdRadarResponse({
     fetchImpl: async () => json(catalog()),
     now: () => Date.UTC(2026, 7, 23, 13, 55),
@@ -58,11 +58,23 @@ test("TMD radar adapter degrades at 31-60 minutes and hides stale frames after 6
 
   const stale = await (await createTmdRadarResponse({
     fetchImpl: async () => json(catalog()),
-    now: () => Date.UTC(2026, 7, 23, 14, 16),
+    now: () => Date.UTC(2026, 7, 23, 14, 46),
   })).json();
   assert.equal(stale.status, "unavailable");
   assert.deepEqual(stale.observedFrames, []);
   assert.deepEqual(stale.nowcastFrames, []);
+});
+
+test("TMD radar keeps observed frames available when nowcast is temporarily missing", async () => {
+  const observedOnly = { overlays: catalog().overlays.filter((item) => item.group === "02 Rain Rate Overlay") };
+  const payload = await (await createTmdRadarResponse({
+    fetchImpl: async () => json(observedOnly),
+    now: () => Date.UTC(2026, 7, 23, 13, 30),
+  })).json();
+  assert.equal(payload.status, "degraded");
+  assert.equal(payload.reason, "missing-nowcast");
+  assert.equal(payload.observedFrames.length, 4);
+  assert.deepEqual(payload.nowcastFrames, []);
 });
 
 test("TMD radar adapter fails safely for invalid or unavailable upstream data", async () => {

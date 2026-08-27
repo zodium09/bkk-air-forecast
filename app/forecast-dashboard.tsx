@@ -10,6 +10,7 @@ import {
   type ForecastStation,
 } from "./lib/forecast-data";
 import { FORECAST_DAYS } from "./lib/forecast-horizon";
+import { spatialIdw } from "./lib/forecast/interpolation";
 import OutlookNav from "./components/outlook-nav";
 import ProvinceSelector from "./components/province-selector";
 import { DEFAULT_REGION_ID, METRO_REGION_ID, buildFallbackBoundary, getRegion, type RegionId } from "./lib/provinces";
@@ -60,21 +61,15 @@ function interpolateColor(value: number) {
 }
 
 function interpolateIdw(lng: number, lat: number, stations: ForecastStation[], dayIndex: number) {
-  const longitudeScale = Math.cos((lat * Math.PI) / 180);
-  let weightedValue = 0;
-  let totalWeight = 0;
-
-  for (const station of stations) {
-    const dx = (lng - station.lng) * longitudeScale;
-    const dy = lat - station.lat;
-    const distanceSquared = dx * dx + dy * dy;
-    if (distanceSquared < 0.0000002) return station.values[dayIndex];
-    const weight = 1 / distanceSquared;
-    weightedValue += station.values[dayIndex] * weight;
-    totalWeight += weight;
-  }
-
-  return weightedValue / totalWeight;
+  return spatialIdw(lat, lng, stations.map((station) => ({
+    lat: station.lat,
+    lng: station.lng,
+    value: station.values[dayIndex],
+  })), {
+    maxDistanceKm: 50,
+    maxNeighbors: 12,
+    minNeighbors: 3,
+  });
 }
 
 function createIdwSurface(
@@ -126,6 +121,7 @@ function createIdwSurface(
       if (mask[pixelIndex + 3] === 0) continue;
       const lng = bounds.minLng + ((x + 0.5) / width) * (bounds.maxLng - bounds.minLng);
       const value = interpolateIdw(lng, lat, stations, dayIndex);
+      if (value === null) continue;
       const [red, green, blue] = interpolateColor(value);
       image.data[pixelIndex] = red;
       image.data[pixelIndex + 1] = green;

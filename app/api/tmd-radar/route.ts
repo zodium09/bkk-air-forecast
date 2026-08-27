@@ -79,7 +79,7 @@ function normalizeFrame(raw: RawOverlay, mode: TmdRadarMode, baseTime: number | 
   };
 }
 
-function unavailablePayload(fetchedAt: string): TmdRadarPayload {
+function unavailablePayload(fetchedAt: string, reason: TmdRadarPayload["reason"]): TmdRadarPayload {
   return {
     status: "unavailable",
     fetchedAt,
@@ -88,6 +88,7 @@ function unavailablePayload(fetchedAt: string): TmdRadarPayload {
     source: "กรมอุตุนิยมวิทยา (TMD RadarGIS)",
     sourcePage: "https://radargis.tmd.go.th/",
     disclaimer: "เรดาร์เป็นข้อมูลกึ่งเวลาจริงและอาจมีสัญญาณรบกวน ควรใช้ร่วมกับประกาศทางการ",
+    reason,
     observedFrames: [],
     nowcastFrames: [],
   };
@@ -131,10 +132,14 @@ export async function createTmdRadarResponse(options: {
       .sort((a, b) => a.leadMinutes - b.leadMinutes)
       .slice(0, MAX_NOWCAST_FRAMES);
 
-    if (!observedFrames.length || !nowcastFrames.length || baseTime === null) throw new Error("missing TMD RadarGIS frames");
+    if (!observedFrames.length || baseTime === null) {
+      return Response.json(unavailablePayload(fetchedAt, "missing-observed"), {
+        headers: { "Cache-Control": "no-store", "X-TMD-Radar-Status": "unavailable" },
+      });
+    }
     const ageMinutes = Math.max(0, Math.round((now - baseTime) / 60_000));
-    const status: TmdRadarStatus = ageMinutes <= 30 ? "live" : ageMinutes <= 60 ? "degraded" : "unavailable";
-    const payload: TmdRadarPayload = status === "unavailable" ? unavailablePayload(fetchedAt) : {
+    const status: TmdRadarStatus = ageMinutes <= 30 && nowcastFrames.length ? "live" : ageMinutes <= 90 ? "degraded" : "unavailable";
+    const payload: TmdRadarPayload = status === "unavailable" ? unavailablePayload(fetchedAt, "stale") : {
       status,
       fetchedAt,
       observedAt: new Date(baseTime).toISOString(),
@@ -142,6 +147,7 @@ export async function createTmdRadarResponse(options: {
       source: "กรมอุตุนิยมวิทยา (TMD RadarGIS)",
       sourcePage: "https://radargis.tmd.go.th/",
       disclaimer: "เรดาร์เป็นข้อมูลกึ่งเวลาจริงและอาจมีสัญญาณรบกวน ควรใช้ร่วมกับประกาศทางการ",
+      reason: nowcastFrames.length ? undefined : "missing-nowcast",
       observedFrames,
       nowcastFrames,
     };
@@ -156,7 +162,7 @@ export async function createTmdRadarResponse(options: {
       },
     });
   } catch {
-    return Response.json(unavailablePayload(fetchedAt), {
+    return Response.json(unavailablePayload(fetchedAt, "upstream-error"), {
       headers: { "Cache-Control": "no-store", "X-TMD-Radar-Status": "unavailable" },
     });
   }

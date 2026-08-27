@@ -21,6 +21,7 @@ export type TmdRadarPayload = {
   source: string;
   sourcePage: string;
   disclaimer: string;
+  reason?: "stale" | "missing-observed" | "missing-nowcast" | "upstream-error";
   observedFrames: TmdRadarFrame[];
   nowcastFrames: TmdRadarFrame[];
 };

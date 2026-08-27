@@ -14,6 +14,8 @@ test("every province supplies a finite nine-point model grid and fallback bounda
     const points = getProvincePoints(province.id);
     assert.equal(points.length, 9);
     assert.ok(points.every((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng)));
+    assert.ok(points.some((point) => point.lat < province.bounds.minLat && point.lng < province.bounds.minLng));
+    assert.ok(points.some((point) => point.lat > province.bounds.maxLat && point.lng > province.bounds.maxLng));
     const fallback = buildFallbackBoundary(province.id);
     assert.equal(fallback.features[0].properties.PROV_CODE, province.code);
     assert.equal(fallback.features[0].geometry.coordinates[0].length, 5);
