@@ -1,4 +1,6 @@
 /* eslint-disable @next/next/no-html-link-for-pages */
+import HomeDashboard from "./home-dashboard";
+
 export default function Home() {
   return (
     <main className="home-shell">
@@ -21,6 +23,8 @@ export default function Home() {
           พยากรณ์ล่วงหน้า 1–7 วัน
         </div>
       </header>
+
+      <HomeDashboard />
 
       <section className="home-topics" aria-label="เลือกหัวข้อพยากรณ์">
         <a className="home-topic home-topic-air" href="/air" aria-label="เปิดแผนที่พยากรณ์ฝุ่น PM2.5 กรุงเทพฯ และปริมณฑล" title="เปิดพยากรณ์ฝุ่น PM2.5">

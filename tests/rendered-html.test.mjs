@@ -43,6 +43,10 @@ test("server-renders the two-topic BKK Air Forecast homepage", async () => {
   assert.match(html, /เปิดแผนที่พยากรณ์ฝนกรุงเทพฯ/);
   assert.match(html, /home-topic-air/);
   assert.match(html, /home-topic-rain/);
+  assert.match(html, /LIVE OUTLOOK/);
+  assert.match(html, /ภาพรวมกรุงเทพฯ–ปริมณฑล/);
+  assert.match(html, /PM2\.5 วันถัดไป/);
+  assert.match(html, /TMD RadarGIS/);
   assert.doesNotMatch(html, /กำลังโหลดข้อมูล|กำลังโหลดพยากรณ์ฝน/);
 });
 
@@ -80,6 +84,8 @@ test("server-renders the BKK Air forecast product", async () => {
   assert.match(html, /แนวโน้ม 7 วัน/);
   assert.match(html, /7 วันล่วงหน้า/);
   assert.match(html, /เลือกชั้นข้อมูลแผนที่/);
+  assert.match(html, /ตำแหน่งของฉัน/);
+  assert.match(html, /พยากรณ์รายตำแหน่ง/);
   assert.doesNotMatch(html, /ความเชื่อมั่นของโมเดล/);
   assert.match(html, /พื้นผิว CAMS \+ residual ตามลม/);
   assert.doesNotMatch(html, /จุดตรวจวัด<\/label>|จุดตรวจวัด<\/span>/);
@@ -117,7 +123,28 @@ test("server-renders the Bangkok rain forecast page", async () => {
   assert.match(html, /เรดาร์ฝน TMD/);
   assert.match(html, /ตรวจจริงและ Nowcast 0–3 ชม./);
   assert.match(html, /เลือกชั้นข้อมูลแผนที่ฝน/);
+  assert.match(html, /ตำแหน่งของฉัน/);
+  assert.match(html, /พยากรณ์รายตำแหน่ง/);
   assert.doesNotMatch(html, /จุดประมาณการ<\/label>/);
+});
+
+test("map location forecasts use private geolocation and bounded IDW without storing coordinates", async () => {
+  const airDashboard = await readFile(new URL("../app/forecast-dashboard.tsx", import.meta.url), "utf8");
+  const rainDashboard = await readFile(new URL("../app/rain/rain-dashboard.tsx", import.meta.url), "utf8");
+  const locationCard = await readFile(new URL("../app/components/location-forecast-card.tsx", import.meta.url), "utf8");
+  const homeDashboard = await readFile(new URL("../app/home-dashboard.tsx", import.meta.url), "utf8");
+  for (const dashboard of [airDashboard, rainDashboard]) {
+    assert.match(dashboard, /navigator\.geolocation\.getCurrentPosition/);
+    assert.match(dashboard, /map\.on\("click"/);
+    assert.match(dashboard, /METRO_REGION_ID/);
+    assert.match(dashboard, /interpolateIdw/);
+    assert.doesNotMatch(dashboard, /localStorage|sessionStorage/);
+  }
+  assert.match(locationCard, /ค่าประมาณเชิงพื้นที่ ไม่ใช่สถานีตรวจวัด ณ พิกัด/);
+  assert.match(homeDashboard, /\/api\/forecast\?province=metro/);
+  assert.match(homeDashboard, /\/api\/rain-forecast\?province=metro/);
+  assert.match(homeDashboard, /\/api\/tmd-radar/);
+  assert.doesNotMatch(homeDashboard, /Math\.random|demo|mock/i);
 });
 
 test("boundary adapter uses the official BMA district layer", async () => {

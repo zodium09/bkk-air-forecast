@@ -13,6 +13,7 @@ import { FORECAST_DAYS } from "./lib/forecast-horizon";
 import { spatialIdw } from "./lib/forecast/interpolation";
 import OutlookNav from "./components/outlook-nav";
 import ProvinceSelector from "./components/province-selector";
+import LocationForecastCard, { type LocationSelection } from "./components/location-forecast-card";
 import { DEFAULT_REGION_ID, METRO_REGION_ID, buildFallbackBoundary, getRegion, type RegionId } from "./lib/provinces";
 import "leaflet/dist/leaflet.css";
 import "./reliability.css";
@@ -220,12 +221,15 @@ export default function ForecastDashboard() {
   const [boundary, setBoundary] = useState<BoundaryCollection | null>(null);
   const [boundaryState, setBoundaryState] = useState<"loading" | "official" | "fallback">("loading");
   const [mapReady, setMapReady] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState<LocationSelection | null>(null);
+  const [locationError, setLocationError] = useState("");
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<import("leaflet").Map | null>(null);
   const tileLayerRef = useRef<import("leaflet").TileLayer | null>(null);
   const surfaceLayerRef = useRef<import("leaflet").ImageOverlay | null>(null);
   const boundaryLayerRef = useRef<import("leaflet").GeoJSON | null>(null);
   const labelsLayerRef = useRef<import("leaflet").LayerGroup | null>(null);
+  const selectedLocationLayerRef = useRef<import("leaflet").CircleMarker | null>(null);
   const selectedRegion = getRegion(selectedProvinceId);
 
   useEffect(() => {
@@ -292,6 +296,7 @@ export default function ForecastDashboard() {
       map.getPane("surfacePane")!.style.pointerEvents = "none";
       map.createPane("boundaryPane").style.zIndex = "420";
       map.getPane("boundaryPane")!.style.pointerEvents = "none";
+      map.createPane("selectedLocationPane").style.zIndex = "680";
       mapInstanceRef.current = map;
       setMapReady(true);
       window.setTimeout(() => map.invalidateSize(), 80);
@@ -306,10 +311,45 @@ export default function ForecastDashboard() {
         surfaceLayerRef.current = null;
         boundaryLayerRef.current = null;
         labelsLayerRef.current = null;
+        selectedLocationLayerRef.current = null;
         setMapReady(false);
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+    const selectPoint = (event: import("leaflet").LeafletMouseEvent) => {
+      setSelectedLocation({ lat: event.latlng.lat, lng: event.latlng.lng, source: "map" });
+      setLocationError("");
+    };
+    map.on("click", selectPoint);
+    return () => { map.off("click", selectPoint); };
+  }, [mapReady]);
+
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+    if (selectedLocationLayerRef.current) {
+      map.removeLayer(selectedLocationLayerRef.current);
+      selectedLocationLayerRef.current = null;
+    }
+    if (!selectedLocation) return;
+    let cancelled = false;
+    import("leaflet").then((leafletModule) => {
+      if (cancelled || !mapInstanceRef.current) return;
+      selectedLocationLayerRef.current = leafletModule.default.circleMarker([selectedLocation.lat, selectedLocation.lng], {
+        pane: "selectedLocationPane",
+        radius: 8,
+        color: "#ffffff",
+        weight: 3,
+        fillColor: "#0f766e",
+        fillOpacity: 1,
+      }).addTo(map);
+    });
+    return () => { cancelled = true; };
+  }, [mapReady, selectedLocation]);
 
   useEffect(() => {
     if (!mapReady || !mapInstanceRef.current) return;
@@ -426,10 +466,42 @@ export default function ForecastDashboard() {
     setDataState("loading");
     setBoundaryState("loading");
     setSelectedDay(0);
+    setSelectedLocation(null);
+    setLocationError("");
     setSelectedProvinceId(provinceId);
     const url = new URL(window.location.href);
     url.searchParams.set("province", provinceId);
     window.history.replaceState({}, "", url);
+  };
+
+  const locateMe = () => {
+    if (!navigator.geolocation) {
+      setLocationError("อุปกรณ์นี้ไม่รองรับการระบุตำแหน่ง");
+      return;
+    }
+    setLocationError("กำลังค้นหาตำแหน่ง…");
+    navigator.geolocation.getCurrentPosition(({ coords }) => {
+      const metroBounds = getRegion(METRO_REGION_ID).bounds;
+      const insideMetro = coords.latitude >= metroBounds.minLat && coords.latitude <= metroBounds.maxLat && coords.longitude >= metroBounds.minLng && coords.longitude <= metroBounds.maxLng;
+      if (!insideMetro) {
+        setLocationError("ตำแหน่งอยู่นอกพื้นที่กรุงเทพฯ–ปริมณฑลที่รองรับ");
+        return;
+      }
+      if (selectedProvinceId !== METRO_REGION_ID) {
+        setSelectedProvinceId(METRO_REGION_ID);
+        const url = new URL(window.location.href);
+        url.searchParams.set("province", METRO_REGION_ID);
+        window.history.replaceState({}, "", url);
+      }
+      const next = { lat: coords.latitude, lng: coords.longitude, source: "gps" as const };
+      setSelectedLocation(next);
+      setLocationError("");
+      mapInstanceRef.current?.setView([next.lat, next.lng], 12, { animate: true });
+    }, () => setLocationError("ไม่สามารถอ่านตำแหน่งได้ กรุณาอนุญาต Location หรือแตะแผนที่"), {
+      enableHighAccuracy: false,
+      timeout: 10_000,
+      maximumAge: 300_000,
+    });
   };
 
   const day = days[selectedDay];
@@ -449,6 +521,10 @@ export default function ForecastDashboard() {
     [days, stations],
   );
   const highestStation = sortedStations[0];
+  const selectedAirSeries = useMemo(() => selectedLocation ? days.map((forecastDay, index) => ({
+    label: forecastDay.weekday,
+    primary: interpolateIdw(selectedLocation.lng, selectedLocation.lat, stations, index),
+  })) : [], [days, selectedLocation, stations]);
 
   return (
     <main className="app-shell air-shell">
@@ -595,6 +671,10 @@ export default function ForecastDashboard() {
         <div className="map-card air-map-card">
           <div className="map-wrap">
             <div ref={mapElementRef} className="map" role="application" aria-label={`แผนที่ PM2.5 ${selectedRegion.nameTh} พยากรณ์ล่วงหน้า ${day.lead} วัน`} />
+            <div className="map-location-tools">
+              <button type="button" onClick={locateMe} aria-label="ใช้ตำแหน่งของฉันบนแผนที่"><span aria-hidden="true">◎</span>ตำแหน่งของฉัน</button>
+              <small>{locationError || (selectedLocation ? "เลือกแล้ว · แตะจุดอื่นเพื่อเปลี่ยน" : "หรือแตะแผนที่เพื่อเลือกจุด")}</small>
+            </div>
             {dataState === "unavailable" && <div className="forecast-unavailable" role="alert"><b>ไม่สามารถโหลดข้อมูลพยากรณ์ล่าสุดได้</b><span>ค่าที่แสดงบนแผนที่ถูกปิดไว้เพื่อป้องกันการเข้าใจผิด</span><button type="button" onClick={() => { setDataState("loading"); setReloadKey((value) => value + 1); }}>ลองใหม่</button></div>}
             <div className="layer-menu">
               <button
@@ -665,6 +745,7 @@ export default function ForecastDashboard() {
 
         {/* RIGHT INSIGHTS SIDEBAR */}
         <aside className="insights air-insights">
+          <LocationForecastCard kind="air" selection={selectedLocation} series={selectedAirSeries} onClear={() => setSelectedLocation(null)} />
           <div className="average-card">
             <div
               className="average-ring"

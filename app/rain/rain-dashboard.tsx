@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import OutlookNav from "../components/outlook-nav";
 import ProvinceSelector from "../components/province-selector";
+import LocationForecastCard, { type LocationSelection } from "../components/location-forecast-card";
 import {
   buildRainDayShells,
   rainAmountLevel,
@@ -407,6 +408,8 @@ export default function RainDashboard() {
   const [boundaryState, setBoundaryState] = useState<"loading" | "official" | "fallback">("loading");
   const [mapReady, setMapReady] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [selectedLocation, setSelectedLocation] = useState<LocationSelection | null>(null);
+  const [locationError, setLocationError] = useState("");
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const layerMenuRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<import("leaflet").Map | null>(null);
@@ -415,6 +418,7 @@ export default function RainDashboard() {
   const radarLayerRef = useRef<import("leaflet").ImageOverlay | null>(null);
   const boundaryLayerRef = useRef<import("leaflet").GeoJSON | null>(null);
   const labelsLayerRef = useRef<import("leaflet").LayerGroup | null>(null);
+  const selectedLocationLayerRef = useRef<import("leaflet").CircleMarker | null>(null);
   const radarAbortRef = useRef<AbortController | null>(null);
   const selectedDayRef = useRef(0);
   const selectedRegion = getRegion(selectedProvinceId);
@@ -476,6 +480,40 @@ export default function RainDashboard() {
         setRadarLoadState("error");
       });
   }, []);
+
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+    const selectPoint = (event: import("leaflet").LeafletMouseEvent) => {
+      setSelectedLocation({ lat: event.latlng.lat, lng: event.latlng.lng, source: "map" });
+      setLocationError("");
+    };
+    map.on("click", selectPoint);
+    return () => { map.off("click", selectPoint); };
+  }, [mapReady]);
+
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+    if (selectedLocationLayerRef.current) {
+      map.removeLayer(selectedLocationLayerRef.current);
+      selectedLocationLayerRef.current = null;
+    }
+    if (!selectedLocation) return;
+    let cancelled = false;
+    import("leaflet").then((leafletModule) => {
+      if (cancelled || !mapInstanceRef.current) return;
+      selectedLocationLayerRef.current = leafletModule.default.circleMarker([selectedLocation.lat, selectedLocation.lng], {
+        pane: "selectedLocationPane",
+        radius: 8,
+        color: "#ffffff",
+        weight: 3,
+        fillColor: "#2563eb",
+        fillOpacity: 1,
+      }).addTo(map);
+    });
+    return () => { cancelled = true; };
+  }, [mapReady, selectedLocation]);
 
   useEffect(() => {
     let active = true;
@@ -549,6 +587,7 @@ export default function RainDashboard() {
       map.getPane("tmdRadarPane")!.style.pointerEvents = "none";
       map.createPane("rainBoundaryPane").style.zIndex = "420";
       map.getPane("rainBoundaryPane")!.style.pointerEvents = "none";
+      map.createPane("selectedLocationPane").style.zIndex = "680";
       mapInstanceRef.current = map;
       setMapReady(true);
       window.setTimeout(() => map.invalidateSize(), 80);
@@ -563,6 +602,7 @@ export default function RainDashboard() {
         radarLayerRef.current = null;
         boundaryLayerRef.current = null;
         labelsLayerRef.current = null;
+        selectedLocationLayerRef.current = null;
         setMapReady(false);
       }
     };
@@ -733,6 +773,25 @@ export default function RainDashboard() {
   const radarFrames = radarMode === "observed" ? radarPayload?.observedFrames ?? [] : radarPayload?.nowcastFrames ?? [];
   const safeRadarFrameIndex = Math.min(radarFrameIndex, Math.max(0, radarFrames.length - 1));
   const selectedRadarFrame = radarFrames[safeRadarFrameIndex] ?? null;
+  const selectedRainSeries = useMemo(() => Array.from({ length: 8 }, (_, windowIndex) => {
+    const rainValues = points
+      .map((point) => ({ point, value: getPointValue(point, selectedDay, windowIndex, "rain") }))
+      .filter((entry): entry is { point: RainPoint; value: number } => entry.value !== null);
+    const probabilityValues = points
+      .map((point) => ({ point, value: getPointValue(point, selectedDay, windowIndex, "probability") }))
+      .filter((entry): entry is { point: RainPoint; value: number } => entry.value !== null);
+    const label = dayWindows.find((window) => window.windowIndex === windowIndex)?.start.slice(11, 16)
+      ?? `${String(windowIndex * 3).padStart(2, "0")}:00`;
+    return {
+      label,
+      primary: selectedLocation && rainValues.length >= 3
+        ? interpolateIdw(selectedLocation.lng, selectedLocation.lat, rainValues)
+        : null,
+      secondary: selectedLocation && probabilityValues.length >= 3
+        ? interpolateIdw(selectedLocation.lng, selectedLocation.lat, probabilityValues)
+        : null,
+    };
+  }), [dayWindows, points, selectedDay, selectedLocation]);
 
   const selectDay = (index: number) => {
     selectedDayRef.current = index;
@@ -751,10 +810,44 @@ export default function RainDashboard() {
     setDataState("loading");
     setBoundaryState("loading");
     setSelectedDay(0);
+    setSelectedLocation(null);
+    setLocationError("");
     setSelectedProvinceId(provinceId);
     const url = new URL(window.location.href);
     url.searchParams.set("province", provinceId);
     window.history.replaceState({}, "", url);
+  };
+
+  const locateMe = () => {
+    if (!("geolocation" in navigator)) {
+      setLocationError("อุปกรณ์นี้ไม่รองรับการระบุตำแหน่ง");
+      return;
+    }
+    setLocationError("กำลังค้นหาตำแหน่ง…");
+    navigator.geolocation.getCurrentPosition(({ coords }) => {
+      const metroBounds = getRegion(METRO_REGION_ID).bounds;
+      const insideMetro = coords.latitude >= metroBounds.minLat
+        && coords.latitude <= metroBounds.maxLat
+        && coords.longitude >= metroBounds.minLng
+        && coords.longitude <= metroBounds.maxLng;
+      if (!insideMetro) {
+        setLocationError("ตำแหน่งอยู่นอกพื้นที่กรุงเทพฯ และปริมณฑลที่รองรับ");
+        return;
+      }
+      if (selectedProvinceId !== METRO_REGION_ID) {
+        setSelectedProvinceId(METRO_REGION_ID);
+        const url = new URL(window.location.href);
+        url.searchParams.set("province", METRO_REGION_ID);
+        window.history.replaceState({}, "", url);
+      }
+      setSelectedLocation({ lat: coords.latitude, lng: coords.longitude, source: "gps" });
+      setLocationError("");
+      mapInstanceRef.current?.setView([coords.latitude, coords.longitude], 12);
+    }, (error) => {
+      setLocationError(error.code === error.PERMISSION_DENIED
+        ? "ไม่ได้รับอนุญาตให้ใช้ตำแหน่ง กรุณาแตะจุดบนแผนที่แทน"
+        : "ค้นหาตำแหน่งไม่สำเร็จ กรุณาลองใหม่หรือแตะบนแผนที่");
+    }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 });
   };
 
   const toggleRadar = (enabled: boolean) => {
@@ -957,6 +1050,10 @@ export default function RainDashboard() {
         <div className="map-card rain-map-card">
           <div className="map-wrap rain-map-wrap">
             <div ref={mapElementRef} className="map rain-map" role="region" aria-label={radarEnabled && selectedRadarFrame ? `แผนที่เรดาร์ฝน TMD ${selectedRegion.nameTh} ${selectedRadarFrame.label}` : `แผนที่พยากรณ์ฝน ${selectedRegion.nameTh} ${day?.weekday ?? ""} ${day?.date ?? ""} ${selectedWindow?.label ?? ""}`} />
+            <div className="map-location-tools rain" aria-label="เครื่องมือเลือกตำแหน่งพยากรณ์ฝน">
+              <button type="button" onClick={locateMe}><span aria-hidden="true">⌖</span> ตำแหน่งของฉัน</button>
+              <small>{locationError || (selectedLocation ? "แตะจุดอื่นบนแผนที่เพื่อเปลี่ยน" : "แตะแผนที่เพื่อดูกราฟรายจุด")}</small>
+            </div>
             <div className="layer-menu" ref={layerMenuRef}>
               <button
                 className="layer-menu-trigger"
@@ -1108,6 +1205,15 @@ export default function RainDashboard() {
 
         {/* RIGHT INSIGHTS SIDEBAR */}
         <aside className="insights rain-insights" aria-label="สรุปพยากรณ์ฝนวันที่เลือก">
+          <LocationForecastCard
+            kind="rain"
+            selection={selectedLocation}
+            series={selectedRainSeries}
+            onClear={() => {
+              setSelectedLocation(null);
+              setLocationError("");
+            }}
+          />
           <div className="average-card rain-average-card">
             <div
               className="average-ring rain-average-ring"
