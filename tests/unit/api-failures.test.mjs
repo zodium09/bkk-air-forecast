@@ -223,6 +223,7 @@ test("TMD NWP failure falls back to Open-Meteo without hiding the forecast", asy
   assert.equal(payload.dataQuality.provider, "best-match");
   assert.equal(payload.dataQuality.providerFallback, true);
   assert.equal(payload.dataQuality.tmdStatus, "unavailable");
+  assert.equal(payload.dataQuality.tmdFailureReason, "http_401");
   assert.equal(payload.points.length, 9);
 });
 

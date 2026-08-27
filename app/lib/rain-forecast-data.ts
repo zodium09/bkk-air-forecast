@@ -70,6 +70,7 @@ export type RainForecastPayload = {
     tmdAcceptedPoints?: number;
     tmdForecastValues?: number;
     tmdCadenceHours?: number | null;
+    tmdFailureReason?: string;
     deliveryFallback?: boolean;
     providersTried?: string[];
     error?: string;

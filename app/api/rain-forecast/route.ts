@@ -201,7 +201,17 @@ type TmdIntegration = {
   acceptedPoints?: number;
   forecastValues?: number;
   cadenceHours?: number | null;
+  failureReason?: string;
 };
+
+function tmdFailureReason(error: unknown) {
+  if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) return "timeout";
+  const message = error instanceof Error ? error.message : String(error);
+  const status = message.match(/status (\d{3})/)?.[1];
+  if (status) return `http_${status}`;
+  if (message.includes("insufficient TMD points")) return "insufficient_points";
+  return "invalid_payload_or_network";
+}
 
 function normalizedResponse(
   raw: OpenMeteoLocation[] | OpenMeteoLocation,
@@ -242,6 +252,7 @@ function normalizedResponse(
       tmdAcceptedPoints: tmdIntegration.acceptedPoints,
       tmdForecastValues: tmdIntegration.forecastValues,
       tmdCadenceHours: tmdIntegration.cadenceHours,
+      tmdFailureReason: tmdIntegration.failureReason,
       deliveryFallback,
     },
     days,
@@ -302,6 +313,7 @@ export async function createRainForecastResponse(options: {
           tmdIntegration = { status: "live", acceptedPoints: merged.acceptedPoints, forecastValues: merged.forecastValues, cadenceHours: merged.cadenceHours };
         } catch (error) {
           failures.push(`tmd-nwp: ${error instanceof Error ? error.message : "unknown error"}`);
+          tmdIntegration = { status: "unavailable", failureReason: tmdFailureReason(error) };
         }
       }
       return normalizedResponse(raw, effectiveProvider, province.id, false, tmdIntegration);
