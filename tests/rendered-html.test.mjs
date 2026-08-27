@@ -124,6 +124,9 @@ test("server-renders the Bangkok rain forecast page", async () => {
   assert.match(html, /เรดาร์ฝน TMD/);
   assert.match(html, /ตรวจจริงและ Nowcast 0–3 ชม./);
   assert.match(html, /เลือกชั้นข้อมูลแผนที่ฝน/);
+  assert.match(html, /สัญลักษณ์สภาพอากาศ/);
+  assert.match(html, /emoji ลอย/);
+  assert.match(html, /โอกาสฝนภาพรวม/);
   assert.match(html, /ตำแหน่งของฉัน/);
   assert.match(html, /พยากรณ์รายตำแหน่ง/);
   assert.doesNotMatch(html, /จุดประมาณการ<\/label>/);
@@ -157,6 +160,15 @@ test("rain day changes preserve the selected three-hour window and use a compact
   assert.match(dashboard, /className="rain-day-mobile-select"/);
   assert.match(styles, /\.rain-day-mobile-select \{ display: none; \}/);
   assert.match(styles, /@media \(max-width: 780px\)[\s\S]*?\.rain-sidebar-days \{ display: none; \}/);
+});
+
+test("rain map uses sparse province weather emoji instead of dense numeric labels", async () => {
+  const dashboard = await readFile(new URL("../app/rain/rain-dashboard.tsx", import.meta.url), "utf8");
+  assert.match(dashboard, /selectWeatherMarkers/);
+  assert.match(dashboard, /\.slice\(0, 3\)/);
+  assert.match(dashboard, /weather-emoji-badge/);
+  assert.match(dashboard, /const \[showLabels, setShowLabels\] = useState\(true\)/);
+  assert.doesNotMatch(dashboard, /class=\\"map-val-badge/);
 });
 
 test("boundary adapter uses the official BMA district layer", async () => {

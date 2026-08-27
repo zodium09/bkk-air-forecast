@@ -58,6 +58,11 @@ function mean(values: number[]) {
   return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
 }
 
+function meanProbability(values: number[]) {
+  const value = mean(values);
+  return value === null ? null : Math.round(value);
+}
+
 function mostCommon(values: number[]) {
   if (!values.length) return null;
   const counts = new Map<number, number>();
@@ -127,7 +132,6 @@ function aggregateCity(points: RainPoint[], dateKeys: string[]) {
   const windows: RainWindow[] = [];
   const days: RainDay[] = dateKeys.map((dateKey, dayIndex) => {
     const pointDays = points.map((point) => point.daily[dayIndex]).filter(Boolean);
-    const probabilities = pointDays.map((day) => day.probabilityMax).filter((value): value is number => value !== null);
     const rain = pointDays.map((day) => day.rainMm).filter((value): value is number => value !== null);
     const wetHours = pointDays.map((day) => day.wetHours).filter((value): value is number => value !== null);
     const weatherCodes = pointDays.map((day) => day.weatherCode).filter((value): value is number => value !== null);
@@ -145,7 +149,10 @@ function aggregateCity(points: RainPoint[], dateKeys: string[]) {
         start: `${String(startHour).padStart(2, "0")}:00`,
         end: `${String((startHour + 3) % 24).padStart(2, "0")}:00`,
         label: windowLabel(startHour),
-        probabilityMax: windowProbability.length ? Math.round(Math.max(...windowProbability)) : null,
+        // A province summary must represent the sampled area, not the single
+        // wettest grid point. Point-level probabilities remain available for
+        // the map and selected-location chart.
+        probabilityMax: meanProbability(windowProbability),
         rainMeanMm: windowRain.length ? rounded(mean(windowRain) ?? 0) : null,
         rainMaxMm: windowRain.length ? rounded(Math.max(...windowRain)) : null,
       };
@@ -159,7 +166,11 @@ function aggregateCity(points: RainPoint[], dateKeys: string[]) {
       lead: dayIndex + 1,
       dateKey,
       ...formatted,
-      probabilityMax: probabilities.length ? Math.round(Math.max(...probabilities)) : null,
+      // Highest area-mean 3-hour window of the day. This avoids turning one
+      // isolated 100% point into a 100% province-wide statement.
+      probabilityMax: dayWindows.length
+        ? Math.max(...dayWindows.map((window) => window.probabilityMax ?? 0))
+        : null,
       rainMeanMm: rain.length ? rounded(mean(rain) ?? 0) : null,
       rainMaxMm: rain.length ? rounded(Math.max(...rain)) : null,
       wetHours: wetHours.length ? rounded(mean(wetHours) ?? 0) : null,
@@ -238,7 +249,7 @@ function normalizedResponse(
     status,
     fetchedAt: new Date().toISOString(),
     model: `${provider.model} · 9-point ${province.nameEn} grid`,
-    disclaimer: "ข้อมูลพยากรณ์จริงจากแบบจำลองอากาศ ไม่ใช่เรดาร์ฝนหรือประกาศเตือนภัย โอกาสฝนและปริมาณฝนเป็นคนละตัวชี้วัด และความละเอียดไม่เท่าการพยากรณ์รายเขต",
+    disclaimer: "ค่าภาพรวมคือค่าเฉลี่ยเชิงพื้นที่ของจุดแบบจำลองในช่วง 3 ชั่วโมงที่สูงสุด ไม่ใช่โอกาสฝนตกทุกแห่ง ส่วนค่ารายจุดยังคงเป็นพยากรณ์เฉพาะตำแหน่ง และไม่ใช่ประกาศเตือนภัย",
     sources: [provider.source, ...(provider.id === "tmd-nwp-hybrid" ? ["Open-Meteo Weather Forecast"] : []), province.id === "bangkok" ? "BMA GIS district boundary" : "DMR province boundary", "OpenStreetMap"],
     dataQuality: {
       expectedPoints: forecastPoints.length,

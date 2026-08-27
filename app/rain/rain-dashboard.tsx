@@ -165,6 +165,53 @@ function getPointValue(point: RainPoint, dayIndex: number, windowIndex: number, 
   return mode === "probability" ? window?.probabilityMax ?? null : window?.rainMm ?? null;
 }
 
+function getWeatherSymbol(weatherCode: number | null, probability: number | null, rainMm: number | null) {
+  if (weatherCode !== null && weatherCode >= 95 && ((rainMm ?? 0) >= 0.1 || (probability ?? 0) >= 50)) {
+    return { emoji: "⛈️", label: "เสี่ยงพายุฝนฟ้าคะนอง", severity: 6 };
+  }
+  if ((rainMm ?? 0) >= 5) {
+    return { emoji: "🌧️", label: "ฝนปานกลางถึงหนัก", severity: 5 };
+  }
+  if ((rainMm ?? 0) >= 0.1 || (probability ?? 0) >= 55) {
+    return { emoji: "🌦️", label: "มีฝนเป็นบางแห่ง", severity: 4 };
+  }
+  if (weatherCode !== null && weatherCode >= 45 && weatherCode <= 48) return { emoji: "🌫️", label: "มีหมอก", severity: 3 };
+  if (weatherCode === 3 || (probability ?? 0) >= 30) return { emoji: "☁️", label: "เมฆมาก", severity: 2 };
+  if (weatherCode === 1 || weatherCode === 2) return { emoji: "⛅", label: "มีเมฆบางส่วน", severity: 1 };
+  return { emoji: "☀️", label: "ท้องฟ้าโปร่งถึงมีเมฆเล็กน้อย", severity: 0 };
+}
+
+function selectWeatherMarkers(points: RainPoint[], dayIndex: number, windowIndex: number, fallbackProvince: string) {
+  const provinceGroups = new Map<string, RainPoint[]>();
+  points.forEach((point) => {
+    const province = point.label.includes(" · ") ? point.label.split(" · ")[0] : fallbackProvince;
+    provinceGroups.set(province, [...(provinceGroups.get(province) ?? []), point]);
+  });
+
+  return [...provinceGroups.entries()].flatMap(([province, provincePoints]) => {
+    const conditionGroups = new Map<string, Array<{ point: RainPoint; symbol: ReturnType<typeof getWeatherSymbol> }>>();
+    provincePoints.forEach((point) => {
+      const window = getPointWindow(point, dayIndex, windowIndex);
+      const symbol = getWeatherSymbol(point.daily[dayIndex]?.weatherCode ?? null, window?.probabilityMax ?? null, window?.rainMm ?? null);
+      conditionGroups.set(symbol.emoji, [...(conditionGroups.get(symbol.emoji) ?? []), { point, symbol }]);
+    });
+
+    return [...conditionGroups.values()]
+      .sort((a, b) => b[0].symbol.severity - a[0].symbol.severity)
+      .slice(0, 3)
+      .map((entries) => {
+        const center = {
+          lat: entries.reduce((sum, entry) => sum + entry.point.lat, 0) / entries.length,
+          lng: entries.reduce((sum, entry) => sum + entry.point.lng, 0) / entries.length,
+        };
+        const representative = [...entries].sort((a, b) =>
+          ((a.point.lat - center.lat) ** 2 + (a.point.lng - center.lng) ** 2)
+          - ((b.point.lat - center.lat) ** 2 + (b.point.lng - center.lng) ** 2))[0];
+        return { province, ...representative };
+      });
+  });
+}
+
 function interpolateIdw(lng: number, lat: number, values: Array<{ point: RainPoint; value: number }>) {
   return spatialIdw(lat, lng, values.map(({ point, value }) => ({
     lat: point.lat,
@@ -396,7 +443,7 @@ export default function RainDashboard() {
   const [basemap, setBasemap] = useState<"street" | "satellite">("street");
   const [layerMenuOpen, setLayerMenuOpen] = useState(false);
   const [showForecastSurface, setShowForecastSurface] = useState(true);
-  const [showLabels, setShowLabels] = useState(false);
+  const [showLabels, setShowLabels] = useState(true);
   const [radarEnabled, setRadarEnabled] = useState(true);
   const [radarMode, setRadarMode] = useState<TmdRadarMode>("observed");
   const [radarPayload, setRadarPayload] = useState<TmdRadarPayload | null>(null);
@@ -713,25 +760,16 @@ export default function RainDashboard() {
     import("leaflet").then((leafletModule) => {
       if (cancelled || !mapInstanceRef.current) return;
       const L = leafletModule.default;
-      const markers = points.map((point) => {
-        const win = getPointWindow(point, selectedDay, selectedWindowIndex);
-        const prob = win?.probabilityMax ?? null;
-        const rainMm = win?.rainMm ?? null;
-        const isProb = metricMode === "probability";
-        const valText = isProb ? (prob !== null ? `${prob}%` : "—") : (rainMm !== null ? `${rainMm}มม.` : "—");
-        const color = isProb
-          ? (prob !== null && prob >= 70 ? "#0284c7" : prob !== null && prob >= 40 ? "#0ea5e9" : prob !== null && prob >= 20 ? "#38bdf8" : "#94a3b8")
-          : (rainMm !== null && rainMm >= 5 ? "#1d4ed8" : rainMm !== null && rainMm >= 2 ? "#0284c7" : rainMm !== null && rainMm >= 0.5 ? "#0ea5e9" : "#94a3b8");
+      const markers = selectWeatherMarkers(points, selectedDay, selectedWindowIndex, selectedRegion.shortNameTh).map(({ point, province, symbol }) => {
         const icon = L.divIcon({
-          className: "map-label-wrapper",
+          className: "weather-emoji-wrapper",
           html: `
-            <div class="map-val-badge ${isProb ? 'prob-badge' : 'rain-badge'}" style="--point-color: ${color}" title="${point.label}: ${valText}">
-              <span class="map-val-dot" style="background-color: ${color}"></span>
-              <span class="map-val-num">${valText}</span>
+            <div class="weather-emoji-badge" title="${province}: ${symbol.label}">
+              <span>${symbol.emoji}</span>
             </div>
           `,
-          iconSize: [0, 0],
-          iconAnchor: [0, 0],
+          iconSize: [42, 42],
+          iconAnchor: [21, 21],
         });
         return L.marker([point.lat, point.lng], { icon, interactive: false });
       });
@@ -744,7 +782,7 @@ export default function RainDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [mapReady, metricMode, points, selectedDay, selectedWindowIndex, showLabels]);
+  }, [mapReady, points, selectedDay, selectedRegion.shortNameTh, selectedWindowIndex, showLabels]);
 
   const day = days[selectedDay] ?? days[0];
   const dayWindows = useMemo(
@@ -761,8 +799,9 @@ export default function RainDashboard() {
     .sort((a, b) => (b.daily[selectedDay]?.rainMm ?? -1) - (a.daily[selectedDay]?.rainMm ?? -1))
     .slice(0, 5), [points, selectedDay]);
   const highestPoint = sortedPoints[0];
-  const selectedMaxProbability = selectedPointData.length
-    ? Math.max(...selectedPointData.map(({ window }) => window?.probabilityMax ?? 0))
+  const selectedAreaProbability = selectedWindow?.probabilityMax ?? null;
+  const selectedWetCoverage = selectedPointData.length
+    ? Math.round(selectedPointData.filter(({ window }) => (window?.rainMm ?? 0) >= 0.1).length / selectedPointData.length * 100)
     : null;
   const selectedMeanRain = selectedWindow?.rainMeanMm ?? null;
   const dailyProbabilities = days.map((forecastDay) => forecastDay.probabilityMax ?? 0);
@@ -1093,10 +1132,10 @@ export default function RainDashboard() {
                   <span aria-hidden="true" />
                   <span className="layer-toggle-copy"><b>เรดาร์ฝน TMD</b><small>ตรวจจริงและ Nowcast 0–3 ชม.</small></span>
                 </label>
-                <label className="layer-toggle radar-layer-toggle" htmlFor="rain-labels-toggle" aria-label="แสดงป้ายค่าบนแผนที่">
+                <label className="layer-toggle radar-layer-toggle" htmlFor="rain-labels-toggle" aria-label="แสดงสัญลักษณ์สภาพอากาศบนแผนที่">
                   <input id="rain-labels-toggle" type="checkbox" checked={showLabels} onChange={(event) => setShowLabels(event.target.checked)} />
                   <span aria-hidden="true" />
-                  <span className="layer-toggle-copy"><b>แสดงป้ายค่าบนแผนที่</b><small>แสดงตัวเลขรายพื้นที่</small></span>
+                  <span className="layer-toggle-copy"><b>สัญลักษณ์สภาพอากาศ</b><small>emoji ลอย · จังหวัดละ 1–3 จุด</small></span>
                 </label>
                 <div className="basemap-layer-section">
                   <small className="basemap-section-title">แผนที่ฐาน (Basemap)</small>
@@ -1164,9 +1203,9 @@ export default function RainDashboard() {
             </div>
 
             <div className="map-metric rain-map-metric">
-              <span>โอกาสฝนสูงสุด · 3 ชม.</span>
-              <strong>{selectedMaxProbability ?? "—"}<small>%</small></strong>
-              <b>{selectedMeanRain === null ? "รอข้อมูล" : `ฝนเฉลี่ย ${selectedMeanRain} มม.`}</b>
+              <span>โอกาสฝนภาพรวม · 3 ชม.</span>
+              <strong>{selectedAreaProbability ?? "—"}<small>%</small></strong>
+              <b>{selectedMeanRain === null ? "รอข้อมูล" : `ฝนเฉลี่ย ${selectedMeanRain} มม. · จุดคาดมีฝน ${selectedWetCoverage ?? "—"}%`}</b>
             </div>
 
             <div className={`surface-status rain-surface-status ${radarEnabled ? radarPayload?.status ?? radarLoadState : dataState}`} aria-live="polite">
@@ -1235,7 +1274,7 @@ export default function RainDashboard() {
               <span>{day?.probabilityMax ?? "—"}<small>%</small></span>
             </div>
             <div>
-              <p>ภาพรวมฝน</p>
+              <p>โอกาสฝนเฉลี่ยเชิงพื้นที่</p>
               <strong>{day?.rainMeanMm === null ? "รอข้อมูล" : `${rainAmountLevel(day?.rainMeanMm ?? null).label}`}</strong>
               <em>เฉลี่ย {day?.rainMeanMm ?? "—"} มม. · สูงสุด {day?.rainMaxMm ?? "—"} มม.</em>
             </div>
@@ -1262,9 +1301,9 @@ export default function RainDashboard() {
           <div className="trend-card rain-trend-card">
             <div className="trend-heading">
               <p>แนวโน้ม 7 วัน</p>
-              <span>โอกาสฝนสูงสุด</span>
+              <span>ช่วง 3 ชม. ที่ภาพรวมสูงสุด</span>
             </div>
-            <div className="trend-chart" role="group" aria-label="กราฟแนวโน้มโอกาสฝนสูงสุด 7 วัน">
+            <div className="trend-chart" role="group" aria-label="กราฟแนวโน้มโอกาสฝนเฉลี่ยเชิงพื้นที่สูงสุด 7 วัน">
               {dailyProbabilities.map((value, index) => (
                 <button
                   key={days[index]?.dateKey ?? index}
@@ -1302,7 +1341,7 @@ export default function RainDashboard() {
             <span aria-hidden="true">!</span>
             <p>
               <b>สรุปวันที่เลือก</b>
-              {day?.probabilityMax === null ? "ยังโหลดข้อมูลไม่ได้" : `โอกาสฝนสูงสุด ${day.probabilityMax}% และฝนเฉลี่ย ${day.rainMeanMm ?? "—"} มม.${highestPoint ? ` พื้นที่แบบจำลองที่ควรติดตามคือ${highestPoint.label}` : ""}`}
+              {day?.probabilityMax === null ? "ยังโหลดข้อมูลไม่ได้" : `โอกาสฝนเฉลี่ยเชิงพื้นที่สูงสุด ${day.probabilityMax}% และฝนเฉลี่ย ${day.rainMeanMm ?? "—"} มม.${highestPoint ? ` พื้นที่แบบจำลองที่ควรติดตามคือ${highestPoint.label}` : ""}`}
               <small>{model} · อัปเดต {formatFetchedAt(fetchedAt)} · {disclaimer} <a href="https://open-meteo.com/en/docs" target="_blank" rel="noreferrer">ที่มาข้อมูล</a></small>
             </p>
           </div>

@@ -139,7 +139,7 @@ export function aggregateMetroRain(payloads: RainForecastPayload[]): RainForecas
     )).filter(Boolean);
     return {
       ...baseWindow,
-      probabilityMax: maxNullable(matches.map((window) => window?.probabilityMax)),
+      probabilityMax: meanNullable(matches.map((window) => window?.probabilityMax)),
       rainMeanMm: meanNullable(matches.map((window) => window?.rainMeanMm)),
       rainMaxMm: maxNullable(matches.map((window) => window?.rainMaxMm)),
     };
@@ -151,7 +151,9 @@ export function aggregateMetroRain(payloads: RainForecastPayload[]): RainForecas
       .sort((a, b) => (b.rainMeanMm ?? -1) - (a.rainMeanMm ?? -1) || (b.probabilityMax ?? -1) - (a.probabilityMax ?? -1))[0];
     return {
       ...baseDay,
-      probabilityMax: maxNullable(matches.map((day) => day?.probabilityMax)),
+      probabilityMax: maxNullable(windows
+        .filter((window) => window.dayIndex === dayIndex)
+        .map((window) => window.probabilityMax)),
       rainMeanMm: meanNullable(matches.map((day) => day?.rainMeanMm)),
       rainMaxMm: maxNullable(matches.map((day) => day?.rainMaxMm)),
       wetHours: meanNullable(matches.map((day) => day?.wetHours)),
@@ -164,7 +166,7 @@ export function aggregateMetroRain(payloads: RainForecastPayload[]): RainForecas
     status: payloads.length === provinces.length && payloads.every((payload) => payload.status === "live") ? "live" : "degraded",
     fetchedAt: usable.map((payload) => payload.fetchedAt).sort().at(-1) ?? primary.fetchedAt,
     model: "Open-Meteo Best Match / GFS · 54-point metropolitan grid",
-    disclaimer: "ภาพรวมพยากรณ์ฝนจากกริด 9 จุดต่อจังหวัด รวม 6 จังหวัด ไม่ใช่เรดาร์ฝนหรือประกาศเตือนภัย",
+    disclaimer: "ภาพรวมใช้ค่าเฉลี่ยเชิงพื้นที่ของกริดในแต่ละช่วง 3 ชั่วโมง รวม 54 จุดจาก 6 จังหวัด จึงไม่ใช้ค่าสูงสุดของจุดเดียวแทนทั้งพื้นที่ และไม่ใช่เรดาร์ฝนหรือประกาศเตือนภัย",
     sources: [...new Set(usable.flatMap((payload) => payload.sources))],
     dataQuality: {
       ...primary.dataQuality,

@@ -182,6 +182,28 @@ function rainRaw(pointCount = 9, corruptCount = 0) {
   });
 }
 
+function localizedRainRaw() {
+  return rainRaw(9).map((location, index) => {
+    const probability = index === 0 ? 100 : 0;
+    const rain = index === 0 ? 1 : 0;
+    return {
+      ...location,
+      hourly: {
+        ...location.hourly,
+        precipitation_probability: location.hourly.time.map(() => probability),
+        precipitation: location.hourly.time.map(() => rain),
+        rain: location.hourly.time.map(() => rain),
+      },
+      daily: {
+        ...location.daily,
+        precipitation_probability_max: location.daily.time.map(() => probability),
+        precipitation_sum: location.daily.time.map(() => rain * 24),
+        precipitation_hours: location.daily.time.map(() => rain ? 24 : 0),
+      },
+    };
+  });
+}
+
 function tmdRainRaw(value = 2) {
   const dates = ["2026-08-21", "2026-08-22"];
   const times = dates.flatMap((date) => Array.from({ length: 24 }, (_, hour) => `${date}T${String(hour).padStart(2, "0")}:00:00+07:00`));
@@ -249,6 +271,15 @@ test("metro rain endpoint consolidates six province forecasts into 54 points", a
   assert.equal(payload.points.length, 54);
   assert.equal(payload.dataQuality.expectedPoints, 54);
   assert.equal(calls, 6);
+});
+
+test("an isolated 100% rain point does not become a 100% province-wide summary", async () => {
+  const payload = await (await createRainForecastResponse({
+    fetchImpl: async () => json(localizedRainRaw()),
+  })).json();
+  assert.equal(payload.points[0].windows[0].probabilityMax, 100);
+  assert.equal(payload.windows[0].probabilityMax, 11);
+  assert.equal(payload.days[0].probabilityMax, 11);
 });
 
 test("rain forecast uses coordinates and metadata for the selected metro province", async () => {
