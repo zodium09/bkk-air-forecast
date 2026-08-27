@@ -330,6 +330,7 @@ body:has(.home-shell) {
   flex-direction: column;
   gap: 4px;
 }
+.rain-day-mobile-select { display: none; }
 .sidebar-day-btn, .rain-sidebar-day-btn {
   width: 100%;
   min-height: 32px;
@@ -1534,6 +1535,22 @@ body:has(.home-shell) {
   .sidebar-days::-webkit-scrollbar, .rain-sidebar-days::-webkit-scrollbar {
     display: none;
   }
+  .rain-sidebar-days { display: none; }
+  .rain-day-mobile-select {
+    width: 100%;
+    min-height: 42px;
+    padding: 7px 34px 7px 11px;
+    display: block;
+    border: 1px solid #bfdbfe;
+    border-radius: 10px;
+    background-color: #eff6ff;
+    color: #1e3a8a;
+    font-family: "IBM Plex Sans Thai", sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .rain-day-mobile-select:focus-visible { outline: 3px solid #38bdf8; outline-offset: 2px; }
   .sidebar-day-btn, .rain-sidebar-day-btn {
     flex: 0 0 auto;
     min-width: 108px;

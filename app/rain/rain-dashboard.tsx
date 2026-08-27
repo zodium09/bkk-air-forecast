@@ -796,8 +796,6 @@ export default function RainDashboard() {
   const selectDay = (index: number) => {
     selectedDayRef.current = index;
     setSelectedDay(index);
-    const selectedDateIsToday = days[index]?.dateKey === bangkokNow.dateKey;
-    setSelectedWindowIndex(selectedDateIsToday ? currentWindowIndex : getPeakWindowIndex(windows, index));
   };
 
   const retryForecast = () => {
@@ -930,6 +928,18 @@ export default function RainDashboard() {
                 );
               })}
             </nav>
+            <select
+              className="rain-day-mobile-select"
+              value={selectedDay}
+              onChange={(event) => selectDay(Number(event.target.value))}
+              aria-label="เลือกวันพยากรณ์ฝนแบบย่อ"
+            >
+              {days.map((forecastDay, index) => (
+                <option key={forecastDay.dateKey} value={index}>
+                  {forecastDay.weekday} {forecastDay.date} · {forecastDay.probabilityMax === null ? "รอข้อมูล" : `${forecastDay.probabilityMax}%`}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Section 2: 24-Hour Timeline & Line Curve */}
