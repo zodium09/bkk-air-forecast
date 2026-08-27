@@ -222,7 +222,10 @@ test("Cloudflare free architecture consolidates metro requests and normalizes ca
   const airDashboard = await readFile(new URL("../app/forecast-dashboard.tsx", import.meta.url), "utf8");
   const rainDashboard = await readFile(new URL("../app/rain/rain-dashboard.tsx", import.meta.url), "utf8");
   assert.match(worker, /caches\.default/);
-  assert.match(worker, /responseWithCacheStatus\(response, "BYPASS"\)/);
+  assert.match(worker, /cached = await cache\.match\(cacheRequest\)/);
+  assert.match(worker, /catch \{\s*cache = null;/);
+  assert.match(worker, /cache\.put\(cacheRequest, cacheResponse\)\.catch/);
+  assert.match(worker, /responseWithCacheStatus\(response, cache \? "MISS" : "BYPASS"\)/);
   assert.match(worker, /searchParams\.delete\("refresh"\)/);
   assert.match(worker, /X-Edge-Cache/);
   assert.match(airRoute, /createMetroForecastResponse/);

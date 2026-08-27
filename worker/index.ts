@@ -55,23 +55,29 @@ async function fetchWithEdgeCache(request: Request, env: Env, ctx: ExecutionCont
   const cacheRequest = normalizedCacheRequest(request);
   if (!cacheRequest) return handler.fetch(request, env, ctx);
 
-  // Some managed Workers runtimes do not expose the default Cache API. Accessing
-  // the getter throws before a route can run, so degrade to the application
-  // response instead of taking every data endpoint down.
-  let cache: Cache;
+  // Sites can expose `caches.default` while rejecting match/put at runtime.
+  // Treat every Cache API operation as optional so a cache outage never takes
+  // the forecast and boundary routes down with Worker error 1101.
+  let cache: Cache | null = null;
   try {
     cache = caches.default;
   } catch {
-    const response = await handler.fetch(request, env, ctx);
-    return responseWithCacheStatus(response, "BYPASS");
+    // Continue without edge caching.
   }
 
-  const cached = await cache.match(cacheRequest);
+  let cached: Response | undefined;
+  if (cache) {
+    try {
+      cached = await cache.match(cacheRequest);
+    } catch {
+      cache = null;
+    }
+  }
   if (cached) return responseWithCacheStatus(cached, "HIT");
 
   const response = await handler.fetch(request, env, ctx);
   const cacheControl = response.headers.get("Cache-Control") ?? "";
-  if (response.ok && !cacheControl.includes("no-store")) {
+  if (cache && response.ok && !cacheControl.includes("no-store")) {
     const headers = new Headers(response.headers);
     const edgeCacheControl = headers.get("CDN-Cache-Control") ?? cacheControl;
     headers.set("X-Browser-Cache-Control", cacheControl);
@@ -81,9 +87,13 @@ async function fetchWithEdgeCache(request: Request, env: Env, ctx: ExecutionCont
       status: response.status,
       statusText: response.statusText,
     });
-    ctx.waitUntil(cache.put(cacheRequest, cacheResponse));
+    try {
+      ctx.waitUntil(cache.put(cacheRequest, cacheResponse).catch(() => undefined));
+    } catch {
+      // Cache writes are best-effort and must not affect the application response.
+    }
   }
-  return responseWithCacheStatus(response, "MISS");
+  return responseWithCacheStatus(response, cache ? "MISS" : "BYPASS");
 }
 
 const worker = {
