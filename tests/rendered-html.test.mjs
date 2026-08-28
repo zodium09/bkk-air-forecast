@@ -112,7 +112,6 @@ test("server-renders the Bangkok rain forecast page", async () => {
   assert.match(html, /ฝน(?:<!-- -->)? · (?:<!-- -->)?กรุงเทพฯ/);
   assert.match(html, /กำลังโหลดพยากรณ์ฝน/);
   assert.match(html, /เลือกวันพยากรณ์ฝน/);
-  assert.match(html, /เลือกวันพยากรณ์ฝนแบบย่อ/);
   assert.match(html, /day-peak-time/);
   assert.match(html, /7 วันล่วงหน้า/);
   assert.match(html, /แนวโน้ม 7 วัน/);
@@ -151,15 +150,16 @@ test("map location forecasts use private geolocation and bounded IDW without sto
   assert.doesNotMatch(homeDashboard, /Math\.random|demo|mock/i);
 });
 
-test("rain day changes preserve the selected three-hour window and use a compact mobile selector", async () => {
+test("rain day changes preserve the selected three-hour window and use a compact horizontal mobile strip", async () => {
   const dashboard = await readFile(new URL("../app/rain/rain-dashboard.tsx", import.meta.url), "utf8");
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   const selectDayHandler = dashboard.match(/const selectDay = \(index: number\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? "";
   assert.match(selectDayHandler, /setSelectedDay\(index\)/);
   assert.doesNotMatch(selectDayHandler, /setSelectedWindowIndex/);
-  assert.match(dashboard, /className="rain-day-mobile-select"/);
-  assert.match(styles, /\.rain-day-mobile-select \{ display: none; \}/);
-  assert.match(styles, /@media \(max-width: 780px\)[\s\S]*?\.rain-sidebar-days \{ display: none; \}/);
+  assert.doesNotMatch(dashboard, /rain-day-mobile-select/);
+  assert.match(styles, /@media \(max-width: 780px\)[\s\S]*?\.rain-sidebar-days \{[\s\S]*?scroll-snap-type: x proximity;/);
+  assert.match(styles, /\.rain-sidebar-day-btn \{[\s\S]*?min-width: 86px;[\s\S]*?min-height: 44px;/);
+  assert.doesNotMatch(styles, /\.rain-sidebar-days \{ display: none; \}/);
 });
 
 test("rain map uses sparse province weather emoji instead of dense numeric labels", async () => {
