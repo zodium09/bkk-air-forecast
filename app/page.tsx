@@ -37,7 +37,7 @@ export default function Home() {
           </span>
         </a>
 
-        <a className="home-topic home-topic-rain" href="/rain" aria-label="เปิดแผนที่พยากรณ์ฝนกรุงเทพฯ และปริมณฑล" title="เปิดพยากรณ์ฝนกรุงเทพฯ และปริมณฑล">
+        <a className="home-topic home-topic-rain" href="/rain" aria-label="เปิดแผนที่พยากรณ์ฝนกรุงเทพฯ" title="เปิดพยากรณ์ฝนกรุงเทพฯ">
           <span className="home-topic-number" aria-hidden="true">02</span>
           <span className="home-topic-copy">
             <span className="home-topic-kicker"><i aria-hidden="true" /> RAIN OUTLOOK</span>

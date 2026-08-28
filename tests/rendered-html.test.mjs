@@ -165,10 +165,45 @@ test("rain day changes preserve the selected three-hour window and use a compact
 test("rain map uses sparse province weather emoji instead of dense numeric labels", async () => {
   const dashboard = await readFile(new URL("../app/rain/rain-dashboard.tsx", import.meta.url), "utf8");
   assert.match(dashboard, /selectWeatherMarkers/);
+  assert.match(dashboard, /isPointInBoundary/);
+  assert.match(dashboard, /points\.filter\(\(point\) => isPointInBoundary\(point, boundary\)\)/);
   assert.match(dashboard, /\.slice\(0, 3\)/);
   assert.match(dashboard, /weather-emoji-badge/);
-  assert.match(dashboard, /const \[showLabels, setShowLabels\] = useState\(true\)/);
+  assert.match(dashboard, /const \[showLabels, setShowLabels\] = useState\(false\)/);
   assert.doesNotMatch(dashboard, /class=\\"map-val-badge/);
+});
+
+test("rain defaults to Bangkok with radar and weather emoji opt-in", async () => {
+  const dashboard = await readFile(new URL("../app/rain/rain-dashboard.tsx", import.meta.url), "utf8");
+  const homeDashboard = await readFile(new URL("../app/home-dashboard.tsx", import.meta.url), "utf8");
+  assert.match(dashboard, /useState<RegionId>\("bangkok"\)/);
+  assert.match(dashboard, /requestedProvince \? getRegion\(requestedProvince\)\.id : "bangkok"/);
+  assert.match(dashboard, /const \[showLabels, setShowLabels\] = useState\(false\)/);
+  assert.match(dashboard, /const \[radarEnabled, setRadarEnabled\] = useState\(false\)/);
+  assert.match(dashboard, /const \[radarLoadState, setRadarLoadState\] = useState<[^>]+>\("idle"\)/);
+  assert.match(homeDashboard, /href="\/rain\?province=bangkok"/);
+});
+
+test("rain palette is white to cyan, blue, and purple without green", async () => {
+  const dashboard = await readFile(new URL("../app/rain/rain-dashboard.tsx", import.meta.url), "utf8");
+  const probabilityStops = dashboard.match(/const probabilityStops = \[[\s\S]*?\n\];/)?.[0] ?? "";
+  assert.match(probabilityStops, /\[255, 255, 255\]/);
+  assert.match(probabilityStops, /\[186, 230, 253\]/);
+  assert.match(probabilityStops, /\[37, 99, 235\]/);
+  assert.match(probabilityStops, /\[109, 40, 217\]/);
+  assert.doesNotMatch(probabilityStops, /16, 185, 129/);
+});
+
+test("air and rain dashboards expose a persistent dark mode control", async () => {
+  const layout = await readFile(new URL("../app/layout.tsx", import.meta.url), "utf8");
+  const nav = await readFile(new URL("../app/components/outlook-nav.tsx", import.meta.url), "utf8");
+  const toggle = await readFile(new URL("../app/components/theme-toggle.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(layout, /bkk-air-theme/);
+  assert.match(nav, /<ThemeToggle/);
+  assert.match(toggle, /localStorage\.setItem\(THEME_STORAGE_KEY/);
+  assert.match(styles, /html\[data-theme="dark"\]/);
+  assert.match(styles, /\.theme-toggle/);
 });
 
 test("boundary adapter uses the official BMA district layer", async () => {

@@ -14,7 +14,7 @@ import { buildRainForecastUrl, rainForecastProviders } from "../lib/rain-forecas
 import { FORECAST_DAYS } from "../lib/forecast-horizon";
 import { spatialIdw } from "../lib/forecast/interpolation";
 import type { TmdRadarMode, TmdRadarPayload } from "../lib/tmd-radar-data";
-import { DEFAULT_REGION_ID, METRO_REGION_ID, buildFallbackBoundary, getRegion, type RegionId } from "../lib/provinces";
+import { METRO_REGION_ID, buildFallbackBoundary, getRegion, type RegionId } from "../lib/provinces";
 import "leaflet/dist/leaflet.css";
 
 type Coordinate = [number, number];
@@ -34,30 +34,30 @@ type BoundaryCollection = {
 type MetricMode = "probability" | "rain";
 
 const probabilityStops = [
-  { value: 0, color: [224, 242, 254] },
-  { value: 25, color: [56, 189, 248] },
-  { value: 50, color: [16, 185, 129] },
+  { value: 0, color: [255, 255, 255] },
+  { value: 25, color: [186, 230, 253] },
+  { value: 50, color: [56, 189, 248] },
   { value: 75, color: [37, 99, 235] },
-  { value: 100, color: [124, 58, 237] },
+  { value: 100, color: [109, 40, 217] },
 ];
 
 const rainSurfaceCache = new Map<string, ReturnType<typeof createRainSurface>>();
 const MAX_RAIN_SURFACES = 24;
 
 const rainStops = [
-  { value: 0, color: [224, 242, 254] },
-  { value: 1, color: [56, 189, 248] },
-  { value: 5, color: [16, 185, 129] },
+  { value: 0, color: [255, 255, 255] },
+  { value: 1, color: [186, 230, 253] },
+  { value: 5, color: [56, 189, 248] },
   { value: 10, color: [37, 99, 235] },
-  { value: 20, color: [124, 58, 237] },
+  { value: 20, color: [109, 40, 217] },
 ];
 
 function getRainChanceColor(prob: number | null) {
   if (prob === null) return "#cbd5e1";
-  if (prob <= 20) return "#38bdf8";
-  if (prob <= 45) return "#10b981";
+  if (prob <= 20) return "#94a3b8";
+  if (prob <= 45) return "#38bdf8";
   if (prob <= 75) return "#2563eb";
-  return "#7c3aed";
+  return "#6d28d9";
 }
 
 function getRainAdvisory(prob: number | null, maxMm: number | null) {
@@ -165,6 +165,24 @@ function getPointValue(point: RainPoint, dayIndex: number, windowIndex: number, 
   return mode === "probability" ? window?.probabilityMax ?? null : window?.rainMm ?? null;
 }
 
+function isPointInRing(lng: number, lat: number, ring: Coordinate[]) {
+  let inside = false;
+  for (let index = 0, previous = ring.length - 1; index < ring.length; previous = index, index += 1) {
+    const [currentLng, currentLat] = ring[index];
+    const [previousLng, previousLat] = ring[previous];
+    const crossesLatitude = (currentLat > lat) !== (previousLat > lat);
+    const crossingLng = ((previousLng - currentLng) * (lat - currentLat)) / (previousLat - currentLat || Number.EPSILON) + currentLng;
+    if (crossesLatitude && lng < crossingLng) inside = !inside;
+  }
+  return inside;
+}
+
+function isPointInBoundary(point: RainPoint, boundary: BoundaryCollection) {
+  return getPolygons(boundary).some(([outerRing, ...holes]) =>
+    isPointInRing(point.lng, point.lat, outerRing)
+    && !holes.some((hole) => isPointInRing(point.lng, point.lat, hole)));
+}
+
 function getWeatherSymbol(weatherCode: number | null, probability: number | null, rainMm: number | null) {
   if (weatherCode !== null && weatherCode >= 95 && ((rainMm ?? 0) >= 0.1 || (probability ?? 0) >= 50)) {
     return { emoji: "⛈️", label: "เสี่ยงพายุฝนฟ้าคะนอง", severity: 6 };
@@ -181,9 +199,9 @@ function getWeatherSymbol(weatherCode: number | null, probability: number | null
   return { emoji: "☀️", label: "ท้องฟ้าโปร่งถึงมีเมฆเล็กน้อย", severity: 0 };
 }
 
-function selectWeatherMarkers(points: RainPoint[], dayIndex: number, windowIndex: number, fallbackProvince: string) {
+function selectWeatherMarkers(points: RainPoint[], dayIndex: number, windowIndex: number, fallbackProvince: string, boundary: BoundaryCollection) {
   const provinceGroups = new Map<string, RainPoint[]>();
-  points.forEach((point) => {
+  points.filter((point) => isPointInBoundary(point, boundary)).forEach((point) => {
     const province = point.label.includes(" · ") ? point.label.split(" · ")[0] : fallbackProvince;
     provinceGroups.set(province, [...(provinceGroups.get(province) ?? []), point]);
   });
@@ -429,7 +447,7 @@ async function fetchRainRegionBoundary(regionId: RegionId): Promise<{ boundary: 
 }
 
 export default function RainDashboard() {
-  const [selectedProvinceId, setSelectedProvinceId] = useState<RegionId>(DEFAULT_REGION_ID);
+  const [selectedProvinceId, setSelectedProvinceId] = useState<RegionId>("bangkok");
   const [selectedDay, setSelectedDay] = useState(0);
   const [selectedWindowIndex, setSelectedWindowIndex] = useState(0);
   const [days, setDays] = useState(() => buildRainDayShells());
@@ -443,11 +461,11 @@ export default function RainDashboard() {
   const [basemap, setBasemap] = useState<"street" | "satellite">("street");
   const [layerMenuOpen, setLayerMenuOpen] = useState(false);
   const [showForecastSurface, setShowForecastSurface] = useState(true);
-  const [showLabels, setShowLabels] = useState(true);
-  const [radarEnabled, setRadarEnabled] = useState(true);
+  const [showLabels, setShowLabels] = useState(false);
+  const [radarEnabled, setRadarEnabled] = useState(false);
   const [radarMode, setRadarMode] = useState<TmdRadarMode>("observed");
   const [radarPayload, setRadarPayload] = useState<TmdRadarPayload | null>(null);
-  const [radarLoadState, setRadarLoadState] = useState<"idle" | "loading" | "ready" | "error">("loading");
+  const [radarLoadState, setRadarLoadState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [radarFrameIndex, setRadarFrameIndex] = useState(0);
   const [radarOpacity, setRadarOpacity] = useState(0.76);
   const [radarImageError, setRadarImageError] = useState(false);
@@ -505,7 +523,7 @@ export default function RainDashboard() {
   useEffect(() => {
     window.scrollTo(0, 0);
     const requestedProvince = new URLSearchParams(window.location.search).get("province");
-    Promise.resolve().then(() => setSelectedProvinceId(getRegion(requestedProvince).id));
+    Promise.resolve().then(() => setSelectedProvinceId(requestedProvince ? getRegion(requestedProvince).id : "bangkok"));
   }, []);
 
   const loadRadar = useCallback((forceRefresh = false) => {
@@ -561,28 +579,6 @@ export default function RainDashboard() {
     });
     return () => { cancelled = true; };
   }, [mapReady, selectedLocation]);
-
-  useEffect(() => {
-    let active = true;
-    const controller = new AbortController();
-    radarAbortRef.current = controller;
-    fetchTmdRadarPayload(false, controller.signal)
-      .then((payload) => {
-        if (!active || controller.signal.aborted) return;
-        setRadarPayload(payload);
-        setRadarLoadState(payload.status === "unavailable" ? "error" : "ready");
-        setRadarFrameIndex(payload.observedFrames.length ? payload.observedFrames.length - 1 : 0);
-      })
-      .catch(() => {
-        if (!active || controller.signal.aborted) return;
-        setRadarPayload(null);
-        setRadarLoadState("error");
-      });
-    return () => {
-      active = false;
-      controller.abort();
-    };
-  }, []);
 
   useEffect(() => {
     let active = true;
@@ -754,13 +750,13 @@ export default function RainDashboard() {
       map.removeLayer(labelsLayerRef.current);
       labelsLayerRef.current = null;
     }
-    if (!showLabels || !points.length) return;
+    if (!showLabels || !points.length || !boundary) return;
 
     let cancelled = false;
     import("leaflet").then((leafletModule) => {
       if (cancelled || !mapInstanceRef.current) return;
       const L = leafletModule.default;
-      const markers = selectWeatherMarkers(points, selectedDay, selectedWindowIndex, selectedRegion.shortNameTh).map(({ point, province, symbol }) => {
+      const markers = selectWeatherMarkers(points, selectedDay, selectedWindowIndex, selectedRegion.shortNameTh, boundary).map(({ point, province, symbol }) => {
         const icon = L.divIcon({
           className: "weather-emoji-wrapper",
           html: `
@@ -782,7 +778,7 @@ export default function RainDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [mapReady, points, selectedDay, selectedRegion.shortNameTh, selectedWindowIndex, showLabels]);
+  }, [boundary, mapReady, points, selectedDay, selectedRegion.shortNameTh, selectedWindowIndex, showLabels]);
 
   const day = days[selectedDay] ?? days[0];
   const dayWindows = useMemo(
@@ -1086,7 +1082,7 @@ export default function RainDashboard() {
         {/* CENTER MAP CANVAS */}
         <div className="map-card rain-map-card">
           <div className="map-wrap rain-map-wrap">
-            <div ref={mapElementRef} className="map rain-map" role="region" aria-label={radarEnabled && selectedRadarFrame ? `แผนที่เรดาร์ฝน TMD ${selectedRegion.nameTh} ${selectedRadarFrame.label}` : `แผนที่พยากรณ์ฝน ${selectedRegion.nameTh} ${day?.weekday ?? ""} ${day?.date ?? ""} ${selectedWindow?.label ?? ""}`} />
+            <div ref={mapElementRef} className="map rain-map" data-basemap={basemap} role="region" aria-label={radarEnabled && selectedRadarFrame ? `แผนที่เรดาร์ฝน TMD ${selectedRegion.nameTh} ${selectedRadarFrame.label}` : `แผนที่พยากรณ์ฝน ${selectedRegion.nameTh} ${day?.weekday ?? ""} ${day?.date ?? ""} ${selectedWindow?.label ?? ""}`} />
             <div className="map-location-tools rain" aria-label="เครื่องมือเลือกตำแหน่งพยากรณ์ฝน">
               <button type="button" onClick={locateMe}><span aria-hidden="true">⌖</span> ตำแหน่งของฉัน</button>
               <small>{locationError || (selectedLocation ? "แตะจุดอื่นบนแผนที่เพื่อเปลี่ยน" : "แตะแผนที่เพื่อดูกราฟรายจุด")}</small>
@@ -1219,20 +1215,20 @@ export default function RainDashboard() {
                 </>
               ) : metricMode === "probability" ? (
                 <>
-                  <span><i style={{ background: "#bae6fd" }} />0–20%</span>
-                  <span><i style={{ background: "#38bdf8" }} />21–45%</span>
-                  <span><i style={{ background: "#10b981" }} />46–65%</span>
+                  <span><i className="rain-scale-white" style={{ background: "#ffffff" }} />0–20%</span>
+                  <span><i style={{ background: "#bae6fd" }} />21–45%</span>
+                  <span><i style={{ background: "#38bdf8" }} />46–65%</span>
                   <span><i style={{ background: "#2563eb" }} />66–80%</span>
-                  <span><i style={{ background: "#7c3aed" }} />&gt;80%</span>
+                  <span><i style={{ background: "#6d28d9" }} />&gt;80%</span>
                   <small>โอกาสฝน</small>
                 </>
               ) : (
                 <>
-                  <span><i style={{ background: "#bae6fd" }} />0</span>
-                  <span><i style={{ background: "#38bdf8" }} />0.1–2.5</span>
-                  <span><i style={{ background: "#10b981" }} />2.6–5</span>
+                  <span><i className="rain-scale-white" style={{ background: "#ffffff" }} />0</span>
+                  <span><i style={{ background: "#bae6fd" }} />0.1–2.5</span>
+                  <span><i style={{ background: "#38bdf8" }} />2.6–5</span>
                   <span><i style={{ background: "#2563eb" }} />5.1–10</span>
-                  <span><i style={{ background: "#7c3aed" }} />&gt;10 มม.</span>
+                  <span><i style={{ background: "#6d28d9" }} />&gt;10 มม.</span>
                   <small>มม. / 3 ชม.</small>
                 </>
               )}

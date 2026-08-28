@@ -55,12 +55,12 @@ export default function HomeDashboard() {
           <svg viewBox="0 0 240 64" role="img" aria-label="แนวโน้ม PM2.5 เจ็ดวัน"><path d={sparkline(airMeans, Math.max(45, ...airMeans.filter((value): value is number => value !== null)))} /></svg>
           <small>แตะเพื่อดูแผนที่และเลือกตำแหน่ง</small>
         </a>
-        <a className="home-summary-card rain" href="/rain?province=metro">
+        <a className="home-summary-card rain" href="/rain?province=bangkok">
           <div className="home-summary-copy"><span>ฝนวันนี้</span><strong>{rainToday?.probabilityMax ?? "—"}<small>%</small></strong><b>{rainToday?.rainMeanMm === null || rainToday === null ? "รอข้อมูล" : `เฉลี่ย ${rainToday.rainMeanMm} มม.`}</b></div>
           <svg viewBox="0 0 240 64" role="img" aria-label="แนวโน้มโอกาสฝนเจ็ดวัน"><path d={sparkline(rainProbabilities, 100)} /></svg>
           <small>ช่วงเด่น {rainToday?.peakWindow ?? "—"}</small>
         </a>
-        <a className="home-summary-card radar" href="/rain?province=metro">
+        <a className="home-summary-card radar" href="/rain?province=bangkok">
           <div className="home-summary-copy"><span>TMD RadarGIS</span><strong>{radar?.status === "live" ? "LIVE" : radar?.status === "degraded" ? "ช้า" : "—"}</strong><b>{radar?.ageMinutes === null || radar === null ? "รอเรดาร์" : `อัปเดต ${radar.ageMinutes} นาทีที่แล้ว`}</b></div>
           <div className="home-radar-pulse" aria-hidden="true"><i /><i /><i /></div>
           <small>ตรวจจริง {radar?.observedFrames.length ?? 0} · Nowcast {radar?.nowcastFrames.length ?? 0} เฟรม</small>

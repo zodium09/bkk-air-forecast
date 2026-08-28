@@ -275,6 +275,25 @@ body:has(.home-shell) {
 .product-nav a span { font-size: 9px; }
 .product-nav .product-nav-home { width: 34px; padding: 0; justify-content: center; }
 .product-nav .product-nav-home span { font-size: 15px; }
+.theme-toggle {
+  width: 34px;
+  min-height: 34px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #475569;
+  font-size: 16px;
+  cursor: pointer;
+  transition: color .2s, background .2s, transform .2s;
+}
+.theme-toggle:hover { color: #0284c7; background: rgba(241, 245, 249, .9); transform: translateY(-1px); }
+.theme-toggle:focus-visible { outline: 3px solid #38bdf8; outline-offset: 2px; }
+.theme-toggle-sun { display: none; }
+html[data-theme="dark"] .theme-toggle-moon { display: none; }
+html[data-theme="dark"] .theme-toggle-sun { display: inline; }
 .product-nav a:focus-visible, .sidebar-day-btn:focus-visible, .rain-sidebar-day-btn:focus-visible, .trend-chart button:focus-visible { outline: 3px solid #38bdf8; outline-offset: 2px; }
 
 /* Unified 3-Panel GIS Workspace (Air & Rain) */
@@ -843,6 +862,7 @@ body:has(.home-shell) {
   font-size: 9px;
   font-weight: 600;
 }
+.rain-legend .rain-scale-white { border: 1px solid #94a3b8; }
 
 /* Layer Menu Overlay */
 .layer-menu { position: absolute; z-index: 700; top: 14px; right: 14px; }
@@ -1720,3 +1740,163 @@ body:has(.home-shell) {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
+
+/* Shared dark mode for the air and rain workspaces */
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --ink: #e2e8f0;
+  --muted: #94a3b8;
+  --line: #334155;
+  --panel: #0f172a;
+  --soft: #111827;
+  --glass-bg: rgba(15, 23, 42, .9);
+  --glass-border: rgba(71, 85, 105, .72);
+  --glass-shadow: 0 18px 44px -16px rgba(0, 0, 0, .72);
+}
+html[data-theme="dark"] body:has(.app-shell) {
+  background: #020617;
+  color: #e2e8f0;
+}
+html[data-theme="dark"] .app-shell,
+html[data-theme="dark"] .air-shell,
+html[data-theme="dark"] .rain-shell {
+  background:
+    radial-gradient(ellipse at 0% 0%, rgba(14, 165, 233, .13), transparent 42vw),
+    radial-gradient(ellipse at 100% 0%, rgba(109, 40, 217, .12), transparent 42vw),
+    #020617;
+}
+html[data-theme="dark"] .dashboard-banner {
+  border-color: rgba(71, 85, 105, .72);
+  box-shadow: 0 12px 34px -14px rgba(0, 0, 0, .85);
+}
+html[data-theme="dark"] .dashboard-banner::after,
+html[data-theme="dark"] .rain-banner::after {
+  background: linear-gradient(90deg, rgba(2, 6, 23, .97) 0%, rgba(2, 6, 23, .9) 43%, rgba(15, 23, 42, .58) 76%, rgba(15, 23, 42, .32));
+}
+html[data-theme="dark"] .banner-copy h1,
+html[data-theme="dark"] .banner-status b,
+html[data-theme="dark"] .panel-title span,
+html[data-theme="dark"] .rain-panel-title span,
+html[data-theme="dark"] .day-btn-left .day-name,
+html[data-theme="dark"] .window-prob,
+html[data-theme="dark"] .weather-factor-list b,
+html[data-theme="dark"] .rain-highlights-list b,
+html[data-theme="dark"] .layer-menu-panel > strong,
+html[data-theme="dark"] .layer-toggle-copy b,
+html[data-theme="dark"] .radar-frame-meta b,
+html[data-theme="dark"] .map-metric strong,
+html[data-theme="dark"] .rain-map-metric strong,
+html[data-theme="dark"] .average-ring span,
+html[data-theme="dark"] .rain-average-ring span,
+html[data-theme="dark"] .average-card strong,
+html[data-theme="dark"] .rain-average-card strong,
+html[data-theme="dark"] .trend-heading p,
+html[data-theme="dark"] .advisory-title-wrap b,
+html[data-theme="dark"] .watch-card li b,
+html[data-theme="dark"] .forecast-note b,
+html[data-theme="dark"] .location-card-heading b,
+html[data-theme="dark"] .map-val-num {
+  color: #e2e8f0;
+}
+html[data-theme="dark"] .banner-copy p,
+html[data-theme="dark"] .province-selector,
+html[data-theme="dark"] .banner-status span,
+html[data-theme="dark"] .panel-title small,
+html[data-theme="dark"] .rain-panel-title small,
+html[data-theme="dark"] .day-btn-left .day-date,
+html[data-theme="dark"] .day-peak-time,
+html[data-theme="dark"] .window-clock,
+html[data-theme="dark"] .weather-factor-list small,
+html[data-theme="dark"] .rain-highlights-list small,
+html[data-theme="dark"] .layer-toggle-copy small,
+html[data-theme="dark"] .surface-status span,
+html[data-theme="dark"] .rain-surface-status span,
+html[data-theme="dark"] .legend small,
+html[data-theme="dark"] .rain-legend small,
+html[data-theme="dark"] .average-card p,
+html[data-theme="dark"] .rain-average-card p,
+html[data-theme="dark"] .average-card em,
+html[data-theme="dark"] .rain-average-card em,
+html[data-theme="dark"] .trend-heading span,
+html[data-theme="dark"] .trend-chart button small,
+html[data-theme="dark"] .location-card-empty,
+html[data-theme="dark"] .location-forecast-card > small,
+html[data-theme="dark"] .forecast-note small {
+  color: #94a3b8;
+}
+html[data-theme="dark"] :is(.province-selector, .banner-status, .product-nav, .panel-section, .rain-panel-section, .map-card, .air-map-card, .rain-map-card, .insights, .air-insights, .rain-insights, .map-metric, .rain-map-metric, .surface-status, .rain-surface-status, .legend, .rain-legend, .layer-menu-panel) {
+  border-color: rgba(71, 85, 105, .78);
+  background-color: rgba(15, 23, 42, .93);
+  box-shadow: 0 12px 30px -14px rgba(0, 0, 0, .8);
+}
+html[data-theme="dark"] .province-selector select,
+html[data-theme="dark"] :is(.sidebar-day-btn, .rain-sidebar-day-btn, .panel-window-btn, .radar-mode-options button, .radar-frame-picker button, .basemap-option-btn, .location-card-heading button) {
+  border-color: #475569;
+  background: #111827;
+  color: #cbd5e1;
+}
+html[data-theme="dark"] :is(.sidebar-day-btn, .rain-sidebar-day-btn, .panel-window-btn):hover:not(.active):not(:disabled),
+html[data-theme="dark"] .theme-toggle:hover,
+html[data-theme="dark"] .product-nav a:hover {
+  border-color: #38bdf8;
+  background: #172033;
+  color: #7dd3fc;
+}
+html[data-theme="dark"] .product-nav a,
+html[data-theme="dark"] .theme-toggle,
+html[data-theme="dark"] .legend span,
+html[data-theme="dark"] .rain-legend span,
+html[data-theme="dark"] .advisory-desc,
+html[data-theme="dark"] .watch-card li,
+html[data-theme="dark"] .rain-watch-card li,
+html[data-theme="dark"] .forecast-note p,
+html[data-theme="dark"] .location-chart-values,
+html[data-theme="dark"] .radar-opacity-control,
+html[data-theme="dark"] .basemap-section-title {
+  color: #cbd5e1;
+}
+html[data-theme="dark"] :is(.weather-factor-list > div, .rain-highlights-list > div, .forecast-note) {
+  border-color: #334155;
+  background: rgba(30, 41, 59, .78);
+}
+html[data-theme="dark"] :is(.location-forecast-card, .location-forecast-card.rain, .trend-card, .rain-trend-card, .air-advisory-card, .rain-advisory-card, .average-card, .rain-average-card) {
+  border-color: #334155;
+  background: linear-gradient(145deg, rgba(15, 23, 42, .98), rgba(30, 41, 59, .88));
+}
+html[data-theme="dark"] .average-ring::after,
+html[data-theme="dark"] .rain-average-ring::after {
+  background: #0f172a;
+}
+html[data-theme="dark"] .watch-card li,
+html[data-theme="dark"] .rain-watch-card li {
+  border-color: #1e293b;
+}
+html[data-theme="dark"] .layer-toggle > input + span {
+  border-color: #64748b;
+  background: #111827;
+}
+html[data-theme="dark"] .layer-menu-trigger,
+html[data-theme="dark"] .map-location-tools button {
+  border-color: #475569;
+  background: rgba(15, 23, 42, .94);
+  color: #7dd3fc;
+}
+html[data-theme="dark"] .layer-menu-trigger:hover,
+html[data-theme="dark"] .layer-menu-trigger[aria-expanded="true"],
+html[data-theme="dark"] .map-location-tools button:hover {
+  background: #1e293b;
+}
+html[data-theme="dark"] .weather-emoji-badge,
+html[data-theme="dark"] .map-val-badge {
+  border-color: rgba(100, 116, 139, .82);
+  background: rgba(15, 23, 42, .82);
+}
+html[data-theme="dark"] .map[data-basemap="street"] .leaflet-tile {
+  filter: brightness(.58) contrast(1.28) saturate(.72) hue-rotate(178deg);
+}
+html[data-theme="dark"] .leaflet-control-attribution {
+  background: rgba(15, 23, 42, .82) !important;
+  color: #cbd5e1;
+}
+html[data-theme="dark"] .leaflet-control-attribution a { color: #7dd3fc; }
+html[data-theme="dark"] .rain-legend .rain-scale-white { border-color: #cbd5e1; }

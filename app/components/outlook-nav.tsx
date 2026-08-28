@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-html-link-for-pages */
 import type { RegionId } from "../lib/provinces";
+import ThemeToggle from "./theme-toggle";
 
 type OutlookNavProps = {
   active: "air" | "rain";
@@ -21,6 +22,7 @@ export default function OutlookNav({ active, province }: OutlookNavProps) {
         <span aria-hidden="true">●</span>
         พยากรณ์ฝน
       </a>
+      <ThemeToggle />
     </nav>
   );
 }

@@ -670,7 +670,7 @@ export default function ForecastDashboard() {
         {/* CENTER MAP CANVAS */}
         <div className="map-card air-map-card">
           <div className="map-wrap">
-            <div ref={mapElementRef} className="map" role="application" aria-label={`แผนที่ PM2.5 ${selectedRegion.nameTh} พยากรณ์ล่วงหน้า ${day.lead} วัน`} />
+            <div ref={mapElementRef} className="map" data-basemap={basemap} role="application" aria-label={`แผนที่ PM2.5 ${selectedRegion.nameTh} พยากรณ์ล่วงหน้า ${day.lead} วัน`} />
             <div className="map-location-tools">
               <button type="button" onClick={locateMe} aria-label="ใช้ตำแหน่งของฉันบนแผนที่"><span aria-hidden="true">◎</span>ตำแหน่งของฉัน</button>
               <small>{locationError || (selectedLocation ? "เลือกแล้ว · แตะจุดอื่นเพื่อเปลี่ยน" : "หรือแตะแผนที่เพื่อเลือกจุด")}</small>
