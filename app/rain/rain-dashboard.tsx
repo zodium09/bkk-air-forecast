@@ -19,6 +19,7 @@ import {
 import { buildRainForecastUrl, rainForecastProviders } from "../lib/rain-forecast-provider";
 import { FORECAST_DAYS } from "../lib/forecast-horizon";
 import { spatialIdw } from "../lib/forecast/interpolation";
+import { selectMapLabelLocations } from "../lib/forecast/map-labels";
 import type { TmdRadarMode, TmdRadarPayload } from "../lib/tmd-radar-data";
 import { METRO_REGION_ID, buildFallbackBoundary, getRegion, type RegionId } from "../lib/provinces";
 import "leaflet/dist/leaflet.css";
@@ -125,24 +126,6 @@ function getPointValue(point: RainPoint, dayIndex: number, windowIndex: number, 
   return mode === "probability" ? window?.pointProbabilityPeak ?? null : window?.rainMm ?? null;
 }
 
-function isPointInRing(lng: number, lat: number, ring: Coordinate[]) {
-  let inside = false;
-  for (let index = 0, previous = ring.length - 1; index < ring.length; previous = index, index += 1) {
-    const [currentLng, currentLat] = ring[index];
-    const [previousLng, previousLat] = ring[previous];
-    const crossesLatitude = (currentLat > lat) !== (previousLat > lat);
-    const crossingLng = ((previousLng - currentLng) * (lat - currentLat)) / (previousLat - currentLat || Number.EPSILON) + currentLng;
-    if (crossesLatitude && lng < crossingLng) inside = !inside;
-  }
-  return inside;
-}
-
-function isPointInBoundary(point: RainPoint, boundary: BoundaryCollection) {
-  return getPolygons(boundary).some(([outerRing, ...holes]) =>
-    isPointInRing(point.lng, point.lat, outerRing)
-    && !holes.some((hole) => isPointInRing(point.lng, point.lat, hole)));
-}
-
 function getWeatherSymbol(weatherCode: number | null, probability: number | null, rainMm: number | null) {
   if (weatherCode !== null && weatherCode >= 95 && ((rainMm ?? 0) >= 0.1 || (probability ?? 0) >= 50)) {
     return { emoji: "⛈️", label: "เสี่ยงพายุฝนฟ้าคะนอง", severity: 6 };
@@ -159,34 +142,31 @@ function getWeatherSymbol(weatherCode: number | null, probability: number | null
   return { emoji: "☀️", label: "ท้องฟ้าโปร่งถึงมีเมฆเล็กน้อย", severity: 0 };
 }
 
-function selectWeatherMarkers(points: RainPoint[], dayIndex: number, windowIndex: number, fallbackProvince: string, boundary: BoundaryCollection) {
-  const provinceGroups = new Map<string, RainPoint[]>();
-  points.filter((point) => isPointInBoundary(point, boundary)).forEach((point) => {
-    const province = point.label.includes(" · ") ? point.label.split(" · ")[0] : fallbackProvince;
-    provinceGroups.set(province, [...(provinceGroups.get(province) ?? []), point]);
-  });
+function selectWeatherMarkers(points: RainPoint[], dayIndex: number, windowIndex: number, boundary: BoundaryCollection) {
+  const probabilityValues = points
+    .map((point) => ({ point, value: getPointValue(point, dayIndex, windowIndex, "probability") }))
+    .filter((entry): entry is { point: RainPoint; value: number } => entry.value !== null);
+  const rainValues = points
+    .map((point) => ({ point, value: getPointValue(point, dayIndex, windowIndex, "rain") }))
+    .filter((entry): entry is { point: RainPoint; value: number } => entry.value !== null);
 
-  return [...provinceGroups.entries()].flatMap(([province, provincePoints]) => {
-    const conditionGroups = new Map<string, Array<{ point: RainPoint; symbol: ReturnType<typeof getWeatherSymbol> }>>();
-    provincePoints.forEach((point) => {
-      const window = getPointWindow(point, dayIndex, windowIndex);
-      const symbol = getWeatherSymbol(point.daily[dayIndex]?.weatherCode ?? null, window?.pointProbabilityPeak ?? null, window?.rainMm ?? null);
-      conditionGroups.set(symbol.emoji, [...(conditionGroups.get(symbol.emoji) ?? []), { point, symbol }]);
+  return selectMapLabelLocations(boundary).map((location) => {
+    const probabilityValue = interpolateIdw(location.lng, location.lat, probabilityValues);
+    const rainValue = interpolateIdw(location.lng, location.lat, rainValues);
+    const probability = probabilityValue === null ? null : Math.round(probabilityValue);
+    const rainMm = rainValue === null ? null : Math.round(rainValue * 10) / 10;
+    const nearestPoint = points.reduce((nearest, point) => {
+      const pointDistance = (point.lat - location.lat) ** 2 + (point.lng - location.lng) ** 2;
+      const nearestDistance = (nearest.lat - location.lat) ** 2 + (nearest.lng - location.lng) ** 2;
+      return pointDistance < nearestDistance ? point : nearest;
     });
-
-    return [...conditionGroups.values()]
-      .sort((a, b) => b[0].symbol.severity - a[0].symbol.severity)
-      .slice(0, 3)
-      .map((entries) => {
-        const center = {
-          lat: entries.reduce((sum, entry) => sum + entry.point.lat, 0) / entries.length,
-          lng: entries.reduce((sum, entry) => sum + entry.point.lng, 0) / entries.length,
-        };
-        const representative = [...entries].sort((a, b) =>
-          ((a.point.lat - center.lat) ** 2 + (a.point.lng - center.lng) ** 2)
-          - ((b.point.lat - center.lat) ** 2 + (b.point.lng - center.lng) ** 2))[0];
-        return { province, ...representative };
-      });
+    const weatherCode = nearestPoint.daily[dayIndex]?.weatherCode ?? null;
+    return {
+      location,
+      probability,
+      rainMm,
+      symbol: getWeatherSymbol(weatherCode, probability, rainMm),
+    };
   });
 }
 
@@ -707,18 +687,23 @@ export default function RainDashboard() {
     import("leaflet").then((leafletModule) => {
       if (cancelled || !mapInstanceRef.current) return;
       const L = leafletModule.default;
-      const markers = selectWeatherMarkers(points, selectedDay, selectedWindowIndex, selectedRegion.shortNameTh, boundary).map(({ point, province, symbol }) => {
+      const markers = selectWeatherMarkers(points, selectedDay, selectedWindowIndex, boundary).map(({ location, probability, rainMm, symbol }) => {
         const icon = L.divIcon({
           className: "weather-emoji-wrapper",
           html: `
-            <div class="weather-emoji-badge" title="${province}: ${symbol.label}">
+            <div class="weather-emoji-badge">
               <span>${symbol.emoji}</span>
             </div>
           `,
           iconSize: [42, 42],
           iconAnchor: [21, 21],
         });
-        return L.marker([point.lat, point.lng], { icon, interactive: false });
+        const marker = L.marker([location.lat, location.lng], { icon, interactive: true, keyboard: false });
+        marker.bindTooltip(
+          `<strong>${location.provinceName}</strong><br>${symbol.label}<br>แนวโน้มฝน ${probability ?? "—"}% · ${rainMm ?? "—"} มม./3 ชม.`,
+          { direction: "top", offset: [0, -18], opacity: 0.96 },
+        );
+        return marker;
       });
 
       const group = L.layerGroup(markers);
@@ -729,7 +714,7 @@ export default function RainDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [boundary, mapReady, points, selectedDay, selectedRegion.shortNameTh, selectedWindowIndex, showLabels]);
+  }, [boundary, mapReady, points, selectedDay, selectedWindowIndex, showLabels]);
 
   const day = days[selectedDay] ?? days[0];
   const dayWindows = useMemo(
@@ -1085,7 +1070,7 @@ export default function RainDashboard() {
                 <label className="layer-toggle radar-layer-toggle" htmlFor="rain-labels-toggle" aria-label="แสดงสัญลักษณ์สภาพอากาศบนแผนที่">
                   <input id="rain-labels-toggle" type="checkbox" checked={showLabels} onChange={(event) => setShowLabels(event.target.checked)} />
                   <span aria-hidden="true" />
-                  <span className="layer-toggle-copy"><b>สัญลักษณ์สภาพอากาศ</b><small>emoji ลอย · จังหวัดละ 1–3 จุด</small></span>
+                  <span className="layer-toggle-copy"><b>สัญลักษณ์สภาพอากาศ</b><small>3 ตำแหน่งต่อจังหวัด · อยู่ภายในขอบเขต · วางเมาส์ดูรายละเอียด</small></span>
                 </label>
                 <div className="basemap-layer-section">
                   <small className="basemap-section-title">แผนที่ฐาน (Basemap)</small>

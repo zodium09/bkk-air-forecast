@@ -124,7 +124,7 @@ test("server-renders the Bangkok rain forecast page", async () => {
   assert.match(html, /ฝนที่ตรวจพบตอนนี้และแนวโน้ม 0–3 ชม./);
   assert.match(html, /เลือกชั้นข้อมูลแผนที่ฝน/);
   assert.match(html, /สัญลักษณ์สภาพอากาศ/);
-  assert.match(html, /emoji ลอย/);
+  assert.match(html, /3 ตำแหน่งต่อจังหวัด/);
   assert.match(html, /แนวโน้มฝนในพื้นที่/);
   assert.match(html, /ตอนนี้ฝนตกไหม/);
   assert.match(html, /แนวโน้ม ปริมาณ และผลกระทบ/);
@@ -165,13 +165,15 @@ test("rain day changes preserve the selected three-hour window and use a compact
   assert.doesNotMatch(styles, /\.rain-sidebar-days \{ display: none; \}/);
 });
 
-test("rain map uses sparse province weather emoji instead of dense numeric labels", async () => {
+test("rain map uses three interactive in-boundary weather labels per province", async () => {
   const dashboard = await readFile(new URL("../app/rain/rain-dashboard.tsx", import.meta.url), "utf8");
   assert.match(dashboard, /selectWeatherMarkers/);
-  assert.match(dashboard, /isPointInBoundary/);
-  assert.match(dashboard, /points\.filter\(\(point\) => isPointInBoundary\(point, boundary\)\)/);
-  assert.match(dashboard, /\.slice\(0, 3\)/);
+  assert.match(dashboard, /selectMapLabelLocations\(boundary\)/);
+  assert.match(dashboard, /interpolateIdw\(location\.lng, location\.lat, probabilityValues\)/);
+  assert.match(dashboard, /interpolateIdw\(location\.lng, location\.lat, rainValues\)/);
+  assert.match(dashboard, /marker\.bindTooltip/);
   assert.match(dashboard, /weather-emoji-badge/);
+  assert.match(dashboard, /3 ตำแหน่งต่อจังหวัด · อยู่ภายในขอบเขต/);
   assert.match(dashboard, /const \[showLabels, setShowLabels\] = useState\(false\)/);
   assert.doesNotMatch(dashboard, /class=\\"map-val-badge/);
 });
