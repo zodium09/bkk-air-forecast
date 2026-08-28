@@ -9,7 +9,7 @@ export type RainDay = {
   date: string;
   weekday: string;
   year: number;
-  probabilityMax: number | null;
+  dailyPeakAreaMeanProbability: number | null;
   rainMeanMm: number | null;
   rainMaxMm: number | null;
   wetHours: number | null;
@@ -23,13 +23,13 @@ export type RainWindow = {
   start: string;
   end: string;
   label: string;
-  probabilityMax: number | null;
+  areaMeanProbabilityPeak: number | null;
   rainMeanMm: number | null;
   rainMaxMm: number | null;
 };
 
 export type RainPointDay = {
-  probabilityMax: number | null;
+  pointProbabilityMax: number | null;
   rainMm: number | null;
   wetHours: number | null;
   weatherCode: number | null;
@@ -38,7 +38,7 @@ export type RainPointDay = {
 export type RainPointWindow = {
   dayIndex: number;
   windowIndex: number;
-  probabilityMax: number | null;
+  pointProbabilityPeak: number | null;
   rainMm: number | null;
 };
 
@@ -107,7 +107,7 @@ export function buildRainDayShells(startDateKey?: string): RainDay[] {
       lead: index + 1,
       dateKey,
       ...formatted,
-      probabilityMax: null,
+      dailyPeakAreaMeanProbability: null,
       rainMeanMm: null,
       rainMaxMm: null,
       wetHours: null,
@@ -139,7 +139,7 @@ export function aggregateMetroRain(payloads: RainForecastPayload[]): RainForecas
     )).filter(Boolean);
     return {
       ...baseWindow,
-      probabilityMax: meanNullable(matches.map((window) => window?.probabilityMax)),
+      areaMeanProbabilityPeak: meanNullable(matches.map((window) => window?.areaMeanProbabilityPeak)),
       rainMeanMm: meanNullable(matches.map((window) => window?.rainMeanMm)),
       rainMaxMm: maxNullable(matches.map((window) => window?.rainMaxMm)),
     };
@@ -148,12 +148,12 @@ export function aggregateMetroRain(payloads: RainForecastPayload[]): RainForecas
     const matches = usable.map((payload) => payload.days[dayIndex]).filter(Boolean);
     const peak = windows
       .filter((window) => window.dayIndex === dayIndex)
-      .sort((a, b) => (b.rainMeanMm ?? -1) - (a.rainMeanMm ?? -1) || (b.probabilityMax ?? -1) - (a.probabilityMax ?? -1))[0];
+      .sort((a, b) => (b.rainMeanMm ?? -1) - (a.rainMeanMm ?? -1) || (b.areaMeanProbabilityPeak ?? -1) - (a.areaMeanProbabilityPeak ?? -1))[0];
     return {
       ...baseDay,
-      probabilityMax: maxNullable(windows
+      dailyPeakAreaMeanProbability: maxNullable(windows
         .filter((window) => window.dayIndex === dayIndex)
-        .map((window) => window.probabilityMax)),
+        .map((window) => window.areaMeanProbabilityPeak)),
       rainMeanMm: meanNullable(matches.map((day) => day?.rainMeanMm)),
       rainMaxMm: maxNullable(matches.map((day) => day?.rainMaxMm)),
       wetHours: meanNullable(matches.map((day) => day?.wetHours)),

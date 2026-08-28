@@ -277,9 +277,9 @@ test("an isolated 100% rain point does not become a 100% province-wide summary",
   const payload = await (await createRainForecastResponse({
     fetchImpl: async () => json(localizedRainRaw()),
   })).json();
-  assert.equal(payload.points[0].windows[0].probabilityMax, 100);
-  assert.equal(payload.windows[0].probabilityMax, 11);
-  assert.equal(payload.days[0].probabilityMax, 11);
+  assert.equal(payload.points[0].windows[0].pointProbabilityPeak, 100);
+  assert.equal(payload.windows[0].areaMeanProbabilityPeak, 11);
+  assert.equal(payload.days[0].dailyPeakAreaMeanProbability, 11);
 });
 
 test("rain forecast uses coordinates and metadata for the selected metro province", async () => {

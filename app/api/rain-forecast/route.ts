@@ -94,7 +94,7 @@ function aggregatePoint(raw: OpenMeteoLocation, index: number, forecastPoints: R
   if (usableHourlyValues < minimumRequiredValues || usableProbabilityValues < minimumRequiredValues) return null;
 
   const daily: RainPointDay[] = raw.daily.time.slice(0, FORECAST_DAYS).map((_, dayIndex) => ({
-    probabilityMax: finiteOrNull(raw.daily!.precipitation_probability_max[dayIndex], 0, 100),
+    pointProbabilityMax: finiteOrNull(raw.daily!.precipitation_probability_max[dayIndex], 0, 100),
     rainMm: finiteOrNull(raw.daily!.precipitation_sum[dayIndex], 0, 1000),
     wetHours: finiteOrNull(raw.daily!.precipitation_hours[dayIndex], 0, 24),
     weatherCode: finiteOrNull(raw.daily!.weather_code[dayIndex], 0, 99),
@@ -119,7 +119,7 @@ function aggregatePoint(raw: OpenMeteoLocation, index: number, forecastPoints: R
       windows.push({
         dayIndex,
         windowIndex,
-        probabilityMax: probabilities.length ? Math.round(Math.max(...probabilities)) : null,
+        pointProbabilityPeak: probabilities.length ? Math.round(Math.max(...probabilities)) : null,
         rainMm: rainValues.length ? rounded(rainValues.reduce((sum, value) => sum + value, 0)) : null,
       });
     }
@@ -140,7 +140,7 @@ function aggregateCity(points: RainPoint[], dateKeys: string[]) {
       const pointWindows = points
         .map((point) => point.windows.find((window) => window.dayIndex === dayIndex && window.windowIndex === windowIndex))
         .filter((window): window is RainPointWindow => Boolean(window));
-      const windowProbability = pointWindows.map((window) => window.probabilityMax).filter((value): value is number => value !== null);
+      const windowProbability = pointWindows.map((window) => window.pointProbabilityPeak).filter((value): value is number => value !== null);
       const windowRain = pointWindows.map((window) => window.rainMm).filter((value): value is number => value !== null);
       const startHour = windowIndex * 3;
       return {
@@ -152,7 +152,7 @@ function aggregateCity(points: RainPoint[], dateKeys: string[]) {
         // A province summary must represent the sampled area, not the single
         // wettest grid point. Point-level probabilities remain available for
         // the map and selected-location chart.
-        probabilityMax: meanProbability(windowProbability),
+        areaMeanProbabilityPeak: meanProbability(windowProbability),
         rainMeanMm: windowRain.length ? rounded(mean(windowRain) ?? 0) : null,
         rainMaxMm: windowRain.length ? rounded(Math.max(...windowRain)) : null,
       };
@@ -160,7 +160,7 @@ function aggregateCity(points: RainPoint[], dateKeys: string[]) {
     windows.push(...dayWindows);
     const peak = [...dayWindows]
       .filter((window) => window.rainMeanMm !== null)
-      .sort((a, b) => (b.rainMeanMm ?? 0) - (a.rainMeanMm ?? 0) || (b.probabilityMax ?? 0) - (a.probabilityMax ?? 0))[0];
+      .sort((a, b) => (b.rainMeanMm ?? 0) - (a.rainMeanMm ?? 0) || (b.areaMeanProbabilityPeak ?? 0) - (a.areaMeanProbabilityPeak ?? 0))[0];
     const formatted = formatRainDate(dateKey);
     return {
       lead: dayIndex + 1,
@@ -168,8 +168,8 @@ function aggregateCity(points: RainPoint[], dateKeys: string[]) {
       ...formatted,
       // Highest area-mean 3-hour window of the day. This avoids turning one
       // isolated 100% point into a 100% province-wide statement.
-      probabilityMax: dayWindows.length
-        ? Math.max(...dayWindows.map((window) => window.probabilityMax ?? 0))
+      dailyPeakAreaMeanProbability: dayWindows.length
+        ? Math.max(...dayWindows.map((window) => window.areaMeanProbabilityPeak ?? 0))
         : null,
       rainMeanMm: rain.length ? rounded(mean(rain) ?? 0) : null,
       rainMaxMm: rain.length ? rounded(Math.max(...rain)) : null,

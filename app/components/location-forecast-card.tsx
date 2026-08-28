@@ -71,7 +71,7 @@ export default function LocationForecastCard({
           </svg>
           <div className="location-chart-values">
             <span><i className="primary" />{kind === "air" ? `PM2.5 ${series[0]?.primary ?? "—"} µg/m³` : `ฝน ${series[0]?.primary ?? "—"} มม.`}</span>
-            {kind === "rain" && <span><i className="secondary" />โอกาส {series[0]?.secondary ?? "—"}%</span>}
+            {kind === "rain" && <span><i className="secondary" />แนวโน้มฝนโดยประมาณ ณ จุดนี้ {series[0]?.secondary ?? "—"}%</span>}
           </div>
         </div>
       ) : selection ? (
@@ -79,7 +79,7 @@ export default function LocationForecastCard({
       ) : (
         <p className="location-card-empty">ค่าจะแสดงจากกริดแบบจำลองใกล้เคียง พร้อมกราฟแนวโน้มโดยไม่บันทึกพิกัด</p>
       )}
-      <small>ค่าประมาณเชิงพื้นที่ ไม่ใช่สถานีตรวจวัด ณ พิกัด</small>
+      <small>{kind === "rain" ? "คำนวณจากจุดแบบจำลองใกล้เคียง ไม่ใช่เรดาร์หรือสถานีตรวจวัด ณ พิกัด" : "ค่าประมาณเชิงพื้นที่ ไม่ใช่สถานีตรวจวัด ณ พิกัด"}</small>
     </section>
   );
 }

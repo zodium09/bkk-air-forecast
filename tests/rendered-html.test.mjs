@@ -121,11 +121,14 @@ test("server-renders the Bangkok rain forecast page", async () => {
   assert.doesNotMatch(html, /จุดตรวจวัดฝน|สถานีฝน/);
   assert.match(html, /แบบจำลองพยากรณ์/);
   assert.match(html, /เรดาร์ฝน TMD/);
-  assert.match(html, /ตรวจจริงและ Nowcast 0–3 ชม./);
+  assert.match(html, /ฝนที่ตรวจพบตอนนี้และแนวโน้ม 0–3 ชม./);
   assert.match(html, /เลือกชั้นข้อมูลแผนที่ฝน/);
   assert.match(html, /สัญลักษณ์สภาพอากาศ/);
   assert.match(html, /emoji ลอย/);
-  assert.match(html, /โอกาสฝนภาพรวม/);
+  assert.match(html, /แนวโน้มฝนในพื้นที่/);
+  assert.match(html, /ตอนนี้ฝนตกไหม/);
+  assert.match(html, /แนวโน้ม ปริมาณ และผลกระทบ/);
+  assert.doesNotMatch(html, /โอกาสฝนภาพรวม/);
   assert.match(html, /ตำแหน่งของฉัน/);
   assert.match(html, /พยากรณ์รายตำแหน่ง/);
   assert.doesNotMatch(html, /จุดประมาณการ<\/label>/);

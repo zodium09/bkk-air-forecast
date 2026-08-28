@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getLevel, type ForecastPayload } from "./lib/forecast-data";
 import type { RainForecastPayload } from "./lib/rain-forecast-data";
+import { getDailyRainNarrative, getRainLikelihood } from "./lib/rain-communication";
 import type { TmdRadarPayload } from "./lib/tmd-radar-data";
 
 function mean(values: number[]) {
@@ -40,8 +41,9 @@ export default function HomeDashboard() {
   const airMeans = useMemo(() => air?.days.map((_, dayIndex) => mean(air.stations.map((station) => station.values[dayIndex]))) ?? [], [air]);
   const airToday = airMeans[0] ?? null;
   const airLevel = airToday === null ? { label: "รอข้อมูล", color: "#94a3b8" } : getLevel(airToday);
-  const rainProbabilities = rain?.days.map((day) => day.probabilityMax) ?? [];
+  const rainProbabilities = rain?.days.map((day) => day.dailyPeakAreaMeanProbability) ?? [];
   const rainToday = rain?.days[0] ?? null;
+  const rainLikelihood = getRainLikelihood(rainToday?.dailyPeakAreaMeanProbability);
 
   return (
     <section className="home-dashboard" aria-labelledby="home-dashboard-title">
@@ -56,9 +58,9 @@ export default function HomeDashboard() {
           <small>แตะเพื่อดูแผนที่และเลือกตำแหน่ง</small>
         </a>
         <a className="home-summary-card rain" href="/rain?province=bangkok">
-          <div className="home-summary-copy"><span>ฝนวันนี้</span><strong>{rainToday?.probabilityMax ?? "—"}<small>%</small></strong><b>{rainToday?.rainMeanMm === null || rainToday === null ? "รอข้อมูล" : `เฉลี่ย ${rainToday.rainMeanMm} มม.`}</b></div>
-          <svg viewBox="0 0 240 64" role="img" aria-label="แนวโน้มโอกาสฝนเจ็ดวัน"><path d={sparkline(rainProbabilities, 100)} /></svg>
-          <small>ช่วงเด่น {rainToday?.peakWindow ?? "—"}</small>
+          <div className="home-summary-copy"><span>แนวโน้มฝนวันนี้</span><strong className="home-rain-trend" style={{ color: rainLikelihood.color }}>{rainLikelihood.label}</strong><b>{rainToday ? getDailyRainNarrative(rainToday) : "รอข้อมูล"}</b></div>
+          <svg viewBox="0 0 240 64" role="img" aria-label="แนวโน้มฝนระดับพื้นที่เจ็ดวัน"><path d={sparkline(rainProbabilities, 100)} /></svg>
+          <small>เด่น {rainToday?.peakWindow ?? "—"} · เฉลี่ย {rainToday?.rainMeanMm ?? "—"} มม.</small>
         </a>
         <a className="home-summary-card radar" href="/rain?province=bangkok">
           <div className="home-summary-copy"><span>TMD RadarGIS</span><strong>{radar?.status === "live" ? "LIVE" : radar?.status === "degraded" ? "ช้า" : "—"}</strong><b>{radar?.ageMinutes === null || radar === null ? "รอเรดาร์" : `อัปเดต ${radar.ageMinutes} นาทีที่แล้ว`}</b></div>
