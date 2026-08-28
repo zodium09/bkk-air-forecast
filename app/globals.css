@@ -2011,3 +2011,182 @@ html[data-theme="dark"] .leaflet-control-attribution {
 }
 html[data-theme="dark"] .leaflet-control-attribution a { color: #7dd3fc; }
 html[data-theme="dark"] .rain-legend .rain-scale-white { border-color: #cbd5e1; }
+
+
+/* Location-first PM2.5 experience */
+.map-location-tools.located button {
+  border-color: rgba(13, 148, 136, .45);
+  background: linear-gradient(135deg, rgba(240, 253, 250, .97), rgba(204, 251, 241, .97));
+  color: #0f766e;
+  box-shadow: 0 8px 22px rgba(13, 148, 136, .2);
+}
+.map-location-tools.located button > span {
+  color: #14b8a6;
+  filter: drop-shadow(0 0 5px rgba(20, 184, 166, .65));
+}
+.map-metric.personal {
+  border-color: rgba(45, 212, 191, .55);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(45, 212, 191, .22), transparent 54%),
+    linear-gradient(145deg, rgba(255, 255, 255, .98), rgba(240, 253, 250, .95));
+  box-shadow: 0 14px 30px -12px rgba(15, 118, 110, .34);
+}
+.map-metric.personal > span::before {
+  content: "●";
+  margin-right: 5px;
+  color: #14b8a6;
+}
+.location-forecast-card {
+  position: relative;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(45, 212, 191, .2), transparent 48%),
+    linear-gradient(145deg, #ecfeff, #f0fdf4 58%, #ffffff);
+}
+.location-card-heading span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.location-card-heading span::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #14b8a6;
+  box-shadow: 0 0 0 4px rgba(20, 184, 166, .14);
+}
+.location-chart-wrap {
+  position: relative;
+  margin-top: 8px;
+  padding-top: 36px;
+}
+.location-chart-wrap svg {
+  position: relative;
+  z-index: 1;
+}
+.location-air-point {
+  fill: #ffffff;
+  stroke: #0d9488;
+  stroke-width: 2;
+  transition: r .16s ease, fill .16s ease, filter .16s ease;
+}
+.location-air-point.active {
+  fill: #2dd4bf;
+  stroke: #ffffff;
+  stroke-width: 2.5;
+  filter: drop-shadow(0 2px 4px rgba(13, 148, 136, .45));
+}
+.location-chart-hotspots {
+  position: absolute;
+  z-index: 3;
+  inset: 36px 0 20px;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+}
+.location-chart-hotspots button {
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  cursor: crosshair;
+}
+.location-chart-hotspots button:focus-visible {
+  outline: 2px solid #14b8a6;
+  outline-offset: -2px;
+  border-radius: 8px;
+}
+.location-chart-tooltip {
+  --tooltip-color: #0d9488;
+  position: absolute;
+  z-index: 4;
+  top: 0;
+  min-width: 84px;
+  padding: 5px 8px 5px 10px;
+  border: 1px solid color-mix(in srgb, var(--tooltip-color) 35%, white);
+  border-left: 4px solid var(--tooltip-color);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .96);
+  box-shadow: 0 9px 22px -10px rgba(15, 23, 42, .35);
+  transform: translateX(-50%);
+  pointer-events: none;
+  backdrop-filter: blur(12px);
+}
+.location-chart-tooltip.edge-left { transform: translateX(0); }
+.location-chart-tooltip.edge-right { transform: translateX(-100%); }
+.location-chart-tooltip b,
+.location-chart-tooltip strong,
+.location-chart-tooltip span {
+  display: block;
+  white-space: nowrap;
+}
+.location-chart-tooltip b {
+  color: #64748b;
+  font-size: 7px;
+  font-weight: 700;
+}
+.location-chart-tooltip strong {
+  color: #0f172a;
+  font: 800 13px/1.1 Manrope, "IBM Plex Sans Thai", sans-serif;
+}
+.location-chart-tooltip strong small {
+  color: #64748b;
+  font-size: 7px;
+}
+.location-chart-tooltip span {
+  margin-top: 2px;
+  color: var(--tooltip-color);
+  font-size: 7px;
+  font-weight: 800;
+}
+.average-card.personal {
+  border-color: rgba(45, 212, 191, .5);
+  background:
+    radial-gradient(circle at 0% 100%, rgba(56, 189, 248, .14), transparent 48%),
+    linear-gradient(135deg, #f0fdfa, #ffffff);
+}
+.forecast-note.analysis-note {
+  border-color: rgba(125, 211, 252, .8);
+  background: linear-gradient(135deg, #f0f9ff, #eef2ff);
+}
+.forecast-note.analysis-note > span {
+  background: linear-gradient(135deg, #0ea5e9, #6366f1);
+  color: #ffffff;
+  box-shadow: 0 5px 12px rgba(14, 165, 233, .25);
+}
+.forecast-note.analysis-note small {
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px dashed rgba(99, 102, 241, .28);
+}
+
+html[data-theme="dark"] .map-location-tools.located button {
+  border-color: rgba(45, 212, 191, .55);
+  background: linear-gradient(135deg, rgba(15, 118, 110, .35), rgba(15, 23, 42, .96));
+  color: #99f6e4;
+}
+html[data-theme="dark"] .map-metric.personal,
+html[data-theme="dark"] .average-card.personal,
+html[data-theme="dark"] .location-forecast-card {
+  border-color: rgba(45, 212, 191, .35);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(20, 184, 166, .2), transparent 50%),
+    linear-gradient(145deg, rgba(15, 23, 42, .98), rgba(17, 24, 39, .94));
+}
+html[data-theme="dark"] .location-chart-tooltip {
+  border-color: color-mix(in srgb, var(--tooltip-color) 55%, #334155);
+  background: rgba(15, 23, 42, .96);
+}
+html[data-theme="dark"] .location-chart-tooltip strong { color: #f8fafc; }
+html[data-theme="dark"] .location-air-point { fill: #0f172a; }
+html[data-theme="dark"] .location-air-point.active { fill: #2dd4bf; stroke: #0f172a; }
+html[data-theme="dark"] .forecast-note.analysis-note {
+  border-color: rgba(96, 165, 250, .35);
+  background: linear-gradient(135deg, rgba(14, 116, 144, .22), rgba(49, 46, 129, .22));
+}
+
+@media (max-width: 780px) {
+  .location-chart-wrap { padding-top: 40px; }
+  .location-chart-tooltip { min-width: 92px; padding: 6px 9px 6px 11px; }
+  .location-chart-tooltip strong { font-size: 14px; }
+  .location-chart-hotspots { inset: 40px 0 20px; }
+}

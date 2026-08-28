@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   forecastDays as bundledDays,
   forecastStations as bundledStations,
@@ -142,6 +142,16 @@ function average(values: number[]) {
   return values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : null;
 }
 
+function distanceKm(latA: number, lngA: number, latB: number, lngB: number) {
+  const toRadians = (value: number) => value * Math.PI / 180;
+  const deltaLat = toRadians(latB - latA);
+  const deltaLng = toRadians(lngB - lngA);
+  const sinLat = Math.sin(deltaLat / 2);
+  const sinLng = Math.sin(deltaLng / 2);
+  const a = sinLat * sinLat + Math.cos(toRadians(latA)) * Math.cos(toRadians(latB)) * sinLng * sinLng;
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 function getHealthAdvice(mean: number | null) {
   if (mean === null) return "ยังไม่มีข้อมูลคำแนะนำ";
   if (mean <= 15) return "คุณภาพอากาศดีเยี่ยม เหมาะทำกิจกรรมกลางแจ้ง";
@@ -214,7 +224,6 @@ export default function ForecastDashboard() {
   const [dataState, setDataState] = useState<"loading" | "live" | "degraded" | "unavailable">("loading");
   const [degradedReasons, setDegradedReasons] = useState<string[]>([]);
   const [reloadKey, setReloadKey] = useState(0);
-  const [showRange, setShowRange] = useState(false);
   const [showLabels, setShowLabels] = useState(false);
   const [basemap, setBasemap] = useState<"street" | "satellite">("street");
   const [layerMenuOpen, setLayerMenuOpen] = useState(false);
@@ -230,6 +239,7 @@ export default function ForecastDashboard() {
   const boundaryLayerRef = useRef<import("leaflet").GeoJSON | null>(null);
   const labelsLayerRef = useRef<import("leaflet").LayerGroup | null>(null);
   const selectedLocationLayerRef = useRef<import("leaflet").CircleMarker | null>(null);
+  const autoLocateRequestedRef = useRef(false);
   const selectedRegion = getRegion(selectedProvinceId);
 
   useEffect(() => {
@@ -474,12 +484,12 @@ export default function ForecastDashboard() {
     window.history.replaceState({}, "", url);
   };
 
-  const locateMe = () => {
+  const locateMe = useCallback(() => {
     if (!navigator.geolocation) {
       setLocationError("อุปกรณ์นี้ไม่รองรับการระบุตำแหน่ง");
       return;
     }
-    setLocationError("กำลังค้นหาตำแหน่ง…");
+    setLocationError("กำลังค้นหาพยากรณ์ใกล้คุณ…");
     navigator.geolocation.getCurrentPosition(({ coords }) => {
       const metroBounds = getRegion(METRO_REGION_ID).bounds;
       const insideMetro = coords.latitude >= metroBounds.minLat && coords.latitude <= metroBounds.maxLat && coords.longitude >= metroBounds.minLng && coords.longitude <= metroBounds.maxLng;
@@ -488,6 +498,9 @@ export default function ForecastDashboard() {
         return;
       }
       if (selectedProvinceId !== METRO_REGION_ID) {
+        setDataState("loading");
+        setBoundaryState("loading");
+        setSelectedDay(0);
         setSelectedProvinceId(METRO_REGION_ID);
         const url = new URL(window.location.href);
         url.searchParams.set("province", METRO_REGION_ID);
@@ -496,13 +509,20 @@ export default function ForecastDashboard() {
       const next = { lat: coords.latitude, lng: coords.longitude, source: "gps" as const };
       setSelectedLocation(next);
       setLocationError("");
-      mapInstanceRef.current?.setView([next.lat, next.lng], 12, { animate: true });
+      mapInstanceRef.current?.flyTo([next.lat, next.lng], 12, { animate: true, duration: 0.8 });
     }, () => setLocationError("ไม่สามารถอ่านตำแหน่งได้ กรุณาอนุญาต Location หรือแตะแผนที่"), {
       enableHighAccuracy: false,
       timeout: 10_000,
       maximumAge: 300_000,
     });
-  };
+  }, [selectedProvinceId]);
+
+  useEffect(() => {
+    if (!mapReady || autoLocateRequestedRef.current) return;
+    autoLocateRequestedRef.current = true;
+    const timer = window.setTimeout(() => locateMe(), 450);
+    return () => window.clearTimeout(timer);
+  }, [locateMe, mapReady]);
 
   const day = days[selectedDay];
   const values = useMemo(
@@ -510,8 +530,6 @@ export default function ForecastDashboard() {
     [selectedDay, stations],
   );
   const mean = average(values);
-  const meanLevel = mean === null ? { label: "ไม่มีข้อมูล", color: "#94a3b8" } : getLevel(mean);
-  const healthAdvice = useMemo(() => getHealthAdvice(mean), [mean]);
   const sortedStations = useMemo(
     () => [...stations].sort((a, b) => b.values[selectedDay] - a.values[selectedDay]).slice(0, 5),
     [selectedDay, stations],
@@ -521,10 +539,31 @@ export default function ForecastDashboard() {
     [days, stations],
   );
   const highestStation = sortedStations[0];
-  const selectedAirSeries = useMemo(() => selectedLocation ? days.map((forecastDay, index) => ({
-    label: forecastDay.weekday,
-    primary: interpolateIdw(selectedLocation.lng, selectedLocation.lat, stations, index),
-  })) : [], [days, selectedLocation, stations]);
+  const selectedAirSeries = useMemo(() => selectedLocation ? days.map((forecastDay, index) => {
+    const value = interpolateIdw(selectedLocation.lng, selectedLocation.lat, stations, index);
+    return {
+      label: forecastDay.weekday,
+      primary: value === null ? null : Math.round(value),
+    };
+  }) : [], [days, selectedLocation, stations]);
+  const nearestStation = useMemo(() => {
+    if (!selectedLocation || !stations.length) return null;
+    return stations.reduce<{ station: ForecastStation; distance: number } | null>((nearest, station) => {
+      const distance = distanceKm(selectedLocation.lat, selectedLocation.lng, station.lat, station.lng);
+      return nearest === null || distance < nearest.distance ? { station, distance } : nearest;
+    }, null);
+  }, [selectedLocation, stations]);
+  const selectedLocationName = selectedLocation
+    ? nearestStation
+      ? `บริเวณใกล้${nearestStation.station.district} · จุดอ้างอิง ${nearestStation.distance.toFixed(1)} กม.`
+      : "บริเวณตำแหน่งที่เลือก"
+    : null;
+  const focusValue = selectedLocation ? selectedAirSeries[selectedDay]?.primary ?? null : mean;
+  const focusLevel = focusValue === null ? { label: "ไม่มีข้อมูล", color: "#94a3b8" } : getLevel(focusValue);
+  const focusTitle = selectedLocation
+    ? selectedLocation.source === "gps" ? "พยากรณ์ใกล้ตำแหน่งของคุณ" : "พยากรณ์ ณ จุดที่เลือก"
+    : `ค่าเฉลี่ย ${selectedRegion.shortNameTh}`;
+  const healthAdvice = useMemo(() => getHealthAdvice(focusValue), [focusValue]);
 
   return (
     <main className="app-shell air-shell">
@@ -671,9 +710,12 @@ export default function ForecastDashboard() {
         <div className="map-card air-map-card">
           <div className="map-wrap">
             <div ref={mapElementRef} className="map" data-basemap={basemap} role="application" aria-label={`แผนที่ PM2.5 ${selectedRegion.nameTh} พยากรณ์ล่วงหน้า ${day.lead} วัน`} />
-            <div className="map-location-tools">
-              <button type="button" onClick={locateMe} aria-label="ใช้ตำแหน่งของฉันบนแผนที่"><span aria-hidden="true">◎</span>ตำแหน่งของฉัน</button>
-              <small>{locationError || (selectedLocation ? "เลือกแล้ว · แตะจุดอื่นเพื่อเปลี่ยน" : "หรือแตะแผนที่เพื่อเลือกจุด")}</small>
+            <div className={`map-location-tools ${selectedLocation?.source === "gps" ? "located" : ""}`}>
+              <button type="button" onClick={locateMe} aria-label="ใช้ตำแหน่งของฉันบนแผนที่">
+                <span aria-hidden="true">{selectedLocation?.source === "gps" ? "●" : "◎"}</span>
+                {selectedLocation?.source === "gps" ? "พยากรณ์ใกล้คุณ" : "ใช้ตำแหน่งของฉัน"}
+              </button>
+              <small>{locationError || (selectedLocation ? selectedLocationName : "ระบบจะค้นหาให้อัตโนมัติ · ไม่บันทึกพิกัด")}</small>
             </div>
             {dataState === "unavailable" && <div className="forecast-unavailable" role="alert"><b>ไม่สามารถโหลดข้อมูลพยากรณ์ล่าสุดได้</b><span>ค่าที่แสดงบนแผนที่ถูกปิดไว้เพื่อป้องกันการเข้าใจผิด</span><button type="button" onClick={() => { setDataState("loading"); setReloadKey((value) => value + 1); }}>ลองใหม่</button></div>}
             <div className="layer-menu">
@@ -693,10 +735,7 @@ export default function ForecastDashboard() {
                   <input id="air-labels-toggle" type="checkbox" checked={showLabels} onChange={(event) => setShowLabels(event.target.checked)} />
                   <span />แสดงป้ายค่าบนแผนที่
                 </label>
-                <label className="range-toggle" htmlFor="air-range-toggle">
-                  <input id="air-range-toggle" type="checkbox" checked={showRange} onChange={(event) => setShowRange(event.target.checked)} />
-                  <span />แสดงช่วงค่า
-                </label>
+
                 <div className="basemap-layer-section">
                   <small className="basemap-section-title">แผนที่ฐาน (Basemap)</small>
                   <div className="basemap-switcher-grid" role="group" aria-label="เลือกแผนที่ฐาน">
@@ -720,11 +759,11 @@ export default function ForecastDashboard() {
                 </div>
               </div>
             </div>
-            <div className="map-metric">
-              <span>ค่าเฉลี่ย {selectedRegion.shortNameTh}</span>
-              <strong>{mean ?? "—"}<small>µg/m³</small></strong>
-              <b style={{ color: meanLevel.color }}>{meanLevel.label}</b>
-              {showRange && mean !== null && <em>ช่วงคาดการณ์ {Math.max(0, mean - day.uncertainty)}–{mean + day.uncertainty}</em>}
+            <div className={`map-metric ${selectedLocation ? "personal" : ""}`}>
+              <span>{focusTitle}</span>
+              <strong>{focusValue ?? "—"}<small>µg/m³</small></strong>
+              <b style={{ color: focusLevel.color }}>{focusLevel.label}</b>
+              {selectedLocation && <em>{day.weekday} · {day.date}</em>}
             </div>
             <div className={`surface-status ${boundaryState}`}>
               <b>{dataState === "live" ? "ข้อมูลอัปเดตแล้ว" : dataState === "degraded" ? "ข้อมูลอัปเดตบางส่วน" : dataState === "unavailable" ? "ข้อมูลไม่พร้อมใช้งาน" : "กำลังโหลด"}</b>
@@ -745,31 +784,39 @@ export default function ForecastDashboard() {
 
         {/* RIGHT INSIGHTS SIDEBAR */}
         <aside className="insights air-insights">
-          <LocationForecastCard kind="air" selection={selectedLocation} series={selectedAirSeries} onClear={() => setSelectedLocation(null)} />
-          <div className="average-card">
+          <LocationForecastCard
+            kind="air"
+            selection={selectedLocation}
+            series={selectedAirSeries}
+            placeName={selectedLocationName ?? undefined}
+            activeIndex={selectedDay}
+            onSelectIndex={setSelectedDay}
+            onClear={() => setSelectedLocation(null)}
+          />
+          <div className={`average-card ${selectedLocation ? "personal" : ""}`}>
             <div
               className="average-ring"
               style={{
-                "--progress": `${Math.min(100, ((mean ?? 0) / 75) * 100) * 3.6}deg`,
-                "--metric-color": meanLevel.color,
+                "--progress": `${Math.min(100, ((focusValue ?? 0) / 75) * 100) * 3.6}deg`,
+                "--metric-color": focusLevel.color,
               } as React.CSSProperties}
             >
-              <span>{mean ?? "—"}<small>µg/m³</small></span>
+              <span>{focusValue ?? "—"}<small>µg/m³</small></span>
             </div>
             <div>
-              <p>ค่าฝุ่นเฉลี่ย {selectedRegion.shortNameTh}</p>
-              <strong style={{ color: meanLevel.color }}>{meanLevel.label}</strong>
-              <em>เฉลี่ย {mean ?? "—"} µg/m³ · {stations.length} จุดข้อมูล</em>
+              <p>{focusTitle}</p>
+              <strong style={{ color: focusLevel.color }}>{focusLevel.label}</strong>
+              <em>{selectedLocation ? selectedLocationName : `เฉลี่ยจาก ${stations.length} จุดข้อมูล`}</em>
             </div>
           </div>
 
           <div className="advisory-card air-advisory-card">
             <div className="advisory-header">
-              <span className="advisory-icon">{mean && mean > 37.5 ? "😷" : mean && mean > 25 ? "⚠️" : "🌿"}</span>
+              <span className="advisory-icon">{focusValue && focusValue > 37.5 ? "😷" : focusValue && focusValue > 25 ? "⚠️" : "🌿"}</span>
               <div className="advisory-title-wrap">
                 <b>คำแนะนำสุขภาพ</b>
-                <span className="advisory-risk-badge" style={{ backgroundColor: meanLevel.color }}>
-                  {meanLevel.label}
+                <span className="advisory-risk-badge" style={{ backgroundColor: focusLevel.color }}>
+                  {focusLevel.label}
                 </span>
               </div>
             </div>
@@ -787,9 +834,17 @@ export default function ForecastDashboard() {
             <small>หน่วย µg/m³ · เรียงจากค่าคาดการณ์สูงสุด</small>
           </div>
 
-          <div className="forecast-note">
-            <span aria-hidden="true">!</span>
-            <p><b>สรุปวันนี้</b>{mean === null ? "ยังไม่มีข้อมูลพยากรณ์ที่พร้อมแสดง" : `ค่าเฉลี่ยอยู่ในระดับ${meanLevel.label}${highestStation ? ` พื้นที่ที่ควรติดตามมากที่สุดคือ${highestStation.district}` : ""}`}<small>{model} · {disclaimer}</small></p>
+          <div className="forecast-note analysis-note">
+            <span aria-hidden="true">i</span>
+            <p>
+              <b>{selectedLocation ? "สรุปบริเวณใกล้คุณ" : "สรุปภาพรวม"}</b>
+              {focusValue === null
+                ? "ยังไม่มีข้อมูลพยากรณ์ที่พร้อมแสดง"
+                : selectedLocation
+                  ? `วันนี้บริเวณนี้อยู่ในระดับ${focusLevel.label} สภาพลมและอากาศ: ${day.wind} · ${day.weather}`
+                  : `ค่าเฉลี่ยอยู่ในระดับ${focusLevel.label}${highestStation ? ` พื้นที่ที่ควรติดตามคือ${highestStation.district}` : ""}`}
+              <small title={`${model} · ${disclaimer}`}>หลักการวิเคราะห์: ใช้ค่าฝุ่นล่าสุด แบบจำลองบรรยากาศ สภาพอากาศ ลม เวลา และตำแหน่ง แล้วเปรียบเทียบกับรูปแบบที่เกิดขึ้นในพื้นที่</small>
+            </p>
           </div>
         </aside>
       </section>
