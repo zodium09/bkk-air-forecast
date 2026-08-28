@@ -77,7 +77,7 @@ test("server-renders the BKK Air forecast product", async () => {
   assert.match(html, /PM2\.5 กรุงเทพฯ/);
   assert.match(html, /กำลังโหลดข้อมูล/);
   assert.doesNotMatch(html, /D\+(?:<!-- -->)?[1-7]/);
-  assert.match(html, /ค่าฝุ่นเฉลี่ย (?:<!-- -->)?กรุงเทพฯ/);
+  assert.match(html, /ค่าเฉลี่ย (?:<!-- -->)?กรุงเทพฯ–ปริมณฑล/);
   assert.match(html, /<option value="metro" selected="">กรุงเทพมหานครและปริมณฑล(?:<!-- -->)? \(ภาพรวม\)<\/option>/);
   assert.match(html, /<option value="nonthaburi">นนทบุรี<\/option>/);
   assert.equal((html.match(/<option value=/g) ?? []).length, 7);
@@ -146,7 +146,7 @@ test("map location forecasts use private geolocation and bounded IDW without sto
     assert.match(dashboard, /interpolateIdw/);
     assert.doesNotMatch(dashboard, /localStorage|sessionStorage/);
   }
-  assert.match(locationCard, /ค่าประมาณเชิงพื้นที่ ไม่ใช่สถานีตรวจวัด ณ พิกัด/);
+  assert.match(locationCard, /เป็นค่าประมาณเชิงพื้นที่ใกล้ตำแหน่ง/);
   assert.match(homeDashboard, /\/api\/forecast\?province=metro/);
   assert.match(homeDashboard, /\/api\/rain-forecast\?province=metro/);
   assert.match(homeDashboard, /\/api\/tmd-radar/);

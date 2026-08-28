@@ -960,6 +960,15 @@ html[data-theme="dark"] .theme-toggle-sun { display: inline; }
 .range-toggle > span::after { content: ""; display: block; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.15); transition: transform .2s; }
 .range-toggle input:checked + span { background: #0284c7; }
 .range-toggle input:checked + span::after { transform: translateX(14px); }
+.map-label-note {
+  display: block;
+  max-width: 210px;
+  margin: -2px 0 3px 41px;
+  color: #64748b;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
 .layer-static { min-height: 32px; padding: 6px 9px; display: flex; align-items: center; gap: 7px; border-radius: 8px; background: #f0fdf4; color: #166534; font-size: 10.5px; font-weight: 700; }
 .layer-static span { width: 16px; height: 16px; display: grid; place-items: center; border-radius: 50%; background: #166534; color: #fff; font-size: 9px; }
 

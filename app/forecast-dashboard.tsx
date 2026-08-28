@@ -11,6 +11,7 @@ import {
 } from "./lib/forecast-data";
 import { FORECAST_DAYS } from "./lib/forecast-horizon";
 import { spatialIdw } from "./lib/forecast/interpolation";
+import { selectMapLabelLocations } from "./lib/forecast/map-labels";
 import OutlookNav from "./components/outlook-nav";
 import ProvinceSelector from "./components/province-selector";
 import LocationForecastCard, { type LocationSelection } from "./components/location-forecast-card";
@@ -439,19 +440,21 @@ export default function ForecastDashboard() {
       map.removeLayer(labelsLayerRef.current);
       labelsLayerRef.current = null;
     }
-    if (!showLabels || !stations.length) return;
+    if (!showLabels || !stations.length || !boundary) return;
 
     let cancelled = false;
     import("leaflet").then((leafletModule) => {
       if (cancelled || !mapInstanceRef.current) return;
       const L = leafletModule.default;
-      const markers = stations.map((station) => {
-        const val = station.values[selectedDay];
-        const level = val !== null && val !== undefined ? getLevel(val) : { label: "—", color: "#94a3b8" };
+      const labelLocations = selectMapLabelLocations(boundary);
+      const markers = labelLocations.map((location) => {
+        const interpolated = interpolateIdw(location.lng, location.lat, stations, selectedDay);
+        const val = interpolated === null ? null : Math.round(interpolated);
+        const level = val !== null ? getLevel(val) : { label: "—", color: "#94a3b8" };
         const icon = L.divIcon({
           className: "map-label-wrapper",
           html: `
-            <div class="map-val-badge" style="--point-color: ${level.color}" title="${station.district}: ${val ?? '—'} µg/m³">
+            <div class="map-val-badge" style="--point-color: ${level.color}">
               <span class="map-val-dot" style="background-color: ${level.color}"></span>
               <span class="map-val-num">${val ?? "—"}</span>
             </div>
@@ -459,7 +462,13 @@ export default function ForecastDashboard() {
           iconSize: [0, 0],
           iconAnchor: [0, 0],
         });
-        return L.marker([station.lat, station.lng], { icon, interactive: false });
+        const marker = L.marker([location.lat, location.lng], { icon, interactive: true, keyboard: false });
+        marker.bindTooltip(`<strong>${location.provinceName}</strong><br>PM2.5 ${val ?? "—"} µg/m³ · ${level.label}`, {
+          direction: "top",
+          offset: [0, -14],
+          opacity: 0.96,
+        });
+        return marker;
       });
 
       const group = L.layerGroup(markers);
@@ -470,7 +479,7 @@ export default function ForecastDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [mapReady, selectedDay, showLabels, stations]);
+  }, [boundary, mapReady, selectedDay, showLabels, stations]);
 
   const selectProvince = (provinceId: RegionId) => {
     setDataState("loading");
@@ -736,6 +745,7 @@ export default function ForecastDashboard() {
                   <span />แสดงป้ายค่าบนแผนที่
                 </label>
 
+                <small className="map-label-note">3 ตำแหน่งต่อจังหวัด · อยู่ภายในขอบเขต · วางเมาส์เพื่อดูรายละเอียด</small>
                 <div className="basemap-layer-section">
                   <small className="basemap-section-title">แผนที่ฐาน (Basemap)</small>
                   <div className="basemap-switcher-grid" role="group" aria-label="เลือกแผนที่ฐาน">
