@@ -10,6 +10,7 @@ import {
   type ForecastStation,
 } from "./lib/forecast-data";
 import { FORECAST_DAYS } from "./lib/forecast-horizon";
+import { getBasemapConfig, getCurrentBasemapTheme, type BasemapTheme } from "./lib/basemap";
 import { spatialIdw } from "./lib/forecast/interpolation";
 import { selectMapLabelLocations } from "./lib/forecast/map-labels";
 import OutlookNav from "./components/outlook-nav";
@@ -227,6 +228,7 @@ export default function ForecastDashboard() {
   const [reloadKey, setReloadKey] = useState(0);
   const [showLabels, setShowLabels] = useState(false);
   const [basemap, setBasemap] = useState<"street" | "satellite">("street");
+  const [mapTheme, setMapTheme] = useState<BasemapTheme>("light");
   const [layerMenuOpen, setLayerMenuOpen] = useState(false);
   const [boundary, setBoundary] = useState<BoundaryCollection | null>(null);
   const [boundaryState, setBoundaryState] = useState<"loading" | "official" | "fallback">("loading");
@@ -247,6 +249,15 @@ export default function ForecastDashboard() {
     window.scrollTo(0, 0);
     const requestedProvince = new URLSearchParams(window.location.search).get("province");
     Promise.resolve().then(() => setSelectedProvinceId(getRegion(requestedProvince).id));
+  }, []);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const syncTheme = () => setMapTheme(getCurrentBasemapTheme());
+    syncTheme();
+    const observer = new MutationObserver(syncTheme);
+    observer.observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -298,9 +309,10 @@ export default function ForecastDashboard() {
         maxZoom: 15,
       }).setView([13.765, 100.595], 10);
 
-      tileLayerRef.current = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "&copy; OpenStreetMap contributors",
-        maxZoom: 19,
+      const initialBasemap = getBasemapConfig("street", getCurrentBasemapTheme());
+      tileLayerRef.current = L.tileLayer(initialBasemap.url, {
+        attribution: initialBasemap.attribution,
+        maxZoom: initialBasemap.maxZoom,
       }).addTo(map);
 
       map.createPane("surfacePane").style.zIndex = "350";
@@ -365,21 +377,22 @@ export default function ForecastDashboard() {
   useEffect(() => {
     if (!mapReady || !mapInstanceRef.current) return;
     const map = mapInstanceRef.current;
+    let cancelled = false;
     if (tileLayerRef.current) {
       map.removeLayer(tileLayerRef.current);
       tileLayerRef.current = null;
     }
     import("leaflet").then((leafletModule) => {
+      if (cancelled || !mapInstanceRef.current) return;
       const L = leafletModule.default;
-      const url = basemap === "satellite"
-        ? "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-        : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
-      const attr = basemap === "satellite"
-        ? "&copy; Esri, Earthstar Geographics"
-        : "&copy; OpenStreetMap contributors";
-      tileLayerRef.current = L.tileLayer(url, { attribution: attr, maxZoom: 19 }).addTo(map);
+      const config = getBasemapConfig(basemap, mapTheme);
+      tileLayerRef.current = L.tileLayer(config.url, {
+        attribution: config.attribution,
+        maxZoom: config.maxZoom,
+      }).addTo(map);
     });
-  }, [basemap, mapReady]);
+    return () => { cancelled = true; };
+  }, [basemap, mapReady, mapTheme]);
 
   useEffect(() => {
     if (!mapReady || !mapInstanceRef.current || !boundary) return;
@@ -718,7 +731,7 @@ export default function ForecastDashboard() {
         {/* CENTER MAP CANVAS */}
         <div className="map-card air-map-card">
           <div className="map-wrap">
-            <div ref={mapElementRef} className="map" data-basemap={basemap} role="application" aria-label={`แผนที่ PM2.5 ${selectedRegion.nameTh} พยากรณ์ล่วงหน้า ${day.lead} วัน`} />
+            <div ref={mapElementRef} className="map" data-basemap={basemap} data-map-theme={mapTheme} role="application" aria-label={`แผนที่ PM2.5 ${selectedRegion.nameTh} พยากรณ์ล่วงหน้า ${day.lead} วัน`} />
             <div className={`map-location-tools ${selectedLocation?.source === "gps" ? "located" : ""}`}>
               <button type="button" onClick={locateMe} aria-label="ใช้ตำแหน่งของฉันบนแผนที่">
                 <span aria-hidden="true">{selectedLocation?.source === "gps" ? "●" : "◎"}</span>
@@ -755,7 +768,7 @@ export default function ForecastDashboard() {
                       onClick={() => setBasemap("street")}
                       aria-pressed={basemap === "street"}
                     >
-                      🗺️ แผนที่ถนน
+                      {mapTheme === "dark" ? "🌙 แผนที่มืด" : "🗺️ แผนที่ถนน"}
                     </button>
                     <button
                       type="button"

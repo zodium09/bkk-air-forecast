@@ -245,10 +245,18 @@ test("air and rain dashboards expose a persistent dark mode control", async () =
   const layout = await readFile(new URL("../app/layout.tsx", import.meta.url), "utf8");
   const nav = await readFile(new URL("../app/components/outlook-nav.tsx", import.meta.url), "utf8");
   const toggle = await readFile(new URL("../app/components/theme-toggle.tsx", import.meta.url), "utf8");
+  const airDashboard = await readFile(new URL("../app/forecast-dashboard.tsx", import.meta.url), "utf8");
+  const rainDashboard = await readFile(new URL("../app/rain/rain-dashboard.tsx", import.meta.url), "utf8");
+  const basemap = await readFile(new URL("../app/lib/basemap.ts", import.meta.url), "utf8");
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(layout, /bkk-air-theme/);
   assert.match(nav, /<ThemeToggle/);
   assert.match(toggle, /localStorage\.setItem\(THEME_STORAGE_KEY/);
+  assert.match(airDashboard, /getBasemapConfig\(basemap, mapTheme\)/);
+  assert.match(rainDashboard, /getBasemapConfig\(basemap, mapTheme\)/);
+  assert.match(airDashboard, /new MutationObserver\(syncTheme\)/);
+  assert.match(rainDashboard, /new MutationObserver\(syncTheme\)/);
+  assert.match(basemap, /Canvas\/World_Dark_Gray_Base/);
   assert.match(styles, /html\[data-theme="dark"\]/);
   assert.match(styles, /\.theme-toggle/);
 });

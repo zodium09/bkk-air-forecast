@@ -19,6 +19,7 @@ import {
 } from "../lib/rain-communication";
 import { buildRainForecastUrl, rainForecastProviders } from "../lib/rain-forecast-provider";
 import { FORECAST_DAYS } from "../lib/forecast-horizon";
+import { getBasemapConfig, getCurrentBasemapTheme, type BasemapTheme } from "../lib/basemap";
 import { spatialIdw } from "../lib/forecast/interpolation";
 import { selectMapLabelLocations } from "../lib/forecast/map-labels";
 import type { TmdRadarMode, TmdRadarPayload } from "../lib/tmd-radar-data";
@@ -403,6 +404,7 @@ export default function RainDashboard() {
   const [dataState, setDataState] = useState<RainForecastPayload["status"] | "loading">("loading");
   const [metricMode, setMetricMode] = useState<MetricMode>("probability");
   const [basemap, setBasemap] = useState<"street" | "satellite">("street");
+  const [mapTheme, setMapTheme] = useState<BasemapTheme>("light");
   const [layerMenuOpen, setLayerMenuOpen] = useState(false);
   const [showForecastSurface, setShowForecastSurface] = useState(true);
   const [showLabels, setShowLabels] = useState(false);
@@ -474,6 +476,15 @@ export default function RainDashboard() {
       setSelectedProvinceId(requestedProvince ? getRegion(requestedProvince).id : "bangkok");
       setViewMode(requestedMode === "watch" ? "watch" : "forecast");
     });
+  }, []);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const syncTheme = () => setMapTheme(getCurrentBasemapTheme());
+    syncTheme();
+    const observer = new MutationObserver(syncTheme);
+    observer.observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => observer.disconnect();
   }, []);
 
   const loadRadar = useCallback((forceRefresh = false) => {
@@ -570,9 +581,10 @@ export default function RainDashboard() {
         minZoom: 8,
         maxZoom: 15,
       }).setView([13.765, 100.595], 10);
-      tileLayerRef.current = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "&copy; OpenStreetMap contributors",
-        maxZoom: 19,
+      const initialBasemap = getBasemapConfig("street", getCurrentBasemapTheme());
+      tileLayerRef.current = L.tileLayer(initialBasemap.url, {
+        attribution: initialBasemap.attribution,
+        maxZoom: initialBasemap.maxZoom,
       }).addTo(map);
       map.createPane("rainSurfacePane").style.zIndex = "350";
       map.getPane("rainSurfacePane")!.style.pointerEvents = "none";
@@ -604,21 +616,22 @@ export default function RainDashboard() {
   useEffect(() => {
     if (!mapReady || !mapInstanceRef.current) return;
     const map = mapInstanceRef.current;
+    let cancelled = false;
     if (tileLayerRef.current) {
       map.removeLayer(tileLayerRef.current);
       tileLayerRef.current = null;
     }
     import("leaflet").then((leafletModule) => {
+      if (cancelled || !mapInstanceRef.current) return;
       const L = leafletModule.default;
-      const url = basemap === "satellite"
-        ? "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-        : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
-      const attr = basemap === "satellite"
-        ? "&copy; Esri, Earthstar Geographics"
-        : "&copy; OpenStreetMap contributors";
-      tileLayerRef.current = L.tileLayer(url, { attribution: attr, maxZoom: 19 }).addTo(map);
+      const config = getBasemapConfig(basemap, mapTheme);
+      tileLayerRef.current = L.tileLayer(config.url, {
+        attribution: config.attribution,
+        maxZoom: config.maxZoom,
+      }).addTo(map);
     });
-  }, [basemap, mapReady]);
+    return () => { cancelled = true; };
+  }, [basemap, mapReady, mapTheme]);
 
   useEffect(() => {
     if (!mapReady || !mapInstanceRef.current || !boundary) return;
@@ -1112,7 +1125,7 @@ export default function RainDashboard() {
         {/* CENTER MAP CANVAS */}
         <div className="map-card rain-map-card">
           <div className="map-wrap rain-map-wrap">
-            <div ref={mapElementRef} className="map rain-map" data-basemap={basemap} role="region" aria-label={radarEnabled && selectedRadarFrame ? `แผนที่เรดาร์ฝน TMD ${selectedRegion.nameTh} ${selectedRadarFrame.label}` : viewMode === "watch" ? `แผนที่เฝ้าระวังฝนสะสม 24 ชั่วโมง ${selectedRegion.nameTh} ${day?.weekday ?? ""} ${day?.date ?? ""}` : `แผนที่พยากรณ์ฝน ${selectedRegion.nameTh} ${day?.weekday ?? ""} ${day?.date ?? ""} ${selectedWindow?.label ?? ""}`} />
+            <div ref={mapElementRef} className="map rain-map" data-basemap={basemap} data-map-theme={mapTheme} role="region" aria-label={radarEnabled && selectedRadarFrame ? `แผนที่เรดาร์ฝน TMD ${selectedRegion.nameTh} ${selectedRadarFrame.label}` : viewMode === "watch" ? `แผนที่เฝ้าระวังฝนสะสม 24 ชั่วโมง ${selectedRegion.nameTh} ${day?.weekday ?? ""} ${day?.date ?? ""}` : `แผนที่พยากรณ์ฝน ${selectedRegion.nameTh} ${day?.weekday ?? ""} ${day?.date ?? ""} ${selectedWindow?.label ?? ""}`} />
             <div className="map-location-tools rain" aria-label="เครื่องมือเลือกตำแหน่งพยากรณ์ฝน">
               <button type="button" onClick={locateMe}><span aria-hidden="true">⌖</span> ตำแหน่งของฉัน</button>
               <small>{locationError || (selectedLocation ? "แตะจุดอื่นบนแผนที่เพื่อเปลี่ยน" : "แตะแผนที่เพื่อดูกราฟรายจุด")}</small>
@@ -1166,7 +1179,7 @@ export default function RainDashboard() {
                       onClick={() => setBasemap("street")}
                       aria-pressed={basemap === "street"}
                     >
-                      🗺️ แผนที่ถนน
+                      {mapTheme === "dark" ? "🌙 แผนที่มืด" : "🗺️ แผนที่ถนน"}
                     </button>
                     <button
                       type="button"

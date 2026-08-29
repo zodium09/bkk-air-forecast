@@ -2136,7 +2136,7 @@ html[data-theme="dark"] .map-val-badge {
   background: rgba(15, 23, 42, .82);
 }
 html[data-theme="dark"] .map[data-basemap="street"] .leaflet-tile {
-  filter: brightness(.58) contrast(1.28) saturate(.72) hue-rotate(178deg);
+  filter: none;
 }
 html[data-theme="dark"] .leaflet-control-attribution {
   background: rgba(15, 23, 42, .82) !important;
