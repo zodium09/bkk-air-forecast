@@ -16,6 +16,40 @@ export type RainAdvisory = {
   impact: string;
 };
 
+export type RainWatchLevel = {
+  key: "unavailable" | "dry" | "light" | "moderate" | "heavy" | "very-heavy";
+  label: string;
+  rainClass: string;
+  color: string;
+  rank: number;
+  guidance: string;
+};
+
+/**
+ * Planning tier derived from the highest daily model-grid accumulation.
+ * Thresholds follow TMD's 24-hour rain-amount classes, while the labels remain
+ * explicitly planning-oriented and are not an official warning product.
+ */
+export function getRainWatchLevel(meanMm: number | null | undefined, maxMm: number | null | undefined): RainWatchLevel {
+  const value = maxMm ?? meanMm;
+  if (value === null || value === undefined || !Number.isFinite(value)) {
+    return { key: "unavailable", label: "รอข้อมูล", rainClass: "ไม่มีข้อมูล", color: "#64748b", rank: -1, guidance: "ยังประเมินระดับเฝ้าระวังไม่ได้" };
+  }
+  if (value < 0.1) {
+    return { key: "dry", label: "ปกติ", rainClass: "ไม่มีฝน", color: "#0f766e", rank: 0, guidance: "ยังไม่พบฝนสะสมจากจุดแบบจำลอง" };
+  }
+  if (value <= 10) {
+    return { key: "light", label: "ติดตามทั่วไป", rainClass: "ฝนเล็กน้อย", color: "#0284c7", rank: 1, guidance: "ตรวจเรดาร์ใกล้เวลาเมื่อมีกิจกรรมกลางแจ้ง" };
+  }
+  if (value <= 35) {
+    return { key: "moderate", label: "ติดตาม", rainClass: "ฝนปานกลาง", color: "#2563eb", rank: 2, guidance: "ติดตามช่วงเวลาที่ฝนเด่นและเผื่อเวลาเดินทาง" };
+  }
+  if (value <= 90) {
+    return { key: "heavy", label: "เฝ้าระวัง", rainClass: "ฝนหนัก", color: "#c2410c", rank: 3, guidance: "ติดตามฝนสะสม เรดาร์ และประกาศทางการอย่างใกล้ชิด" };
+  }
+  return { key: "very-heavy", label: "เฝ้าระวังสูง", rainClass: "ฝนหนักมาก", color: "#b91c1c", rank: 4, guidance: "เตรียมแผนเดินทางสำรองและติดตามประกาศทางการ" };
+}
+
 export function getRainLikelihood(probability: number | null | undefined): RainLikelihood {
   if (probability === null || probability === undefined) return { label: "รอข้อมูล", color: "#94a3b8" };
   if (probability < 20) return { label: "น้อย", color: "#64748b" };

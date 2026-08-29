@@ -5,6 +5,7 @@ import {
   getDailyRainNarrative,
   getRainAdvisory,
   getRainLikelihood,
+  getRainWatchLevel,
 } from "../../app/lib/rain-communication.ts";
 
 function rainDay(overrides = {}) {
@@ -47,4 +48,13 @@ test("medium-range probability is communicated as a band", () => {
   assert.equal(formatProbabilityContext(87, 0), "ค่าสูงสุดของแบบจำลอง 87%");
   assert.equal(formatProbabilityContext(87, 3), "ช่วงแบบจำลอง 80–100%");
   assert.equal(getRainLikelihood(87).label, "สูงมาก");
+});
+
+test("rain watch tiers follow daily accumulation classes and ignore probability", () => {
+  assert.equal(getRainWatchLevel(null, null).key, "unavailable");
+  assert.equal(getRainWatchLevel(0, 0).key, "dry");
+  assert.equal(getRainWatchLevel(5, 10).key, "light");
+  assert.equal(getRainWatchLevel(12, 35).key, "moderate");
+  assert.equal(getRainWatchLevel(18, 90).key, "heavy");
+  assert.equal(getRainWatchLevel(40, 90.1).key, "very-heavy");
 });

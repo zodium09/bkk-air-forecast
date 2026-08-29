@@ -15,6 +15,7 @@ import {
   getDailyRainNarrative,
   getRainAdvisory,
   getRainLikelihood,
+  getRainWatchLevel,
 } from "../lib/rain-communication";
 import { buildRainForecastUrl, rainForecastProviders } from "../lib/rain-forecast-provider";
 import { FORECAST_DAYS } from "../lib/forecast-horizon";
@@ -38,7 +39,8 @@ type BoundaryCollection = {
   type: "FeatureCollection";
   features: BoundaryFeature[];
 };
-type MetricMode = "probability" | "rain";
+type MetricMode = "probability" | "rain" | "daily-rain";
+type RainViewMode = "forecast" | "watch";
 
 const probabilityStops = [
   { value: 0, color: [255, 255, 255] },
@@ -57,6 +59,14 @@ const rainStops = [
   { value: 5, color: [56, 189, 248] },
   { value: 10, color: [37, 99, 235] },
   { value: 20, color: [109, 40, 217] },
+];
+
+const dailyRainStops = [
+  { value: 0, color: [255, 255, 255] },
+  { value: 10, color: [56, 189, 248] },
+  { value: 35, color: [37, 99, 235] },
+  { value: 90, color: [234, 88, 12] },
+  { value: 150, color: [185, 28, 28] },
 ];
 
 function getRainChanceColor(prob: number | null) {
@@ -107,7 +117,7 @@ function getBoundaryBounds(boundary: BoundaryCollection) {
 }
 
 function interpolateColor(value: number, mode: MetricMode) {
-  const stops = mode === "probability" ? probabilityStops : rainStops;
+  const stops = mode === "probability" ? probabilityStops : mode === "daily-rain" ? dailyRainStops : rainStops;
   const upperIndex = stops.findIndex((stop) => value <= stop.value);
   if (upperIndex <= 0) return stops[0].color;
   if (upperIndex === -1) return stops[stops.length - 1].color;
@@ -122,6 +132,7 @@ function getPointWindow(point: RainPoint, dayIndex: number, windowIndex: number)
 }
 
 function getPointValue(point: RainPoint, dayIndex: number, windowIndex: number, mode: MetricMode) {
+  if (mode === "daily-rain") return point.daily[dayIndex]?.rainMm ?? null;
   const window = getPointWindow(point, dayIndex, windowIndex);
   return mode === "probability" ? window?.pointProbabilityPeak ?? null : window?.rainMm ?? null;
 }
@@ -142,12 +153,12 @@ function getWeatherSymbol(weatherCode: number | null, probability: number | null
   return { emoji: "☀️", label: "ท้องฟ้าโปร่งถึงมีเมฆเล็กน้อย", severity: 0 };
 }
 
-function selectWeatherMarkers(points: RainPoint[], dayIndex: number, windowIndex: number, boundary: BoundaryCollection) {
+function selectWeatherMarkers(points: RainPoint[], dayIndex: number, windowIndex: number, boundary: BoundaryCollection, viewMode: RainViewMode) {
   const probabilityValues = points
     .map((point) => ({ point, value: getPointValue(point, dayIndex, windowIndex, "probability") }))
     .filter((entry): entry is { point: RainPoint; value: number } => entry.value !== null);
   const rainValues = points
-    .map((point) => ({ point, value: getPointValue(point, dayIndex, windowIndex, "rain") }))
+    .map((point) => ({ point, value: getPointValue(point, dayIndex, windowIndex, viewMode === "watch" ? "daily-rain" : "rain") }))
     .filter((entry): entry is { point: RainPoint; value: number } => entry.value !== null);
 
   return selectMapLabelLocations(boundary).map((location) => {
@@ -166,6 +177,7 @@ function selectWeatherMarkers(points: RainPoint[], dayIndex: number, windowIndex
       probability,
       rainMm,
       symbol: getWeatherSymbol(weatherCode, probability, rainMm),
+      viewMode,
     };
   });
 }
@@ -379,6 +391,7 @@ async function fetchRainRegionBoundary(regionId: RegionId): Promise<{ boundary: 
 
 export default function RainDashboard() {
   const [selectedProvinceId, setSelectedProvinceId] = useState<RegionId>("bangkok");
+  const [viewMode, setViewMode] = useState<RainViewMode>("forecast");
   const [selectedDay, setSelectedDay] = useState(0);
   const [selectedWindowIndex, setSelectedWindowIndex] = useState(0);
   const [days, setDays] = useState(() => buildRainDayShells());
@@ -418,6 +431,7 @@ export default function RainDashboard() {
   const radarAbortRef = useRef<AbortController | null>(null);
   const selectedDayRef = useRef(0);
   const selectedRegion = getRegion(selectedProvinceId);
+  const effectiveMetricMode: MetricMode = viewMode === "watch" ? "daily-rain" : metricMode;
 
   const loadForecast = useCallback((forceRefresh = false) => {
     let active = true;
@@ -453,8 +467,13 @@ export default function RainDashboard() {
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    const requestedProvince = new URLSearchParams(window.location.search).get("province");
-    Promise.resolve().then(() => setSelectedProvinceId(requestedProvince ? getRegion(requestedProvince).id : "bangkok"));
+    const searchParams = new URLSearchParams(window.location.search);
+    const requestedProvince = searchParams.get("province");
+    const requestedMode = searchParams.get("mode");
+    Promise.resolve().then(() => {
+      setSelectedProvinceId(requestedProvince ? getRegion(requestedProvince).id : "bangkok");
+      setViewMode(requestedMode === "watch" ? "watch" : "forecast");
+    });
   }, []);
 
   const loadRadar = useCallback((forceRefresh = false) => {
@@ -610,11 +629,11 @@ export default function RainDashboard() {
       const map = mapInstanceRef.current;
       if (surfaceLayerRef.current) map.removeLayer(surfaceLayerRef.current);
       if (boundaryLayerRef.current) map.removeLayer(boundaryLayerRef.current);
-      const dataVersion = points.map((point) => `${point.id}:${point.windows.map((window) => `${window.pointProbabilityPeak}:${window.rainMm}`).join(",")}`).join("|");
-      const cacheKey = `${selectedProvinceId}:${selectedDay}:${selectedWindowIndex}:${metricMode}:${dataVersion}:${boundaryState}:${boundary.features.length}`;
+      const dataVersion = points.map((point) => `${point.id}:${point.daily.map((daily) => daily.rainMm).join(",")}:${point.windows.map((window) => `${window.pointProbabilityPeak}:${window.rainMm}`).join(",")}`).join("|");
+      const cacheKey = `${selectedProvinceId}:${selectedDay}:${selectedWindowIndex}:${effectiveMetricMode}:${dataVersion}:${boundaryState}:${boundary.features.length}`;
       let surface = rainSurfaceCache.get(cacheKey);
       if (!rainSurfaceCache.has(cacheKey)) {
-        surface = createRainSurface(boundary, points, selectedDay, selectedWindowIndex, metricMode);
+        surface = createRainSurface(boundary, points, selectedDay, selectedWindowIndex, effectiveMetricMode);
         rainSurfaceCache.set(cacheKey, surface);
         if (rainSurfaceCache.size > MAX_RAIN_SURFACES) rainSurfaceCache.delete(rainSurfaceCache.keys().next().value!);
       } else {
@@ -635,7 +654,7 @@ export default function RainDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [boundary, boundaryState, mapReady, metricMode, points, selectedDay, selectedProvinceId, selectedWindowIndex, showForecastSurface]);
+  }, [boundary, boundaryState, effectiveMetricMode, mapReady, points, selectedDay, selectedProvinceId, selectedWindowIndex, showForecastSurface]);
 
   useEffect(() => {
     if (!mapReady || !mapInstanceRef.current) return;
@@ -687,7 +706,7 @@ export default function RainDashboard() {
     import("leaflet").then((leafletModule) => {
       if (cancelled || !mapInstanceRef.current) return;
       const L = leafletModule.default;
-      const markers = selectWeatherMarkers(points, selectedDay, selectedWindowIndex, boundary).map(({ location, probability, rainMm, symbol }) => {
+      const markers = selectWeatherMarkers(points, selectedDay, selectedWindowIndex, boundary, viewMode).map(({ location, probability, rainMm, symbol }) => {
         const icon = L.divIcon({
           className: "weather-emoji-wrapper",
           html: `
@@ -700,7 +719,9 @@ export default function RainDashboard() {
         });
         const marker = L.marker([location.lat, location.lng], { icon, interactive: true, keyboard: false });
         marker.bindTooltip(
-          `<strong>${location.provinceName}</strong><br>${symbol.label}<br>แนวโน้มฝน ${probability ?? "—"}% · ${rainMm ?? "—"} มม./3 ชม.`,
+          viewMode === "watch"
+            ? `<strong>${location.provinceName}</strong><br>${getRainWatchLevel(rainMm, rainMm).label}<br>ฝนสะสม ${rainMm ?? "—"} มม./24 ชม.`
+            : `<strong>${location.provinceName}</strong><br>${symbol.label}<br>แนวโน้มฝน ${probability ?? "—"}% · ${rainMm ?? "—"} มม./3 ชม.`,
           { direction: "top", offset: [0, -18], opacity: 0.96 },
         );
         return marker;
@@ -714,7 +735,7 @@ export default function RainDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [boundary, mapReady, points, selectedDay, selectedWindowIndex, showLabels]);
+  }, [boundary, mapReady, points, selectedDay, selectedWindowIndex, showLabels, viewMode]);
 
   const day = days[selectedDay] ?? days[0];
   const dayWindows = useMemo(
@@ -738,6 +759,15 @@ export default function RainDashboard() {
   const selectedMeanRain = selectedWindow?.rainMeanMm ?? null;
   const dailyProbabilities = days.map((forecastDay) => forecastDay.dailyPeakAreaMeanProbability ?? 0);
   const dailyLikelihood = getRainLikelihood(day?.dailyPeakAreaMeanProbability);
+  const rainWatchLevel = getRainWatchLevel(day?.rainMeanMm, day?.rainMaxMm);
+  const rainWatchDays = useMemo(() => days.map((forecastDay, index) => ({
+    index,
+    day: forecastDay,
+    level: getRainWatchLevel(forecastDay.rainMeanMm, forecastDay.rainMaxMm),
+  })), [days]);
+  const highestRainWatch = useMemo(() => [...rainWatchDays]
+    .sort((a, b) => b.level.rank - a.level.rank || (b.day.rainMaxMm ?? -1) - (a.day.rainMaxMm ?? -1))[0], [rainWatchDays]);
+  const rainWatchCount = rainWatchDays.filter(({ level }) => level.rank >= 3).length;
   const selectedWindowLikelihood = getRainLikelihood(selectedAreaProbability);
   const dailyNarrative = getDailyRainNarrative(day);
   const probabilityContext = formatProbabilityContext(day?.dailyPeakAreaMeanProbability, selectedDay);
@@ -771,6 +801,18 @@ export default function RainDashboard() {
   const selectDay = (index: number) => {
     selectedDayRef.current = index;
     setSelectedDay(index);
+  };
+
+  const selectViewMode = (mode: RainViewMode) => {
+    setViewMode(mode);
+    if (mode === "watch") {
+      setRadarEnabled(false);
+      setShowForecastSurface(true);
+    }
+    const url = new URL(window.location.href);
+    if (mode === "watch") url.searchParams.set("mode", "watch");
+    else url.searchParams.delete("mode");
+    window.history.replaceState({}, "", url);
   };
 
   const retryForecast = () => {
@@ -853,7 +895,7 @@ export default function RainDashboard() {
         <div className="banner-copy">
           <span className="banner-kicker">BKK AIR FORECAST · RAIN</span>
           <h1>แผนที่พยากรณ์ <em>ฝน · {selectedRegion.shortNameTh}</em></h1>
-          <p>เช็กแนวโน้ม ปริมาณ และช่วงเวลาฝนล่วงหน้า 1–7 วัน พร้อมเรดาร์ตรวจฝนปัจจุบัน</p>
+          <p>{viewMode === "watch" ? "เฝ้าระวังฝนสะสมรายวันล่วงหน้า 1–7 วันจากแบบจำลอง พร้อมระดับเพื่อการวางแผน" : "เช็กแนวโน้ม ปริมาณ และช่วงเวลาฝนล่วงหน้า 1–7 วัน พร้อมเรดาร์ตรวจฝนปัจจุบัน"}</p>
         </div>
         <ProvinceSelector value={selectedProvinceId} onChange={selectProvince} />
         <OutlookNav active="rain" province={selectedProvinceId} />
@@ -869,6 +911,16 @@ export default function RainDashboard() {
       <section className="workspace rain-workspace">
         {/* LEFT CONTROL PANEL */}
         <aside className="rain-control-panel" aria-label="แถบเลือกวันและเวลาพยากรณ์">
+          <div className="rain-view-mode" role="group" aria-label="เลือกโหมดหน้าฝน">
+            <button type="button" aria-pressed={viewMode === "forecast"} onClick={() => selectViewMode("forecast")}>
+              <span aria-hidden="true">☂</span>
+              <span><b>พยากรณ์ทั่วไป</b><small>แนวโน้มและช่วงเวลา</small></span>
+            </button>
+            <button type="button" aria-pressed={viewMode === "watch"} onClick={() => selectViewMode("watch")}>
+              <span aria-hidden="true">≋</span>
+              <span><b>เฝ้าระวังฝนสะสม</b><small>ปริมาณรวม 24 ชม.</small></span>
+            </button>
+          </div>
           {/* Section 1: 7-Day Outlook Selector */}
           <div className="rain-panel-section">
             <div className="rain-panel-title">
@@ -880,6 +932,7 @@ export default function RainDashboard() {
                 const isActive = selectedDay === index;
                 const prob = forecastDay.dailyPeakAreaMeanProbability;
                 const likelihood = getRainLikelihood(prob);
+                const watchLevel = getRainWatchLevel(forecastDay.rainMeanMm, forecastDay.rainMaxMm);
                 const dayContext = formatProbabilityContext(prob, index);
                 return (
                   <button
@@ -887,18 +940,20 @@ export default function RainDashboard() {
                     className={`rain-sidebar-day-btn ${isActive ? "active" : ""}`}
                     onClick={() => selectDay(index)}
                     aria-pressed={isActive}
-                    aria-label={`${forecastDay.weekday} ${forecastDay.date} แนวโน้มฝน${likelihood.label} ฝนเฉลี่ย ${forecastDay.rainMeanMm ?? "ไม่มีข้อมูล"} มิลลิเมตร ${dayContext}`}
+                    aria-label={viewMode === "watch"
+                      ? `${forecastDay.weekday} ${forecastDay.date} ระดับ${watchLevel.label} ฝนสะสมสูงสุด ${forecastDay.rainMaxMm ?? "ไม่มีข้อมูล"} มิลลิเมตร`
+                      : `${forecastDay.weekday} ${forecastDay.date} แนวโน้มฝน${likelihood.label} ฝนเฉลี่ย ${forecastDay.rainMeanMm ?? "ไม่มีข้อมูล"} มิลลิเมตร ${dayContext}`}
                   >
                     <div className="day-btn-left">
                       <b className="day-name">{forecastDay.weekday}</b>
                       <span className="day-date">{forecastDay.date}</span>
                     </div>
                     <div className="day-btn-right">
-                      <span className="day-prob-badge" style={{ color: isActive ? "#ffffff" : getRainChanceColor(prob) }}>
-                        {likelihood.label}
+                      <span className="day-prob-badge" style={{ color: isActive ? "#ffffff" : viewMode === "watch" ? watchLevel.color : getRainChanceColor(prob) }}>
+                        {viewMode === "watch" ? watchLevel.label : likelihood.label}
                       </span>
                       <small className="day-peak-time">
-                        {forecastDay.rainMeanMm === null ? "—" : `เฉลี่ย ${forecastDay.rainMeanMm} มม.`}
+                        {forecastDay.rainMeanMm === null ? "—" : viewMode === "watch" ? `สูงสุด ${forecastDay.rainMaxMm ?? forecastDay.rainMeanMm} มม.` : `เฉลี่ย ${forecastDay.rainMeanMm} มม.`}
                       </small>
                     </div>
                   </button>
@@ -907,6 +962,7 @@ export default function RainDashboard() {
             </nav>
           </div>
 
+          {viewMode === "forecast" ? <>
           {/* Section 2: 24-Hour Timeline & Line Curve */}
           <div className="rain-panel-section rain-timeline-section">
             <div className="rain-panel-title">
@@ -1022,17 +1078,46 @@ export default function RainDashboard() {
               </div>
             </div>
           </div>
+          </> : (
+            <div className="rain-panel-section rain-watch-summary" aria-live="polite">
+              <div className="rain-panel-title">
+                <span>≋ สรุปฝนสะสม 24 ชม.</span>
+                <small>{day?.weekday} {day?.date}</small>
+              </div>
+              <div className="rain-watch-level" style={{ "--watch-color": rainWatchLevel.color } as React.CSSProperties}>
+                <span aria-hidden="true" />
+                <div>
+                  <small>ระดับเพื่อการวางแผน</small>
+                  <b>{rainWatchLevel.label}</b>
+                  <em>{rainWatchLevel.rainClass}</em>
+                </div>
+              </div>
+              <dl className="rain-watch-metrics">
+                <div><dt>เฉลี่ยทั้งพื้นที่</dt><dd>{day?.rainMeanMm ?? "—"}<small>มม.</small></dd></div>
+                <div><dt>สูงสุดบางจุด</dt><dd>{day?.rainMaxMm ?? "—"}<small>มม.</small></dd></div>
+                <div><dt>ช่วงมีฝน</dt><dd>{day?.wetHours ?? "—"}<small>ชม.</small></dd></div>
+              </dl>
+              <p>{rainWatchLevel.guidance}</p>
+              <div className="rain-watch-scale" aria-label="เกณฑ์ปริมาณฝนสะสม 24 ชั่วโมง">
+                <span><i className="light" />0.1–10<small>เล็กน้อย</small></span>
+                <span><i className="moderate" />10.1–35<small>ปานกลาง</small></span>
+                <span><i className="heavy" />35.1–90<small>หนัก</small></span>
+                <span><i className="very-heavy" />&gt;90<small>หนักมาก</small></span>
+              </div>
+              <small className="rain-watch-disclaimer">ระดับนี้คำนวณจากค่าสูงสุดของจุดแบบจำลอง ไม่ใช่ประกาศเตือนภัย</small>
+            </div>
+          )}
         </aside>
 
         {/* CENTER MAP CANVAS */}
         <div className="map-card rain-map-card">
           <div className="map-wrap rain-map-wrap">
-            <div ref={mapElementRef} className="map rain-map" data-basemap={basemap} role="region" aria-label={radarEnabled && selectedRadarFrame ? `แผนที่เรดาร์ฝน TMD ${selectedRegion.nameTh} ${selectedRadarFrame.label}` : `แผนที่พยากรณ์ฝน ${selectedRegion.nameTh} ${day?.weekday ?? ""} ${day?.date ?? ""} ${selectedWindow?.label ?? ""}`} />
+            <div ref={mapElementRef} className="map rain-map" data-basemap={basemap} role="region" aria-label={radarEnabled && selectedRadarFrame ? `แผนที่เรดาร์ฝน TMD ${selectedRegion.nameTh} ${selectedRadarFrame.label}` : viewMode === "watch" ? `แผนที่เฝ้าระวังฝนสะสม 24 ชั่วโมง ${selectedRegion.nameTh} ${day?.weekday ?? ""} ${day?.date ?? ""}` : `แผนที่พยากรณ์ฝน ${selectedRegion.nameTh} ${day?.weekday ?? ""} ${day?.date ?? ""} ${selectedWindow?.label ?? ""}`} />
             <div className="map-location-tools rain" aria-label="เครื่องมือเลือกตำแหน่งพยากรณ์ฝน">
               <button type="button" onClick={locateMe}><span aria-hidden="true">⌖</span> ตำแหน่งของฉัน</button>
               <small>{locationError || (selectedLocation ? "แตะจุดอื่นบนแผนที่เพื่อเปลี่ยน" : "แตะแผนที่เพื่อดูกราฟรายจุด")}</small>
             </div>
-            {selectedDayIsToday && !radarEnabled && (
+            {viewMode === "forecast" && selectedDayIsToday && !radarEnabled && (
               <button className="radar-now-cta" type="button" onClick={() => toggleRadar(true)}>
                 <b>ตอนนี้ฝนตกไหม?</b>
                 <span>เปิดเรดาร์ตรวจจริงและแนวโน้ม 0–3 ชม.</span>
@@ -1054,9 +1139,9 @@ export default function RainDashboard() {
                 <label className="layer-toggle radar-layer-toggle" htmlFor="rain-forecast-surface-toggle" aria-label="แสดงแบบจำลองพยากรณ์ฝนบนแผนที่">
                   <input id="rain-forecast-surface-toggle" type="checkbox" checked={showForecastSurface} onChange={(event) => setShowForecastSurface(event.target.checked)} disabled={dataState === "unavailable"} />
                   <span aria-hidden="true" />
-                  <span className="layer-toggle-copy"><b>แบบจำลองพยากรณ์</b><small>IDW พื้นที่รวม · {points.length} จุดพร้อม buffer</small></span>
+                  <span className="layer-toggle-copy"><b>{viewMode === "watch" ? "ฝนสะสมรายวัน" : "แบบจำลองพยากรณ์"}</b><small>IDW พื้นที่รวม · {points.length} จุดพร้อม buffer</small></span>
                 </label>
-                {showForecastSurface && (
+                {showForecastSurface && viewMode === "forecast" && (
                   <div className="rain-metric-options" role="group" aria-label="ตัวชี้วัดแบบจำลองบนแผนที่">
                     <button aria-pressed={metricMode === "probability"} onClick={() => setMetricMode("probability")}>แนวโน้มฝน</button>
                     <button aria-pressed={metricMode === "rain"} onClick={() => setMetricMode("rain")}>ปริมาณฝน</button>
@@ -1070,7 +1155,7 @@ export default function RainDashboard() {
                 <label className="layer-toggle radar-layer-toggle" htmlFor="rain-labels-toggle" aria-label="แสดงสัญลักษณ์สภาพอากาศบนแผนที่">
                   <input id="rain-labels-toggle" type="checkbox" checked={showLabels} onChange={(event) => setShowLabels(event.target.checked)} />
                   <span aria-hidden="true" />
-                  <span className="layer-toggle-copy"><b>สัญลักษณ์สภาพอากาศ</b><small>3 ตำแหน่งต่อจังหวัด · อยู่ภายในขอบเขต · วางเมาส์ดูรายละเอียด</small></span>
+                  <span className="layer-toggle-copy"><b>สัญลักษณ์สภาพอากาศ</b><small>{viewMode === "watch" ? "ระดับฝนสะสม 24 ชม. ของจุดแบบจำลอง" : "3 ตำแหน่งต่อจังหวัด · อยู่ภายในขอบเขต · วางเมาส์ดูรายละเอียด"}</small></span>
                 </label>
                 <div className="basemap-layer-section">
                   <small className="basemap-section-title">แผนที่ฐาน (Basemap)</small>
@@ -1137,16 +1222,27 @@ export default function RainDashboard() {
               </div>
             </div>
 
-            <div className="map-metric rain-map-metric">
-              <span>แนวโน้มฝนในพื้นที่ · 3 ชม.</span>
-              <strong className="rain-trend-label" style={{ color: selectedWindowLikelihood.color }}>{selectedWindowLikelihood.label}</strong>
-              <b>{selectedMeanRain === null ? "รอข้อมูล" : `เฉลี่ย ${selectedMeanRain} มม. · จุดตัวอย่างมีฝน ${selectedWetCoverage ?? "—"}%`}</b>
-              <small className="rain-probability-note">{formatProbabilityContext(selectedAreaProbability, selectedDay)} · ไม่ได้หมายถึงฝนทุกแห่ง</small>
+            <div className={`map-metric rain-map-metric ${viewMode === "watch" ? "rain-watch-map-metric" : ""}`}>
+              {viewMode === "watch" ? (
+                <>
+                  <span>ฝนสะสมสูงสุดบางจุด · 24 ชม.</span>
+                  <strong style={{ color: rainWatchLevel.color }}>{day?.rainMaxMm ?? "—"}<small>มม.</small></strong>
+                  <b>{rainWatchLevel.label} · {rainWatchLevel.rainClass}</b>
+                  <small className="rain-probability-note">เฉลี่ยทั้งพื้นที่ {day?.rainMeanMm ?? "—"} มม. · ระดับเพื่อการวางแผน</small>
+                </>
+              ) : (
+                <>
+                  <span>แนวโน้มฝนในพื้นที่ · 3 ชม.</span>
+                  <strong className="rain-trend-label" style={{ color: selectedWindowLikelihood.color }}>{selectedWindowLikelihood.label}</strong>
+                  <b>{selectedMeanRain === null ? "รอข้อมูล" : `เฉลี่ย ${selectedMeanRain} มม. · จุดตัวอย่างมีฝน ${selectedWetCoverage ?? "—"}%`}</b>
+                  <small className="rain-probability-note">{formatProbabilityContext(selectedAreaProbability, selectedDay)} · ไม่ได้หมายถึงฝนทุกแห่ง</small>
+                </>
+              )}
             </div>
 
             <div className={`surface-status rain-surface-status ${radarEnabled ? radarPayload?.status ?? radarLoadState : dataState}`} aria-live="polite">
               <b>{radarEnabled ? radarLoadState === "loading" ? "กำลังโหลดเรดาร์ TMD" : radarLoadState === "error" || radarImageError ? "เรดาร์ไม่พร้อมใช้งาน" : radarMode === "observed" ? "ฝนที่ตรวจพบตอนนี้" : "แนวโน้มฝน 0–3 ชม." : dataStateLabel}</b>
-              <span>{radarEnabled ? selectedRadarFrame ? `${selectedRadarFrame.label} · ${formatRadarTime(selectedRadarFrame.validAt)} น.` : "ยังไม่มีเฟรมเรดาร์" : points.length ? `พื้นผิว IDW · ${selectedWindow?.label ?? "ช่วงที่เลือก"}` : "ยังไม่มีข้อมูลพยากรณ์สำหรับช่วงนี้"}</span>
+              <span>{radarEnabled ? selectedRadarFrame ? `${selectedRadarFrame.label} · ${formatRadarTime(selectedRadarFrame.validAt)} น.` : "ยังไม่มีเฟรมเรดาร์" : points.length ? viewMode === "watch" ? `พื้นผิวฝนสะสมรายวัน · ${day?.weekday ?? ""} ${day?.date ?? ""}` : `พื้นผิว IDW · ${selectedWindow?.label ?? "ช่วงที่เลือก"}` : "ยังไม่มีข้อมูลพยากรณ์สำหรับช่วงนี้"}</span>
               <em>{radarEnabled ? radarPayload?.reason === "missing-nowcast" ? `เฟรมตรวจจริงพร้อม · Nowcast รออัปเดต · ${radarFreshnessLabel(radarPayload.ageMinutes)}` : radarPayload?.status === "degraded" ? `ข้อมูลช้ากว่าปกติ · ${radarFreshnessLabel(radarPayload.ageMinutes)}` : "Rain Rate · mm/h · ข้อมูลกึ่งเวลาจริง" : boundaryState === "official" ? `${selectedProvinceId === METRO_REGION_ID ? "ขอบเขตกรุงเทพฯ และปริมณฑล 6 จังหวัด" : selectedProvinceId === "bangkok" ? "ขอบเขต 50 เขต" : `ขอบเขตจังหวัด${selectedRegion.nameTh}`} · IDW จากจุดใกล้เคียงข้ามเขตและเว้นพื้นที่ไร้ข้อมูล` : boundaryState === "fallback" ? "กำลังใช้ขอบเขตสำรอง" : `กำลังโหลดขอบเขต${selectedRegion.nameTh}`}</em>
             </div>
 
@@ -1158,12 +1254,20 @@ export default function RainDashboard() {
               </div>
             )}
 
-            <div className={`legend rain-legend ${radarEnabled ? "radar-legend" : ""}`} aria-label={radarEnabled ? "คำอธิบายชั้นเรดาร์ฝน TMD" : metricMode === "probability" ? "คำอธิบายแนวโน้มฝน" : "คำอธิบายปริมาณฝนใน 3 ชั่วโมง"}>
+            <div className={`legend rain-legend ${radarEnabled ? "radar-legend" : ""}`} aria-label={radarEnabled ? "คำอธิบายชั้นเรดาร์ฝน TMD" : viewMode === "watch" ? "เกณฑ์ฝนสะสม 24 ชั่วโมง" : metricMode === "probability" ? "คำอธิบายแนวโน้มฝน" : "คำอธิบายปริมาณฝนใน 3 ชั่วโมง"}>
               {radarEnabled ? (
                 <>
                   <span><i style={{ background: "#2563eb" }} />TMD RadarGIS</span>
                   <span>{radarMode === "observed" ? "ฝนตรวจพบตอนนี้" : "แนวโน้ม 0–3 ชม."}</span>
                   <small>Rain Rate · mm/h · สีตามข้อมูลต้นทาง</small>
+                </>
+              ) : viewMode === "watch" ? (
+                <>
+                  <span><i className="rain-scale-white" style={{ background: "#ffffff" }} />0–10 เล็กน้อย</span>
+                  <span><i style={{ background: "#2563eb" }} />10.1–35 ปานกลาง</span>
+                  <span><i style={{ background: "#ea580c" }} />35.1–90 หนัก</span>
+                  <span><i style={{ background: "#b91c1c" }} />&gt;90 หนักมาก</span>
+                  <small>มม. / 24 ชม. · เกณฑ์ปริมาณฝน</small>
                 </>
               ) : metricMode === "probability" ? (
                 <>
@@ -1190,34 +1294,57 @@ export default function RainDashboard() {
 
         {/* RIGHT INSIGHTS SIDEBAR */}
         <aside className="insights rain-insights" aria-label="สรุปพยากรณ์ฝนวันที่เลือก">
-          <LocationForecastCard
-            kind="rain"
-            selection={selectedLocation}
-            series={selectedRainSeries}
-            onClear={() => {
-              setSelectedLocation(null);
-              setLocationError("");
-            }}
-          />
+          {viewMode === "forecast" && (
+            <LocationForecastCard
+              kind="rain"
+              selection={selectedLocation}
+              series={selectedRainSeries}
+              onClear={() => {
+                setSelectedLocation(null);
+                setLocationError("");
+              }}
+            />
+          )}
           <div className="average-card rain-average-card">
             <div
               className="average-ring rain-average-ring"
               style={{
-                "--progress": `${(day?.dailyPeakAreaMeanProbability ?? 0) * 3.6}deg`,
-                "--metric-color": "#2a69c2",
+                "--progress": `${viewMode === "watch" ? Math.min(100, ((day?.rainMaxMm ?? 0) / 90) * 100) * 3.6 : (day?.dailyPeakAreaMeanProbability ?? 0) * 3.6}deg`,
+                "--metric-color": viewMode === "watch" ? rainWatchLevel.color : "#2a69c2",
               } as React.CSSProperties}
             >
-              <span>{dailyLikelihood.label}<small>แนวโน้ม</small></span>
+              <span>{viewMode === "watch" ? rainWatchLevel.label : dailyLikelihood.label}<small>{viewMode === "watch" ? "24 ชม." : "แนวโน้ม"}</small></span>
             </div>
             <div>
-              <p>แนวโน้มฝนระดับพื้นที่</p>
-              <strong>{dailyNarrative}</strong>
-              <em>เด่น {day?.peakWindow ?? "—"} · เฉลี่ย {day?.rainMeanMm ?? "—"} มม. · {probabilityContext}</em>
-              <small className="rain-summary-note">ค่านี้สรุปช่วง 3 ชม. ที่แบบจำลองให้สัญญาณสูงสุด ไม่ได้หมายถึงฝนทุกแห่ง</small>
+              <p>{viewMode === "watch" ? "ระดับเฝ้าระวังฝนสะสม" : "แนวโน้มฝนระดับพื้นที่"}</p>
+              <strong>{viewMode === "watch" ? `${rainWatchLevel.label} · ${rainWatchLevel.rainClass}` : dailyNarrative}</strong>
+              <em>{viewMode === "watch" ? `เฉลี่ย ${day?.rainMeanMm ?? "—"} มม. · สูงสุดบางจุด ${day?.rainMaxMm ?? "—"} มม.` : `เด่น ${day?.peakWindow ?? "—"} · เฉลี่ย ${day?.rainMeanMm ?? "—"} มม. · ${probabilityContext}`}</em>
+              <small className="rain-summary-note">{viewMode === "watch" ? rainWatchLevel.guidance : "ค่านี้สรุปช่วง 3 ชม. ที่แบบจำลองให้สัญญาณสูงสุด ไม่ได้หมายถึงฝนทุกแห่ง"}</small>
             </div>
           </div>
 
           {(() => {
+            if (viewMode === "watch") {
+              return (
+                <div className="advisory-card rain-advisory-card">
+                  <div className="advisory-header">
+                    <span className="advisory-icon">🌧️</span>
+                    <div className="advisory-title-wrap">
+                      <b>ความหมายของระดับ{rainWatchLevel.label}</b>
+                      <span className="advisory-risk-badge" style={{ backgroundColor: rainWatchLevel.color }}>
+                        {rainWatchLevel.rainClass}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="advisory-desc">{rainWatchLevel.guidance} ปริมาณอาจต่างกันในแต่ละพื้นที่ จึงควรเทียบเรดาร์และประกาศทางการใกล้เวลา</p>
+                  <div className="rain-advisory-dimensions" aria-label="สรุปฝนสะสมเฉลี่ย สูงสุด และช่วงมีฝน">
+                    <span><small>เฉลี่ย</small><b>{day?.rainMeanMm ?? "—"} มม.</b></span>
+                    <span><small>สูงสุดบางจุด</small><b>{day?.rainMaxMm ?? "—"} มม.</b></span>
+                    <span><small>ช่วงมีฝน</small><b>{day?.wetHours ?? "—"} ชม.</b></span>
+                  </div>
+                </div>
+              );
+            }
             const adv = getRainAdvisory(day, selectedMeanRain, selectedWetCoverage);
             return (
               <div className="advisory-card rain-advisory-card">
@@ -1242,28 +1369,31 @@ export default function RainDashboard() {
 
           <div className="trend-card rain-trend-card">
             <div className="trend-heading">
-              <p>แนวโน้ม 7 วัน</p>
-              <span>วันนี้–พรุ่งนี้ละเอียด · วันที่ 3–7 เป็นแนวโน้ม</span>
+              <p>{viewMode === "watch" ? "เฝ้าระวังฝนสะสม 7 วัน" : "แนวโน้ม 7 วัน"}</p>
+              <span>{viewMode === "watch" ? "เทียบปริมาณสูงสุดของจุดแบบจำลองรายวัน" : "วันนี้–พรุ่งนี้ละเอียด · วันที่ 3–7 เป็นแนวโน้ม"}</span>
             </div>
-            <div className="trend-chart" role="group" aria-label="กราฟแนวโน้มฝนระดับพื้นที่ 7 วัน">
-              {dailyProbabilities.map((value, index) => (
+            <div className="trend-chart" role="group" aria-label={viewMode === "watch" ? "กราฟเฝ้าระวังฝนสะสม 7 วัน" : "กราฟแนวโน้มฝนระดับพื้นที่ 7 วัน"}>
+              {(viewMode === "watch" ? days.map((item) => item.rainMaxMm ?? 0) : dailyProbabilities).map((value, index) => {
+                const watchLevel = getRainWatchLevel(days[index]?.rainMeanMm, days[index]?.rainMaxMm);
+                return (
                 <button
                   key={days[index]?.dateKey ?? index}
                   className={selectedDay === index ? "active" : ""}
                   onClick={() => selectDay(index)}
-                  aria-label={`${days[index]?.weekday ?? "วัน"} ${days[index]?.date ?? ""} แนวโน้มฝน${getRainLikelihood(days[index]?.dailyPeakAreaMeanProbability).label} ${formatProbabilityContext(days[index]?.dailyPeakAreaMeanProbability, index)}`}
+                  aria-label={viewMode === "watch" ? `${days[index]?.weekday ?? "วัน"} ${days[index]?.date ?? ""} ${watchLevel.label} ฝนสะสมสูงสุด ${days[index]?.rainMaxMm ?? "—"} มิลลิเมตร` : `${days[index]?.weekday ?? "วัน"} ${days[index]?.date ?? ""} แนวโน้มฝน${getRainLikelihood(days[index]?.dailyPeakAreaMeanProbability).label} ${formatProbabilityContext(days[index]?.dailyPeakAreaMeanProbability, index)}`}
                   aria-pressed={selectedDay === index}
                 >
-                  <span>{getRainLikelihood(days[index]?.dailyPeakAreaMeanProbability).label}</span>
-                  <i style={{ height: `${Math.max(8, value)}%`, background: "linear-gradient(#4fc3e1, #3156ad)" }} />
+                  <span>{viewMode === "watch" ? `${days[index]?.rainMaxMm ?? "—"}` : getRainLikelihood(days[index]?.dailyPeakAreaMeanProbability).label}</span>
+                  <i style={{ height: `${viewMode === "watch" ? Math.max(8, Math.min(100, (value / 90) * 100)) : Math.max(8, value)}%`, background: viewMode === "watch" ? watchLevel.color : "linear-gradient(#4fc3e1, #3156ad)" }} />
                   <small>{days[index]?.weekday.slice(0, 2)}</small>
                 </button>
-              ))}
+                );
+              })}
             </div>
           </div>
 
           <div className="watch-card rain-watch-card">
-            <p>พื้นที่แบบจำลองที่ควรติดตาม</p>
+            <p>{viewMode === "watch" ? "จุดแบบจำลองฝนสะสมสูงสุด" : "พื้นที่แบบจำลองที่ควรติดตาม"}</p>
             <ol>
               {sortedPoints.length ? sortedPoints.map((point) => {
                 const pointDay = point.daily[selectedDay];
@@ -1276,16 +1406,16 @@ export default function RainDashboard() {
                 );
               }) : <li className="rain-empty-row"><span>ยังไม่มีข้อมูลพื้นที่</span><b>—</b><i /></li>}
             </ol>
-            <small>จุดประมาณการ 9 ตำแหน่ง ไม่ใช่สถานีตรวจวัดหรือค่ารายเขต</small>
+            <small>{viewMode === "watch" ? "เรียงตามฝนสะสม 24 ชั่วโมง · เป็นจุดแบบจำลอง ไม่ใช่สถานีตรวจวัด" : "จุดประมาณการ 9 ตำแหน่ง ไม่ใช่สถานีตรวจวัดหรือค่ารายเขต"}</small>
           </div>
 
           <div className="forecast-note rain-forecast-note">
             <span aria-hidden="true">!</span>
             <p>
-              <b>สรุปวันที่เลือก</b>
-              {day?.dailyPeakAreaMeanProbability === null ? "ยังโหลดข้อมูลไม่ได้" : `${dailyNarrative} เด่นช่วง ${day.peakWindow ?? "—"} ปริมาณเฉลี่ย ${day.rainMeanMm ?? "—"} มม. · ${probabilityContext}${highestPoint ? ` จุดแบบจำลองที่มีปริมาณสูงสุดคือ${highestPoint.label}` : ""}`}
-              <small className="rain-model-explainer">เปอร์เซ็นต์คือค่าสูงสุดของค่าเฉลี่ยจุดแบบจำลองในช่วง 3 ชั่วโมง ไม่ใช่สัดส่วนพื้นที่และไม่ยืนยันว่าจะตก ณ ตำแหน่งของคุณ</small>
-              <small>{model} · อัปเดต {formatFetchedAt(fetchedAt)} · {disclaimer} <a href="https://open-meteo.com/en/docs" target="_blank" rel="noreferrer">ที่มาข้อมูล</a></small>
+              <b>{viewMode === "watch" ? "ภาพรวมเฝ้าระวัง 7 วัน" : "สรุปวันที่เลือก"}</b>
+              {viewMode === "watch" ? `${rainWatchCount ? `พบ ${rainWatchCount} วันที่แตะระดับเฝ้าระวังขึ้นไป` : "ยังไม่พบวันที่แตะระดับเฝ้าระวัง"}${highestRainWatch ? ` วันที่สูงสุดคือ${highestRainWatch.day.weekday} ${highestRainWatch.day.date} (${highestRainWatch.level.label} ${highestRainWatch.day.rainMaxMm ?? "—"} มม.)` : ""}` : day?.dailyPeakAreaMeanProbability === null ? "ยังโหลดข้อมูลไม่ได้" : `${dailyNarrative} เด่นช่วง ${day.peakWindow ?? "—"} ปริมาณเฉลี่ย ${day.rainMeanMm ?? "—"} มม. · ${probabilityContext}${highestPoint ? ` จุดแบบจำลองที่มีปริมาณสูงสุดคือ${highestPoint.label}` : ""}`}
+              <small className="rain-model-explainer">{viewMode === "watch" ? "ระดับเฝ้าระวังคำนวณจากฝนสะสมสูงสุดของจุดแบบจำลองเพื่อช่วยวางแผน ไม่ใช่ประกาศเตือนภัยจากหน่วยงานรัฐ" : "เปอร์เซ็นต์คือค่าสูงสุดของค่าเฉลี่ยจุดแบบจำลองในช่วง 3 ชั่วโมง ไม่ใช่สัดส่วนพื้นที่และไม่ยืนยันว่าจะตก ณ ตำแหน่งของคุณ"}</small>
+              <small>{model} · อัปเดต {formatFetchedAt(fetchedAt)} · {viewMode === "watch" ? "ปริมาณฝนสะสมเป็นผลรวมรายวันจากจุดแบบจำลอง และอาจต่างจากค่าตรวจวัดจริง" : disclaimer} <a href="https://open-meteo.com/en/docs" target="_blank" rel="noreferrer">ที่มาข้อมูล</a></small>
             </p>
           </div>
         </aside>

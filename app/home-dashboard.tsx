@@ -4,36 +4,54 @@ import { useEffect, useMemo, useState } from "react";
 import { getLevel, type ForecastPayload } from "./lib/forecast-data";
 import type { RainForecastPayload } from "./lib/rain-forecast-data";
 import { getDailyRainNarrative, getRainLikelihood } from "./lib/rain-communication";
-import type { TmdRadarPayload } from "./lib/tmd-radar-data";
 
 function mean(values: number[]) {
   return values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : null;
 }
 
-function sparkline(values: Array<number | null>, maximum: number) {
-  return values.map((value, index) => {
-    const x = values.length <= 1 ? 120 : index * 240 / (values.length - 1);
-    const y = 56 - ((value ?? 0) / Math.max(1, maximum)) * 48;
-    return `${index ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(" ");
+function HomeTrendBars({
+  values,
+  labels,
+  colors,
+  maximum,
+  unit,
+  ariaLabel,
+}: {
+  values: Array<number | null>;
+  labels: string[];
+  colors: string[];
+  maximum: number;
+  unit: string;
+  ariaLabel: string;
+}) {
+  const items = Array.from({ length: 7 }, (_, index) => values[index] ?? null);
+  return (
+    <div className="home-seven-day-bars" role="img" aria-label={ariaLabel}>
+      {items.map((value, index) => (
+        <span key={`${labels[index] ?? index}-${index}`}>
+          <b>{value ?? "—"}</b>
+          <i style={{ height: `${value === null ? 8 : Math.max(12, Math.min(100, (value / Math.max(1, maximum)) * 100))}%`, background: colors[index] ?? "#64748b" }} />
+          <small>{labels[index] ?? `${index + 1}`}</small>
+          <em>{unit}</em>
+        </span>
+      ))}
+    </div>
+  );
 }
 
 export default function HomeDashboard() {
   const [air, setAir] = useState<ForecastPayload | null>(null);
   const [rain, setRain] = useState<RainForecastPayload | null>(null);
-  const [radar, setRadar] = useState<TmdRadarPayload | null>(null);
 
   useEffect(() => {
     let active = true;
     Promise.allSettled([
       fetch("/api/forecast?province=metro").then((response) => response.ok ? response.json() : Promise.reject()),
       fetch("/api/rain-forecast?province=metro").then((response) => response.ok ? response.json() : Promise.reject()),
-      fetch("/api/tmd-radar").then((response) => response.ok ? response.json() : Promise.reject()),
-    ]).then(([airResult, rainResult, radarResult]) => {
+    ]).then(([airResult, rainResult]) => {
       if (!active) return;
       if (airResult.status === "fulfilled") setAir(airResult.value as ForecastPayload);
       if (rainResult.status === "fulfilled") setRain(rainResult.value as RainForecastPayload);
-      if (radarResult.status === "fulfilled") setRadar(radarResult.value as TmdRadarPayload);
     });
     return () => { active = false; };
   }, []);
@@ -44,8 +62,39 @@ export default function HomeDashboard() {
   const rainProbabilities = rain?.days.map((day) => day.dailyPeakAreaMeanProbability) ?? [];
   const rainToday = rain?.days[0] ?? null;
   const rainLikelihood = getRainLikelihood(rainToday?.dailyPeakAreaMeanProbability);
+  const airDayLabels = air?.days.map((day) => day.weekday.slice(0, 2)) ?? [];
+  const rainDayLabels = rain?.days.map((day) => day.weekday.slice(0, 2)) ?? [];
+  const airColors = airMeans.map((value) => value === null ? "#64748b" : getLevel(value).color);
+  const rainColors = rainProbabilities.map((value) => getRainLikelihood(value).color);
+  const airMaximum = Math.max(45, ...airMeans.filter((value): value is number => value !== null));
+  const airSevenDayPeak = airMeans.filter((value): value is number => value !== null).length
+    ? Math.max(...airMeans.filter((value): value is number => value !== null))
+    : null;
+  const rainSevenDayPeak = rain?.days.reduce<number | null>((peak, day) => day.rainMaxMm === null ? peak : Math.max(peak ?? 0, day.rainMaxMm), null) ?? null;
+
+  const airTrend = (
+    <HomeTrendBars
+      values={airMeans}
+      labels={airDayLabels}
+      colors={airColors}
+      maximum={airMaximum}
+      unit="PM"
+      ariaLabel={`แนวโน้ม PM2.5 เจ็ดวัน ${airMeans.map((value) => value ?? "รอข้อมูล").join(", ")} ไมโครกรัมต่อลูกบาศก์เมตร`}
+    />
+  );
+  const rainTrend = (
+    <HomeTrendBars
+      values={rainProbabilities}
+      labels={rainDayLabels}
+      colors={rainColors}
+      maximum={100}
+      unit="%"
+      ariaLabel={`แนวโน้มฝนระดับพื้นที่เจ็ดวัน ${rainProbabilities.map((value) => value ?? "รอข้อมูล").join(", ")} เปอร์เซ็นต์`}
+    />
+  );
 
   return (
+    <>
     <section className="home-dashboard" aria-labelledby="home-dashboard-title">
       <div className="home-dashboard-heading">
         <div><span>LIVE OUTLOOK</span><h2 id="home-dashboard-title">ภาพรวมกรุงเทพฯ–ปริมณฑล</h2></div>
@@ -53,21 +102,31 @@ export default function HomeDashboard() {
       </div>
       <div className="home-dashboard-grid">
         <a className="home-summary-card air" href="/air?province=metro">
-          <div className="home-summary-copy"><span>PM2.5 วันถัดไป</span><strong>{airToday ?? "—"}<small>µg/m³</small></strong><b style={{ color: airLevel.color }}>{airLevel.label}</b></div>
-          <svg viewBox="0 0 240 64" role="img" aria-label="แนวโน้ม PM2.5 เจ็ดวัน"><path d={sparkline(airMeans, Math.max(45, ...airMeans.filter((value): value is number => value !== null)))} /></svg>
-          <small>แตะเพื่อดูแผนที่และเลือกตำแหน่ง</small>
+          <div className="home-summary-copy"><span>แนวโน้ม PM2.5 7 วัน</span><strong>{airToday ?? "—"}<small>µg/m³</small></strong><b style={{ color: airLevel.color }}>{airLevel.label}</b></div>
+          {airTrend}
+          <small>ค่าสูงสุดใน 7 วัน {airSevenDayPeak ?? "—"} µg/m³ · แตะเพื่อดูแผนที่</small>
         </a>
-        <a className="home-summary-card rain" href="/rain?province=bangkok">
-          <div className="home-summary-copy"><span>แนวโน้มฝนวันนี้</span><strong className="home-rain-trend" style={{ color: rainLikelihood.color }}>{rainLikelihood.label}</strong><b>{rainToday ? getDailyRainNarrative(rainToday) : "รอข้อมูล"}</b></div>
-          <svg viewBox="0 0 240 64" role="img" aria-label="แนวโน้มฝนระดับพื้นที่เจ็ดวัน"><path d={sparkline(rainProbabilities, 100)} /></svg>
-          <small>เด่น {rainToday?.peakWindow ?? "—"} · เฉลี่ย {rainToday?.rainMeanMm ?? "—"} มม.</small>
-        </a>
-        <a className="home-summary-card radar" href="/rain?province=bangkok">
-          <div className="home-summary-copy"><span>TMD RadarGIS</span><strong>{radar?.status === "live" ? "LIVE" : radar?.status === "degraded" ? "ช้า" : "—"}</strong><b>{radar?.ageMinutes === null || radar === null ? "รอเรดาร์" : `อัปเดต ${radar.ageMinutes} นาทีที่แล้ว`}</b></div>
-          <div className="home-radar-pulse" aria-hidden="true"><i /><i /><i /></div>
-          <small>ตรวจจริง {radar?.observedFrames.length ?? 0} · Nowcast {radar?.nowcastFrames.length ?? 0} เฟรม</small>
+        <a className="home-summary-card rain" href="/rain?province=metro">
+          <div className="home-summary-copy"><span>แนวโน้มฝน 7 วัน</span><strong className="home-rain-trend" style={{ color: rainLikelihood.color }}>{rainLikelihood.label}</strong><b>{rainToday ? getDailyRainNarrative(rainToday) : "รอข้อมูล"}</b></div>
+          {rainTrend}
+          <small>ฝนสะสมสูงสุดบางจุดใน 7 วัน {rainSevenDayPeak ?? "—"} มม. · แตะเพื่อดูแผนที่</small>
         </a>
       </div>
     </section>
+
+    <details className="home-mobile-outlook">
+      <summary aria-label="เปิดภาพรวมแนวโน้ม 7 วัน"><span aria-hidden="true">↗</span><small>7 วัน</small></summary>
+      <div className="home-mobile-outlook-panel">
+        <a href="/air?province=metro">
+          <div><span>PM2.5</span><b style={{ color: airLevel.color }}>{airLevel.label}</b></div>
+          {airTrend}
+        </a>
+        <a href="/rain?province=metro">
+          <div><span>ฝน</span><b style={{ color: rainLikelihood.color }}>{rainLikelihood.label}</b></div>
+          {rainTrend}
+        </a>
+      </div>
+    </details>
+    </>
   );
 }

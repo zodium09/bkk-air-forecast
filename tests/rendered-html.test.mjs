@@ -45,8 +45,10 @@ test("server-renders the two-topic BKK Air Forecast homepage", async () => {
   assert.match(html, /home-topic-rain/);
   assert.match(html, /LIVE OUTLOOK/);
   assert.match(html, /ภาพรวมกรุงเทพฯ–ปริมณฑล/);
-  assert.match(html, /PM2\.5 วันถัดไป/);
-  assert.match(html, /TMD RadarGIS/);
+  assert.match(html, /แนวโน้ม PM2\.5 7 วัน/);
+  assert.match(html, /แนวโน้มฝน 7 วัน/);
+  assert.match(html, /เปิดภาพรวมแนวโน้ม 7 วัน/);
+  assert.doesNotMatch(html, /TMD RadarGIS/);
   assert.doesNotMatch(html, /กำลังโหลดข้อมูล|กำลังโหลดพยากรณ์ฝน/);
 });
 
@@ -59,6 +61,27 @@ test("topic cards and product navigation use resilient document links", async ()
   assert.match(homepage, /<a className="home-topic home-topic-rain" href="\/rain"/);
   assert.match(productNav, /<a href={`\/air\${query}`}/);
   assert.match(productNav, /<a href={`\/rain\${query}`}/);
+});
+
+test("homepage uses two seven-day summaries and a collapsed mobile outlook without radar", async () => {
+  const dashboard = await readFile(new URL("../app/home-dashboard.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(dashboard, /แนวโน้ม PM2\.5 7 วัน/);
+  assert.match(dashboard, /แนวโน้มฝน 7 วัน/);
+  assert.match(dashboard, /<details className="home-mobile-outlook">/);
+  assert.doesNotMatch(dashboard, /TmdRadarPayload|\/api\/tmd-radar|home-radar-pulse/);
+  assert.match(styles, /\.home-dashboard-grid \{[^}]*grid-template-columns: repeat\(2,/);
+  assert.match(styles, /@media \(max-width: 780px\)[\s\S]*?\.home-dashboard \{ display: none; \}/);
+  assert.match(styles, /@media \(max-width: 780px\)[\s\S]*?\.home-mobile-outlook \{[^}]*display: block;/);
+});
+
+test("air and rain sidebars use a readable desktop type scale", async () => {
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(styles, /grid-template-columns: 272px minmax\(0, 1fr\) 310px/);
+  assert.match(styles, /\.panel-title span, \.rain-panel-title span \{\s*font-size: 13px;/);
+  assert.match(styles, /\.day-btn-left \.day-name \{[\s\S]*?font-size: 12\.5px;/);
+  assert.match(styles, /\.advisory-desc \{[\s\S]*?font-size: 11px;/);
+  assert.match(styles, /\.forecast-note p \{[^}]*font-size: 10\.5px;/);
 });
 test("server-renders the BKK Air forecast product", async () => {
   const worker = await loadWorker();
@@ -149,7 +172,8 @@ test("map location forecasts use private geolocation and bounded IDW without sto
   assert.match(locationCard, /เป็นค่าประมาณเชิงพื้นที่ใกล้ตำแหน่ง/);
   assert.match(homeDashboard, /\/api\/forecast\?province=metro/);
   assert.match(homeDashboard, /\/api\/rain-forecast\?province=metro/);
-  assert.match(homeDashboard, /\/api\/tmd-radar/);
+  assert.doesNotMatch(homeDashboard, /\/api\/tmd-radar|TmdRadarPayload|home-radar-pulse/);
+  assert.match(homeDashboard, /home-mobile-outlook/);
   assert.doesNotMatch(homeDashboard, /Math\.random|demo|mock/i);
 });
 
@@ -186,7 +210,25 @@ test("rain defaults to Bangkok with radar and weather emoji opt-in", async () =>
   assert.match(dashboard, /const \[showLabels, setShowLabels\] = useState\(false\)/);
   assert.match(dashboard, /const \[radarEnabled, setRadarEnabled\] = useState\(false\)/);
   assert.match(dashboard, /const \[radarLoadState, setRadarLoadState\] = useState<[^>]+>\("idle"\)/);
-  assert.match(homeDashboard, /href="\/rain\?province=bangkok"/);
+  assert.match(homeDashboard, /href="\/rain\?province=metro"/);
+});
+
+test("rain page provides a query-persisted 24-hour accumulation watch mode", async () => {
+  const dashboard = await readFile(new URL("../app/rain/rain-dashboard.tsx", import.meta.url), "utf8");
+  const communication = await readFile(new URL("../app/lib/rain-communication.ts", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(dashboard, /type RainViewMode = "forecast" \| "watch"/);
+  assert.match(dashboard, /requestedMode === "watch"/);
+  assert.match(dashboard, /searchParams\.set\("mode", "watch"\)/);
+  assert.match(dashboard, /เฝ้าระวังฝนสะสม/);
+  assert.match(dashboard, /effectiveMetricMode: MetricMode = viewMode === "watch" \? "daily-rain"/);
+  assert.match(dashboard, /setRadarEnabled\(false\)/);
+  assert.match(dashboard, /ไม่ใช่ประกาศเตือนภัยจากหน่วยงานรัฐ/);
+  assert.match(communication, /value <= 10/);
+  assert.match(communication, /value <= 35/);
+  assert.match(communication, /value <= 90/);
+  assert.match(styles, /\.rain-view-mode/);
+  assert.match(styles, /\.rain-watch-summary/);
 });
 
 test("rain palette is white to cyan, blue, and purple without green", async () => {
