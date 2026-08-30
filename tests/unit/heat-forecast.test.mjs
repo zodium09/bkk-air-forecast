@@ -42,13 +42,19 @@ test("Thai public-health Heat Index thresholds are exact at boundaries", () => {
   assert.equal(getHeatRisk(52).key, "extreme");
 });
 
-test("heat endpoint returns seven daily maxima for nine model points", async () => {
+test("heat endpoint returns seven days and 56 three-hour windows for nine model points", async () => {
   const payload = await (await createHeatForecastResponse({ fetchImpl: async () => json(heatRaw()) })).json();
   assert.equal(payload.status, "live");
   assert.equal(payload.days.length, 7);
+  assert.equal(payload.windows.length, 56);
   assert.equal(payload.points.length, 9);
+  assert.ok(payload.points.every((point) => point.windows.length === 56));
   assert.ok(payload.days.every((day) => day.maxTemperatureC !== null && day.maxHeatIndexC !== null));
   assert.ok(payload.days[0].maxHeatIndexC > payload.days[0].maxTemperatureC);
+  assert.equal(payload.windows[0].label, "00:00–03:00 น.");
+  assert.equal(payload.windows[7].label, "21:00–00:00 น.");
+  assert.ok(payload.windows[4].maxHeatIndexC > payload.windows[3].maxHeatIndexC);
+  assert.equal(payload.windows[4].peakHour, "14:00 น.");
 });
 
 test("TMD temperature and humidity overlay the first 48 hours without exposing token", async () => {
@@ -64,6 +70,8 @@ test("TMD temperature and humidity overlay the first 48 hours without exposing t
   assert.equal(payload.dataQuality.tmdStatus, "live");
   assert.equal(payload.dataQuality.tmdAcceptedPoints, 9);
   assert.ok(payload.days[0].maxHeatIndexC > 50);
+  assert.ok(payload.windows.slice(0, 16).every((window) => window.maxHeatIndexC > 50));
+  assert.ok(payload.windows[16].maxHeatIndexC < 50);
   assert.equal(requested.some((request) => request.url.includes("heat-secret")), false);
   assert.equal(requested.find((request) => request.url.includes("data.tmd.go.th")).authorization, "Bearer heat-secret");
 });
@@ -84,6 +92,8 @@ test("metro heat endpoint aggregates six provinces into 54 model points", async 
   assert.equal(payload.province.id, "metro");
   assert.equal(payload.status, "live");
   assert.equal(payload.points.length, 54);
+  assert.equal(payload.windows.length, 56);
+  assert.ok(payload.points.every((point) => point.windows.length === 56));
   assert.equal(payload.dataQuality.expectedPoints, 54);
   assert.equal(calls, 6);
 });

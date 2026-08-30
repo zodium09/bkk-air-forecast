@@ -655,7 +655,8 @@ html[data-theme="dark"] .theme-toggle-sun { display: inline; }
   display: flex;
   flex-direction: column;
 }
-.rain-panel-windows {
+.rain-panel-windows,
+.heat-panel-windows {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 5px;
@@ -1835,7 +1836,8 @@ html[data-theme="dark"] .theme-toggle-sun { display: inline; }
   }
 
   /* Rain 24h Timeline & 8 Time Buttons on Mobile */
-  .rain-panel-windows {
+  .rain-panel-windows,
+  .heat-panel-windows {
     grid-template-columns: repeat(4, 1fr);
     gap: 4px;
   }
@@ -2339,6 +2341,11 @@ html[data-theme="dark"] .forecast-note.analysis-note {
 .heat-day-values { display: grid; justify-items: end; gap: 1px; white-space: nowrap; }
 .heat-day-values b { font: 800 12px/1 Manrope, sans-serif; }
 .heat-day-values em { font-size: 9.5px; font-style: normal; font-weight: 800; }
+.heat-window-btn { min-height: 52px; }
+.heat-window-btn:hover:not(:disabled) { border-color: #fb923c; background: #fff7ed; }
+.heat-window-btn.active { border-color: #ea580c; background: linear-gradient(135deg, #ea580c, #d97706); box-shadow: 0 3px 10px rgba(234, 88, 12, .28); }
+.heat-window-btn .window-clock { font-size: 9px; }
+.heat-window-btn.active .window-clock, .heat-window-btn.active .window-prob-secondary { color: #ffedd5; }
 .heat-metric-switch { display: grid; gap: 6px; }
 .heat-metric-switch button { min-height: 48px; padding: 7px 10px; display: grid; gap: 1px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; color: #64748b; text-align: left; cursor: pointer; }
 .heat-metric-switch button b { color: #334155; font-size: 11px; }
@@ -2393,6 +2400,8 @@ html[data-theme="dark"] .heat-metric-switch button b { color: #cbd5e1; }
 html[data-theme="dark"] .heat-metric-switch button.active { border-color: #fb923c; background: #292016; }
 html[data-theme="dark"] .heat-metric-switch button.active b { color: #fdba74; }
 html[data-theme="dark"] .heat-bars button:hover, html[data-theme="dark"] .heat-bars button.active { background: #292016; }
+html[data-theme="dark"] .heat-window-btn:hover:not(:disabled) { border-color: #fb923c; background: #292016; }
+html[data-theme="dark"] .heat-window-btn.active { border-color: #fb923c; background: linear-gradient(135deg, #c2410c, #a16207); }
 
 @media (max-width: 1080px) and (min-width: 781px) {
   .home-summary-card { grid-template-columns: 1fr; }
@@ -2405,6 +2414,11 @@ html[data-theme="dark"] .heat-bars button:hover, html[data-theme="dark"] .heat-b
   .heat-map-card { height: 58vh; min-height: 460px; order: 2; }
   .heat-insights { height: auto; max-height: none; order: 3; overflow: visible; }
   .heat-metric-section, .heat-trend-section { display: none; }
+  .heat-panel-windows { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+  .heat-window-btn { min-width: 0; min-height: 43px; padding: 4px 2px; }
+  .heat-window-btn .window-clock { font-size: 8px; letter-spacing: -.2px; }
+  .heat-window-btn .window-val-wrap { justify-content: center; flex-wrap: wrap; }
+  .heat-window-btn .badge-now, .heat-window-btn .badge-peak { font-size: 7px; }
   .heat-day-values { justify-items: start; }
   .heat-legend { display: none; }
   .heat-surface-status { top: auto; right: 12px; bottom: 12px; max-width: 180px; }

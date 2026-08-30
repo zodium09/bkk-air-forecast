@@ -50,9 +50,26 @@ function formatUpdated(value?: string) {
   return new Intl.DateTimeFormat("th-TH", { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Bangkok" }).format(new Date(value));
 }
 
-function pointValue(point: HeatPoint, dayIndex: number, metric: MetricMode) {
-  const day = point.daily[dayIndex];
-  return metric === "heat-index" ? day?.maxHeatIndexC ?? null : day?.maxTemperatureC ?? null;
+function pointWindow(point: HeatPoint, dayIndex: number, windowIndex: number) {
+  return point.windows?.find((window) => window.dayIndex === dayIndex && window.windowIndex === windowIndex);
+}
+
+function pointValue(point: HeatPoint, dayIndex: number, windowIndex: number, metric: MetricMode) {
+  const window = pointWindow(point, dayIndex, windowIndex);
+  return metric === "heat-index" ? window?.maxHeatIndexC ?? null : window?.maxTemperatureC ?? null;
+}
+
+function getBangkokDateParts() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    hourCycle: "h23",
+    timeZone: "Asia/Bangkok",
+  }).formatToParts(new Date());
+  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
+  return { dateKey: `${value("year")}-${value("month")}-${value("day")}`, hour: Number(value("hour")) };
 }
 
 function getPolygons(boundary: BoundaryCollection): PolygonCoordinates[] {
@@ -79,8 +96,8 @@ function interpolateSurfaceColor(value: number, metric: MetricMode) {
   return lower.color.map((channel, index) => Math.round(channel + (upper.color[index] - channel) * ratio));
 }
 
-function createHeatSurface(boundary: BoundaryCollection, points: HeatPoint[], dayIndex: number, metric: MetricMode) {
-  const anchors = points.map((point) => ({ lat: point.lat, lng: point.lng, value: pointValue(point, dayIndex, metric) }))
+function createHeatSurface(boundary: BoundaryCollection, points: HeatPoint[], dayIndex: number, windowIndex: number, metric: MetricMode) {
+  const anchors = points.map((point) => ({ lat: point.lat, lng: point.lng, value: pointValue(point, dayIndex, windowIndex, metric) }))
     .filter((anchor): anchor is { lat: number; lng: number; value: number } => anchor.value !== null);
   if (anchors.length < 3) return null;
   const bounds = getBoundaryBounds(boundary);
@@ -135,6 +152,7 @@ export default function HeatDashboard() {
   const [payload, setPayload] = useState<HeatForecastPayload | null>(null);
   const [dataState, setDataState] = useState<"loading" | HeatForecastPayload["status"]>("loading");
   const [selectedDay, setSelectedDay] = useState(0);
+  const [selectedWindowIndex, setSelectedWindowIndex] = useState(0);
   const [metric, setMetric] = useState<MetricMode>("heat-index");
   const [basemap, setBasemap] = useState<BasemapKind>("street");
   const [mapTheme, setMapTheme] = useState<BasemapTheme>("light");
@@ -153,14 +171,22 @@ export default function HeatDashboard() {
 
   const selectedRegion = getRegion(selectedProvinceId);
   const days = useMemo(() => payload?.days ?? buildHeatDayShells(), [payload]);
+  const windows = useMemo(() => payload?.windows ?? [], [payload]);
   const points = useMemo(() => payload?.points ?? [], [payload]);
   const day = days[selectedDay] ?? days[0];
-  const focusValue = metric === "heat-index" ? day?.maxHeatIndexC ?? null : day?.maxTemperatureC ?? null;
-  const risk = getHeatRisk(day?.pointMaxHeatIndexC ?? day?.maxHeatIndexC ?? null);
+  const dayWindows = useMemo(() => windows.filter((window) => window.dayIndex === selectedDay), [selectedDay, windows]);
+  const selectedWindow = dayWindows.find((window) => window.windowIndex === selectedWindowIndex) ?? null;
+  const focusValue = metric === "heat-index" ? selectedWindow?.maxHeatIndexC ?? null : selectedWindow?.maxTemperatureC ?? null;
+  const risk = getHeatRisk(selectedWindow?.pointMaxHeatIndexC ?? selectedWindow?.maxHeatIndexC ?? null);
+  const bangkokNow = getBangkokDateParts();
+  const currentWindowIndex = Math.min(7, Math.floor(bangkokNow.hour / 3));
+  const selectedDayIsToday = day?.dateKey === bangkokNow.dateKey;
+  const peakWindowIndex = [...dayWindows].filter((window) => window.pointMaxHeatIndexC !== null).sort((a, b) => (b.pointMaxHeatIndexC ?? -999) - (a.pointMaxHeatIndexC ?? -999))[0]?.windowIndex ?? null;
 
   const selectProvince = useCallback((value: RegionId) => {
     setSelectedProvinceId(value);
     setSelectedDay(0);
+    setSelectedWindowIndex(0);
     setDataState("loading");
     setBoundaryState("loading");
     window.history.replaceState(null, "", `/heat?province=${value}`);
@@ -255,11 +281,11 @@ export default function HeatDashboard() {
       if (surfaceRef.current) map.removeLayer(surfaceRef.current);
       surfaceRef.current = null;
       if (boundary && boundaryState === "official" && points.length >= 3) {
-        const dataVersion = points.map((point) => `${point.id}:${pointValue(point, selectedDay, metric) ?? "x"}`).join("|");
-        const cacheKey = `${selectedProvinceId}:${selectedDay}:${metric}:${boundary.features.length}:${dataVersion}`;
+        const dataVersion = points.map((point) => `${point.id}:${pointValue(point, selectedDay, selectedWindowIndex, metric) ?? "x"}`).join("|");
+        const cacheKey = `${selectedProvinceId}:${selectedDay}:${selectedWindowIndex}:${metric}:${boundary.features.length}:${dataVersion}`;
         let surface = heatSurfaceCache.get(cacheKey);
         if (surface === undefined) {
-          surface = createHeatSurface(boundary, points, selectedDay, metric);
+          surface = createHeatSurface(boundary, points, selectedDay, selectedWindowIndex, metric);
           heatSurfaceCache.set(cacheKey, surface);
           if (heatSurfaceCache.size > MAX_HEAT_SURFACES) heatSurfaceCache.delete(heatSurfaceCache.keys().next().value!);
         }
@@ -268,17 +294,17 @@ export default function HeatDashboard() {
       }
       if (!showPoints) return;
       points.forEach((point) => {
-        const value = pointValue(point, selectedDay, metric);
+        const value = pointValue(point, selectedDay, selectedWindowIndex, metric);
         if (value === null) return;
         const color = metric === "heat-index" ? getHeatRisk(value).color : value < 32 ? "#fbbf24" : value < 36 ? "#f97316" : "#dc2626";
         L.circleMarker([point.lat, point.lng], { radius: Math.max(9, Math.min(19, 9 + (value - 25) * 0.6)), color: "#ffffff", weight: 2, fillColor: color, fillOpacity: 0.78 })
-          .bindTooltip(`<b>${point.label}</b><br>${metric === "heat-index" ? "Heat Index" : "อุณหภูมิสูงสุด"} ${value.toFixed(1)}°C`, { direction: "top" })
+          .bindTooltip(`<b>${point.label}</b><br>${metric === "heat-index" ? "Heat Index" : "อุณหภูมิ"} ${value.toFixed(1)}°C`, { direction: "top" })
           .addTo(layer);
       });
     });
-  }, [boundary, boundaryState, mapReady, metric, points, selectedDay, selectedProvinceId, showPoints]);
+  }, [boundary, boundaryState, mapReady, metric, points, selectedDay, selectedProvinceId, selectedWindowIndex, showPoints]);
 
-  const hotspots = useMemo(() => [...points].map((point) => ({ point, value: point.daily[selectedDay]?.maxHeatIndexC ?? null })).filter((item): item is { point: HeatPoint; value: number } => item.value !== null).sort((a, b) => b.value - a.value).slice(0, 5), [points, selectedDay]);
+  const hotspots = useMemo(() => [...points].map((point) => ({ point, value: pointWindow(point, selectedDay, selectedWindowIndex)?.maxHeatIndexC ?? null })).filter((item): item is { point: HeatPoint; value: number } => item.value !== null).sort((a, b) => b.value - a.value).slice(0, 5), [points, selectedDay, selectedWindowIndex]);
   const chartMax = Math.max(42, ...days.map((item) => item.maxHeatIndexC ?? 0));
 
   return (
@@ -287,7 +313,7 @@ export default function HeatDashboard() {
         <div className="banner-copy">
           <span className="banner-kicker">BKK Heat Forecast</span>
           <h1>พยากรณ์ความร้อน <em>{selectedRegion.shortNameTh}</em></h1>
-          <p>อุณหภูมิสูงสุดและ Heat Index ล่วงหน้า 1–7 วัน</p>
+          <p>อุณหภูมิและ Heat Index รายช่วง 3 ชั่วโมง ล่วงหน้า 7 วัน</p>
         </div>
         <ProvinceSelector value={selectedProvinceId} onChange={selectProvince} />
         <OutlookNav active="heat" province={selectedProvinceId} />
@@ -308,11 +334,30 @@ export default function HeatDashboard() {
               })}
             </nav>
           </div>
+          <div className="panel-section heat-time-section">
+            <div className="panel-title"><span>🕒 เลือกช่วงเวลา</span><small>ช่วงละ 3 ชั่วโมง</small></div>
+            <div className="heat-panel-windows" role="group" aria-label="เลือกช่วงเวลาพยากรณ์ความร้อน 3 ชั่วโมง">
+              {(dayWindows.length ? dayWindows : Array.from({ length: 8 }, (_, windowIndex) => {
+                const startHour = windowIndex * 3;
+                const endHour = (startHour + 3) % 24;
+                return { windowIndex, label: `${String(startHour).padStart(2, "0")}:00–${String(endHour).padStart(2, "0")}:00 น.`, maxTemperatureC: null, maxHeatIndexC: null, pointMaxHeatIndexC: null };
+              })).map((window) => {
+                const isActive = selectedWindowIndex === window.windowIndex;
+                const isNow = selectedDayIsToday && window.windowIndex === currentWindowIndex;
+                const isPeak = window.windowIndex === peakWindowIndex;
+                const windowRisk = getHeatRisk(window.pointMaxHeatIndexC ?? window.maxHeatIndexC);
+                return <button key={window.windowIndex} className={`panel-window-btn heat-window-btn ${isActive ? "active" : ""}`} onClick={() => setSelectedWindowIndex(window.windowIndex)} aria-pressed={isActive} disabled={!dayWindows.length} title={`${window.label} · Heat Index ${window.maxHeatIndexC ?? "ไม่มีข้อมูล"} องศา`}>
+                  <div className="window-time-wrap"><i className="window-color-dot" style={{ backgroundColor: isActive ? "#fff" : windowRisk.color }} /><span className="window-clock">{window.label}</span></div>
+                  <div className="window-val-wrap"><b className="window-prob">HI {window.maxHeatIndexC ?? "—"}°</b><small className="window-prob-secondary">{window.maxTemperatureC ?? "—"}°C</small>{isNow && <em className="badge-now">ตอนนี้</em>}{isPeak && !isNow && <em className="badge-peak">ร้อนสุด</em>}</div>
+                </button>;
+              })}
+            </div>
+          </div>
           <div className="panel-section heat-metric-section">
             <div className="panel-title"><span>🗺️ ชั้นข้อมูลบนแผนที่</span></div>
             <div className="heat-metric-switch" role="group" aria-label="เลือกชั้นข้อมูลความร้อน">
               <button className={metric === "heat-index" ? "active" : ""} onClick={() => setMetric("heat-index")} aria-pressed={metric === "heat-index"}><b>Heat Index</b><small>ความร้อนที่ร่างกายรับรู้</small></button>
-              <button className={metric === "temperature" ? "active" : ""} onClick={() => setMetric("temperature")} aria-pressed={metric === "temperature"}><b>อุณหภูมิสูงสุด</b><small>ค่าพยากรณ์รายวัน</small></button>
+              <button className={metric === "temperature" ? "active" : ""} onClick={() => setMetric("temperature")} aria-pressed={metric === "temperature"}><b>อุณหภูมิสูงสุด</b><small>ค่าสูงสุดในช่วง 3 ชั่วโมง</small></button>
             </div>
           </div>
           <div className="panel-section heat-trend-section">
@@ -325,7 +370,7 @@ export default function HeatDashboard() {
 
         <div className="map-card heat-map-card">
           <div className="map-wrap">
-            <div ref={mapElementRef} className="map" data-basemap={basemap} data-map-theme={mapTheme} role="application" aria-label={`แผนที่พยากรณ์ความร้อน ${selectedRegion.nameTh}`} />
+            <div ref={mapElementRef} className="map" data-basemap={basemap} data-map-theme={mapTheme} role="application" aria-label={`แผนที่พยากรณ์ความร้อน ${selectedRegion.nameTh} ${day?.weekday ?? ""} ${day?.date ?? ""} ${selectedWindow?.label ?? ""}`} />
             {dataState === "unavailable" && <div className="forecast-unavailable" role="alert"><b>ยังโหลดข้อมูลความร้อนไม่ได้</b><span>ระบบปิดค่าบนแผนที่เพื่อป้องกันความเข้าใจผิด</span><button onClick={() => { setDataState("loading"); setReloadKey((value) => value + 1); }}>ลองใหม่</button></div>}
             <div className="layer-menu">
               <button className="layer-menu-trigger" onClick={() => setLayerMenuOpen((open) => !open)} aria-expanded={layerMenuOpen} aria-label="ตั้งค่าแผนที่"><span className="layer-symbol"><i /><i /><i /></span></button>
@@ -337,16 +382,16 @@ export default function HeatDashboard() {
                 <div className="basemap-layer-section"><small className="basemap-section-title">แผนที่ฐาน</small><div className="basemap-switcher-grid"><button className={`basemap-option-btn ${basemap === "street" ? "active" : ""}`} onClick={() => setBasemap("street")}>{mapTheme === "dark" ? "🌙 แผนที่มืด" : "🗺️ ถนน"}</button><button className={`basemap-option-btn ${basemap === "satellite" ? "active" : ""}`} onClick={() => setBasemap("satellite")}>🛰️ ดาวเทียม</button></div></div>
               </div>
             </div>
-            <div className="map-metric heat-map-metric"><span>{metric === "heat-index" ? "Heat Index เฉลี่ยสูงสุด" : "อุณหภูมิเฉลี่ยสูงสุด"}</span><strong>{focusValue ?? "—"}<small>°C</small></strong><b style={{ color: metric === "heat-index" ? risk.color : "#ea580c" }}>{metric === "heat-index" ? risk.label : `บางจุด ${day?.pointMaxTemperatureC ?? "—"}°C`}</b><em>{day?.weekday} {day?.date} · จุดร้อนสุดราว {day?.peakHour ?? "—"}</em></div>
-            <div className={`surface-status heat-surface-status ${boundaryState}`}><b>{dataState === "live" ? "ข้อมูลพร้อมใช้งาน" : dataState === "degraded" ? "ข้อมูลบางส่วน" : "กำลังตรวจข้อมูล"}</b><span>พื้นผิว IDW · {points.length} จุด · {boundaryState === "official" ? "ขอบเขตทางการ" : "รอขอบเขตทางการ"}</span><em>{payload?.dataQuality.tmdStatus === "live" ? "ใช้ TMD NWP ประกอบช่วง 48 ชม.แรก" : payload?.dataQuality.tmdStatus === "unavailable" ? "TMD ไม่พร้อม ใช้ Open-Meteo สำรอง" : "ยังไม่ได้เชื่อม TMD ในสภาพแวดล้อมนี้"}</em></div>
+            <div className="map-metric heat-map-metric"><span>{metric === "heat-index" ? "Heat Index เฉลี่ยช่วงนี้" : "อุณหภูมิเฉลี่ยช่วงนี้"}</span><strong>{focusValue ?? "—"}<small>°C</small></strong><b style={{ color: metric === "heat-index" ? risk.color : "#ea580c" }}>{metric === "heat-index" ? `จุดสูงสุด ${selectedWindow?.pointMaxHeatIndexC ?? "—"}°C · ${risk.label}` : `บางจุด ${selectedWindow?.pointMaxTemperatureC ?? "—"}°C`}</b><em>{day?.weekday} {day?.date} · {selectedWindow?.label ?? "เลือกช่วงเวลา"}</em></div>
+            <div className={`surface-status heat-surface-status ${boundaryState}`}><b>{dataState === "live" ? "ข้อมูลพร้อมใช้งาน" : dataState === "degraded" ? "ข้อมูลบางส่วน" : "กำลังตรวจข้อมูล"}</b><span>พื้นผิว IDW · {points.length} จุด · {selectedWindow?.label ?? "รอข้อมูลช่วงเวลา"}</span><em>{payload?.dataQuality.tmdStatus === "live" ? "ใช้ TMD NWP ประกอบช่วง 48 ชม.แรก" : payload?.dataQuality.tmdStatus === "unavailable" ? "TMD ไม่พร้อม ใช้ Open-Meteo สำรอง" : "ยังไม่ได้เชื่อม TMD ในสภาพแวดล้อมนี้"}</em></div>
             {metric === "heat-index" ? <div className="legend heat-legend" aria-label="ระดับ Heat Index"><span><i style={{ background: "#22c55e" }} />27–32.9 เฝ้าระวัง</span><span><i style={{ background: "#eab308" }} />33–41.9 เตือนภัย</span><span><i style={{ background: "#f97316" }} />42–51.9 อันตราย</span><span><i style={{ background: "#dc2626" }} />≥52 อันตรายมาก</span><small>Heat Index · °C</small></div> : <div className="legend heat-legend" aria-label="ระดับอุณหภูมิสูงสุด"><span><i style={{ background: "#38bdf8" }} />ต่ำกว่า 30°C</span><span><i style={{ background: "#facc15" }} />30–33.9°C</span><span><i style={{ background: "#f97316" }} />34–37.9°C</span><span><i style={{ background: "#dc2626" }} />≥38°C</span><small>อุณหภูมิสูงสุด · °C</small></div>}
           </div>
         </div>
 
         <aside className="insights heat-insights">
-          <div className="heat-risk-card" style={{ "--heat-risk": risk.color } as React.CSSProperties}><span>ระดับสูงสุดของพื้นที่</span><strong>{day?.pointMaxHeatIndexC ?? "—"}<small>°C</small></strong><b>{risk.label}</b><p>{risk.guidance}</p></div>
-          <div className="heat-dual-card"><span>ภาพรวมวันที่เลือก</span><div><p><small>อุณหภูมิสูงสุดเฉลี่ย</small><b>{day?.maxTemperatureC ?? "—"}°C</b></p><p><small>Heat Index สูงสุดเฉลี่ย</small><b>{day?.maxHeatIndexC ?? "—"}°C</b></p></div><em>จุดร้อนสุดประมาณ {day?.peakHour ?? "—"}</em></div>
-          <div className="heat-hotspots"><div className="panel-title"><span>พื้นที่ตัวอย่างที่ร้อนสุด</span><small>ตามจุดแบบจำลอง</small></div><ol>{hotspots.map(({ point, value }) => <li key={point.id}><span>{point.label}</span><b>{value.toFixed(1)}°</b><i style={{ background: getHeatRisk(value).color }} /></li>)}</ol></div>
+          <div className="heat-risk-card" style={{ "--heat-risk": risk.color } as React.CSSProperties}><span>ระดับสูงสุดในช่วงที่เลือก</span><strong>{selectedWindow?.pointMaxHeatIndexC ?? "—"}<small>°C</small></strong><b>{risk.label}</b><p>{risk.guidance}</p></div>
+          <div className="heat-dual-card"><span>ภาพรวมช่วง {selectedWindow?.label ?? "ที่เลือก"}</span><div><p><small>อุณหภูมิเฉลี่ย</small><b>{selectedWindow?.maxTemperatureC ?? "—"}°C</b></p><p><small>Heat Index เฉลี่ย</small><b>{selectedWindow?.maxHeatIndexC ?? "—"}°C</b></p></div><em>จุดร้อนสุดประมาณ {selectedWindow?.peakHour ?? "—"}</em></div>
+          <div className="heat-hotspots"><div className="panel-title"><span>พื้นที่ตัวอย่างที่ร้อนสุด</span><small>{selectedWindow?.label ?? "ตามช่วงที่เลือก"}</small></div><ol>{hotspots.map(({ point, value }) => <li key={point.id}><span>{point.label}</span><b>{value.toFixed(1)}°</b><i style={{ background: getHeatRisk(value).color }} /></li>)}</ol></div>
           <div className="forecast-note"><span>!</span><p><b>ใช้เพื่อวางแผนเบื้องต้น</b>{payload?.disclaimer ?? "Heat Index ขึ้นกับอุณหภูมิและความชื้นจริง ณ ตำแหน่งนั้น"}<small>กลุ่มเสี่ยงควรติดตามประกาศกรมอุตุนิยมวิทยาและคำแนะนำกรมอนามัยเพิ่มเติม</small></p></div>
         </aside>
       </section>

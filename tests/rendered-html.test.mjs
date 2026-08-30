@@ -230,10 +230,14 @@ test("server-renders the metropolitan heat forecast page", async () => {
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /BKK Heat Forecast/);
-  assert.match(html, /อุณหภูมิสูงสุดและ Heat Index/);
+  assert.match(html, /อุณหภูมิและ Heat Index รายช่วง 3 ชั่วโมง/);
   assert.match(html, /เลือกวันพยากรณ์/);
+  assert.match(html, /เลือกช่วงเวลา/);
+  assert.match(html, /ช่วงละ 3 ชั่วโมง/);
+  assert.match(html, /00:00–03:00 น\./);
+  assert.match(html, /21:00–00:00 น\./);
   assert.match(html, /ชั้นข้อมูลบนแผนที่/);
-  assert.match(html, /Heat Index เฉลี่ยสูงสุด/);
+  assert.match(html, /Heat Index เฉลี่ยช่วงนี้/);
   assert.match(html, /พื้นผิว IDW/);
   assert.match(html, /กรุงเทพมหานครและปริมณฑล/);
   assert.match(html, /href="\/air\?province=metro"/);
@@ -248,6 +252,9 @@ test("heat map uses a boundary-clipped IDW surface and an ImageGen cover", async
   assert.match(dashboard, /maxDistanceKm: 55/);
   assert.match(dashboard, /maskContext\.fill\("evenodd"\)/);
   assert.match(dashboard, /L\.imageOverlay\(surface\.url, surface\.bounds/);
+  assert.match(dashboard, /selectedWindowIndex/);
+  assert.match(dashboard, /pointWindow\(point, selectedDay, selectedWindowIndex\)/);
+  assert.match(styles, /\.heat-panel-windows/);
   assert.match(dashboard, /useState\(false\).*showPoints|\[showPoints, setShowPoints\] = useState\(false\)/s);
   assert.match(styles, /\.home-topic-heat \{ background-image: url\("\/home-heat\.png"\)/);
   assert.ok(cover.byteLength > 1_000_000);

@@ -7,6 +7,8 @@ import {
   type HeatForecastPayload,
   type HeatPoint,
   type HeatPointDay,
+  type HeatPointWindow,
+  type HeatWindow,
 } from "../../lib/heat-forecast-data.ts";
 import { FORECAST_DAYS } from "../../lib/forecast-horizon.ts";
 import { fetchWithTimeout } from "../../lib/fetch-with-timeout.ts";
@@ -58,7 +60,8 @@ function aggregatePoint(raw: OpenMeteoHeatLocation, index: number, forecastPoint
   }).filter(Boolean).length;
   if (validCount < Math.ceil(EXPECTED_HOURLY_VALUES * MINIMUM_HOURLY_COVERAGE)) return null;
 
-  const daily: HeatPointDay[] = dateKeys.map((dateKey) => {
+  const windows: HeatPointWindow[] = [];
+  const daily: HeatPointDay[] = dateKeys.map((dateKey, dayIndex) => {
     const values = raw.hourly!.time.slice(0, length).map((time, hour) => {
       if (!time.startsWith(dateKey)) return null;
       const temperature = finite(raw.hourly!.temperature_2m[hour], -20, 60);
@@ -66,6 +69,21 @@ function aggregatePoint(raw: OpenMeteoHeatLocation, index: number, forecastPoint
       if (temperature === null || humidity === null) return null;
       return { temperature, heatIndex: calculateHeatIndexC(temperature, humidity), time };
     }).filter((item): item is { temperature: number; heatIndex: number; time: string } => item !== null && item.heatIndex !== null);
+    for (let windowIndex = 0; windowIndex < 8; windowIndex += 1) {
+      const startHour = windowIndex * 3;
+      const windowValues = values.filter((item) => {
+        const hour = Number(item.time.slice(11, 13));
+        return hour >= startHour && hour < startHour + 3;
+      });
+      const hottest = [...windowValues].sort((a, b) => b.heatIndex - a.heatIndex)[0];
+      windows.push({
+        dayIndex,
+        windowIndex,
+        maxTemperatureC: windowValues.length ? rounded(Math.max(...windowValues.map((item) => item.temperature))) : null,
+        maxHeatIndexC: hottest ? rounded(hottest.heatIndex) : null,
+        peakHour: hottest ? `${hottest.time.slice(11, 16)} น.` : null,
+      });
+    }
     if (!values.length) return { maxTemperatureC: null, maxHeatIndexC: null, peakHour: null };
     const hottest = [...values].sort((a, b) => b.heatIndex - a.heatIndex)[0];
     return {
@@ -74,11 +92,35 @@ function aggregatePoint(raw: OpenMeteoHeatLocation, index: number, forecastPoint
       peakHour: `${hottest.time.slice(11, 16)} น.`,
     };
   });
-  return { ...point, daily };
+  return { ...point, daily, windows };
 }
 
-function aggregateRegion(points: HeatPoint[], dateKeys: string[]): HeatDay[] {
-  return dateKeys.map((dateKey, dayIndex) => {
+function aggregateRegion(points: HeatPoint[], dateKeys: string[]): { days: HeatDay[]; windows: HeatWindow[] } {
+  const windows: HeatWindow[] = [];
+  const days = dateKeys.map((dateKey, dayIndex) => {
+    const dayWindows = Array.from({ length: 8 }, (_, windowIndex) => {
+      const values = points.map((point) => point.windows.find((window) =>
+        window.dayIndex === dayIndex && window.windowIndex === windowIndex,
+      )).filter((window): window is HeatPointWindow => Boolean(window));
+      const temperatures = values.map((window) => window.maxTemperatureC).filter((value): value is number => value !== null);
+      const heatIndices = values.map((window) => window.maxHeatIndexC).filter((value): value is number => value !== null);
+      const hottest = [...values].sort((a, b) => (b.maxHeatIndexC ?? -999) - (a.maxHeatIndexC ?? -999))[0];
+      const startHour = windowIndex * 3;
+      const endHour = (startHour + 3) % 24;
+      return {
+        dayIndex,
+        windowIndex,
+        start: `${String(startHour).padStart(2, "0")}:00`,
+        end: `${String(endHour).padStart(2, "0")}:00`,
+        label: `${String(startHour).padStart(2, "0")}:00–${String(endHour).padStart(2, "0")}:00 น.`,
+        maxTemperatureC: mean(temperatures),
+        maxHeatIndexC: mean(heatIndices),
+        pointMaxTemperatureC: temperatures.length ? rounded(Math.max(...temperatures)) : null,
+        pointMaxHeatIndexC: heatIndices.length ? rounded(Math.max(...heatIndices)) : null,
+        peakHour: hottest?.peakHour ?? null,
+      } satisfies HeatWindow;
+    });
+    windows.push(...dayWindows);
     const values = points.map((point) => point.daily[dayIndex]).filter(Boolean);
     const temperatures = values.map((day) => day.maxTemperatureC).filter((value): value is number => value !== null);
     const heatIndices = values.map((day) => day.maxHeatIndexC).filter((value): value is number => value !== null);
@@ -94,6 +136,7 @@ function aggregateRegion(points: HeatPoint[], dateKeys: string[]): HeatDay[] {
       peakHour: hottest?.peakHour ?? null,
     };
   });
+  return { days, windows };
 }
 
 function tmdFailureReason(error: unknown) {
@@ -116,6 +159,7 @@ function unavailableResponse(error: unknown, provinceId: unknown) {
     sources: heatForecastProviders.map((provider) => provider.source),
     dataQuality: { expectedPoints: points.length, acceptedPoints: 0, coverageHours: 0, rejectedPoints: points.length, minimumHourlyCoverage: MINIMUM_HOURLY_COVERAGE, providersTried: heatForecastProviders.map((provider) => provider.id), error: error instanceof Error ? error.message : "unknown upstream error" },
     days: buildHeatDayShells(),
+    windows: [],
     points: [],
   }, { headers: { "Cache-Control": "no-store", "X-Heat-Forecast-Status": "unavailable" } });
 }
@@ -131,6 +175,7 @@ function normalizedResponse(raw: OpenMeteoHeatLocation[] | OpenMeteoHeatLocation
   const points = locations.map((location, index) => aggregatePoint(location, index, forecastPoints, dateKeys)).filter((point): point is HeatPoint => point !== null);
   if (points.length < 6) throw new Error(`insufficient forecast points ${points.length}/${forecastPoints.length}`);
   const status = points.length === forecastPoints.length ? "live" : "degraded";
+  const aggregate = aggregateRegion(points, dateKeys);
   return Response.json({
     province: { id: province.id, nameTh: province.nameTh, shortNameTh: province.shortNameTh, nameEn: province.nameEn },
     status,
@@ -139,7 +184,8 @@ function normalizedResponse(raw: OpenMeteoHeatLocation[] | OpenMeteoHeatLocation
     disclaimer: "Heat Index คำนวณจากอุณหภูมิและความชื้นสัมพัทธ์รายชั่วโมงด้วยสมการ Rothfusz ของ NOAA/NWS และจัดระดับตามเกณฑ์กรมอนามัย ใช้เพื่อวางแผนเบื้องต้น ไม่ใช่ประกาศเตือนภัย",
     sources: [provider.source, ...(provider.id === "tmd-nwp-hybrid" ? ["Open-Meteo Weather Forecast"] : []), "NOAA/NWS Heat Index equation", "กรมอนามัย กระทรวงสาธารณสุข", province.id === "bangkok" ? "BMA GIS district boundary" : "DMR province boundary", "OpenStreetMap"],
     dataQuality: { expectedPoints: forecastPoints.length, acceptedPoints: points.length, rejectedPoints: forecastPoints.length - points.length, coverageHours: Math.min(...points.map((point) => point.daily.filter((day) => day.maxHeatIndexC !== null).length * 24)), minimumHourlyCoverage: MINIMUM_HOURLY_COVERAGE, provider: provider.id, providerFallback: provider.id === "gfs" || tmdIntegration.status === "unavailable", tmdStatus: tmdIntegration.status, tmdAcceptedPoints: tmdIntegration.acceptedPoints, tmdForecastValues: tmdIntegration.forecastValues, tmdFailureReason: tmdIntegration.failureReason },
-    days: aggregateRegion(points, dateKeys),
+    days: aggregate.days,
+    windows: aggregate.windows,
     points,
   } satisfies HeatForecastPayload, {
     headers: { "Cache-Control": "public, max-age=60, stale-while-revalidate=7200", "CDN-Cache-Control": "public, max-age=1800, stale-while-revalidate=7200", "X-Heat-Forecast-Status": status, "X-Heat-Forecast-Provider": provider.id },

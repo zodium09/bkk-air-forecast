@@ -9,12 +9,21 @@ export type HeatPointDay = {
   peakHour: string | null;
 };
 
+export type HeatPointWindow = {
+  dayIndex: number;
+  windowIndex: number;
+  maxTemperatureC: number | null;
+  maxHeatIndexC: number | null;
+  peakHour: string | null;
+};
+
 export type HeatPoint = {
   id: string;
   label: string;
   lat: number;
   lng: number;
   daily: HeatPointDay[];
+  windows: HeatPointWindow[];
 };
 
 export type HeatDay = {
@@ -23,6 +32,19 @@ export type HeatDay = {
   date: string;
   weekday: string;
   year: number;
+  maxTemperatureC: number | null;
+  maxHeatIndexC: number | null;
+  pointMaxTemperatureC: number | null;
+  pointMaxHeatIndexC: number | null;
+  peakHour: string | null;
+};
+
+export type HeatWindow = {
+  dayIndex: number;
+  windowIndex: number;
+  start: string;
+  end: string;
+  label: string;
   maxTemperatureC: number | null;
   maxHeatIndexC: number | null;
   pointMaxTemperatureC: number | null;
@@ -53,6 +75,7 @@ export type HeatForecastPayload = {
     error?: string;
   };
   days: HeatDay[];
+  windows: HeatWindow[];
   points: HeatPoint[];
 };
 
@@ -131,7 +154,21 @@ export function aggregateMetroHeat(payloads: HeatForecastPayload[]): HeatForecas
   const usable = payloads.filter((payload) => payload.status !== "unavailable");
   const primary = usable[0] ?? payloads[0];
   if (!primary) throw new Error("metropolitan heat forecast unavailable");
-  if (!usable.length) return { ...primary, province: metroRegion, points: [] };
+  if (!usable.length) return { ...primary, province: metroRegion, points: [], windows: [] };
+  const windows = primary.windows.map((baseWindow) => {
+    const matches = usable.map((payload) => payload.windows.find((window) =>
+      window.dayIndex === baseWindow.dayIndex && window.windowIndex === baseWindow.windowIndex,
+    )).filter(Boolean);
+    const hottest = [...matches].sort((a, b) => (b?.pointMaxHeatIndexC ?? -999) - (a?.pointMaxHeatIndexC ?? -999))[0];
+    return {
+      ...baseWindow,
+      maxTemperatureC: mean(matches.map((window) => window?.maxTemperatureC)),
+      maxHeatIndexC: mean(matches.map((window) => window?.maxHeatIndexC)),
+      pointMaxTemperatureC: max(matches.map((window) => window?.pointMaxTemperatureC)),
+      pointMaxHeatIndexC: max(matches.map((window) => window?.pointMaxHeatIndexC)),
+      peakHour: hottest?.peakHour ?? null,
+    };
+  });
   const days = primary.days.map((baseDay, dayIndex) => {
     const matches = usable.map((payload) => payload.days[dayIndex]).filter(Boolean);
     const hottest = [...matches].sort((a, b) => (b.pointMaxHeatIndexC ?? -999) - (a.pointMaxHeatIndexC ?? -999))[0];
@@ -160,6 +197,7 @@ export function aggregateMetroHeat(payloads: HeatForecastPayload[]): HeatForecas
       coverageHours: Math.min(...usable.map((payload) => payload.dataQuality.coverageHours)),
     },
     days,
+    windows,
     points: usable.flatMap((payload) => payload.points.map((point) => ({ ...point, id: `${payload.province.id}-${point.id}`, label: `${payload.province.shortNameTh} · ${point.label}` }))),
   };
 }
