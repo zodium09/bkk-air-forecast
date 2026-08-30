@@ -46,6 +46,16 @@ export default function Home() {
             <span className="home-topic-action">เปิดแผนที่พยากรณ์ <b aria-hidden="true">↗</b></span>
           </span>
         </a>
+
+        <a className="home-topic home-topic-heat" href="/heat" aria-label="เปิดแผนที่พยากรณ์ความร้อนและ Heat Index กรุงเทพฯ และปริมณฑล" title="เปิดพยากรณ์ความร้อนและ Heat Index">
+          <span className="home-topic-number" aria-hidden="true">03</span>
+          <span className="home-topic-copy">
+            <span className="home-topic-kicker"><i aria-hidden="true" /> HEAT OUTLOOK</span>
+            <strong>พยากรณ์ความร้อน<br />และ Heat Index</strong>
+            <small>ดูอุณหภูมิสูงสุด ดัชนีความร้อน และระดับที่ควรเฝ้าระวังล่วงหน้า 7 วัน</small>
+            <span className="home-topic-action">เปิดแผนที่พยากรณ์ <b aria-hidden="true">↗</b></span>
+          </span>
+        </a>
       </section>
 
       <footer className="home-footer">

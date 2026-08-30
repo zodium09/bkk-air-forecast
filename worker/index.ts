@@ -28,6 +28,7 @@ interface ExecutionContext {
 const CACHEABLE_API_PATHS = new Set([
   "/api/forecast",
   "/api/rain-forecast",
+  "/api/heat-forecast",
   "/api/tmd-radar",
   "/api/bangkok-boundary",
   "/api/province-boundary",

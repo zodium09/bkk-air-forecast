@@ -20,7 +20,7 @@ const executionContext = {
   passThroughOnException() {},
 };
 
-test("server-renders the two-topic BKK Air Forecast homepage", async () => {
+test("server-renders the three-topic BKK Air Forecast homepage", async () => {
   const worker = await loadWorker();
   const response = await worker.fetch(
     new Request("http://localhost/", { headers: { accept: "text/html" } }),
@@ -37,16 +37,20 @@ test("server-renders the two-topic BKK Air Forecast homepage", async () => {
   assert.match(html, /มองกรุงเทพฯ และปริมณฑล/);
   assert.match(html, /พยากรณ์ฝุ่น/);
   assert.match(html, /พยากรณ์ฝน/);
+  assert.match(html, /Heat Index/);
   assert.match(html, /href="\/air"/);
   assert.match(html, /href="\/rain"/);
+  assert.match(html, /href="\/heat"/);
   assert.match(html, /เปิดแผนที่พยากรณ์ฝุ่น PM2\.5 กรุงเทพฯ/);
   assert.match(html, /เปิดแผนที่พยากรณ์ฝนกรุงเทพฯ/);
   assert.match(html, /home-topic-air/);
   assert.match(html, /home-topic-rain/);
+  assert.match(html, /home-topic-heat/);
   assert.match(html, /LIVE OUTLOOK/);
   assert.match(html, /ภาพรวมกรุงเทพฯ–ปริมณฑล/);
   assert.match(html, /แนวโน้ม PM2\.5 7 วัน/);
   assert.match(html, /แนวโน้มฝน 7 วัน/);
+  assert.match(html, /แนวโน้ม Heat Index 7 วัน/);
   assert.match(html, /เปิดภาพรวมแนวโน้ม 7 วัน/);
   assert.doesNotMatch(html, /TMD RadarGIS/);
   assert.doesNotMatch(html, /กำลังโหลดข้อมูล|กำลังโหลดพยากรณ์ฝน/);
@@ -59,18 +63,21 @@ test("topic cards and product navigation use resilient document links", async ()
   assert.doesNotMatch(productNav, /from ["']next\/link["']/);
   assert.match(homepage, /<a className="home-topic home-topic-air" href="\/air"/);
   assert.match(homepage, /<a className="home-topic home-topic-rain" href="\/rain"/);
+  assert.match(homepage, /<a className="home-topic home-topic-heat" href="\/heat"/);
   assert.match(productNav, /<a href={`\/air\${query}`}/);
   assert.match(productNav, /<a href={`\/rain\${query}`}/);
+  assert.match(productNav, /<a href={`\/heat\${query}`}/);
 });
 
-test("homepage uses two seven-day summaries and a collapsed mobile outlook without radar", async () => {
+test("homepage uses three seven-day summaries and a collapsed mobile outlook without radar", async () => {
   const dashboard = await readFile(new URL("../app/home-dashboard.tsx", import.meta.url), "utf8");
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(dashboard, /แนวโน้ม PM2\.5 7 วัน/);
   assert.match(dashboard, /แนวโน้มฝน 7 วัน/);
+  assert.match(dashboard, /แนวโน้ม Heat Index 7 วัน/);
   assert.match(dashboard, /<details className="home-mobile-outlook">/);
   assert.doesNotMatch(dashboard, /TmdRadarPayload|\/api\/tmd-radar|home-radar-pulse/);
-  assert.match(styles, /\.home-dashboard-grid \{[^}]*grid-template-columns: repeat\(2,/);
+  assert.match(styles, /\.home-dashboard-grid \{[^}]*grid-template-columns: repeat\(3,/);
   assert.match(styles, /@media \(max-width: 780px\)[\s\S]*?\.home-dashboard \{ display: none; \}/);
   assert.match(styles, /@media \(max-width: 780px\)[\s\S]*?\.home-mobile-outlook \{[^}]*display: block;/);
 });
@@ -211,6 +218,25 @@ test("rain defaults to Bangkok with radar and weather emoji opt-in", async () =>
   assert.match(dashboard, /const \[radarEnabled, setRadarEnabled\] = useState\(false\)/);
   assert.match(dashboard, /const \[radarLoadState, setRadarLoadState\] = useState<[^>]+>\("idle"\)/);
   assert.match(homeDashboard, /href="\/rain\?province=metro"/);
+});
+
+test("server-renders the metropolitan heat forecast page", async () => {
+  const worker = await loadWorker();
+  const response = await worker.fetch(
+    new Request("http://localhost/heat", { headers: { accept: "text/html" } }),
+    environment,
+    executionContext,
+  );
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /BKK Heat Forecast/);
+  assert.match(html, /อุณหภูมิสูงสุดและ Heat Index/);
+  assert.match(html, /เลือกวันพยากรณ์/);
+  assert.match(html, /ชั้นข้อมูลบนแผนที่/);
+  assert.match(html, /Heat Index เฉลี่ยสูงสุด/);
+  assert.match(html, /กรุงเทพมหานครและปริมณฑล/);
+  assert.match(html, /href="\/air\?province=metro"/);
+  assert.match(html, /href="\/rain\?province=metro"/);
 });
 
 test("rain page provides a query-persisted 24-hour accumulation watch mode", async () => {
@@ -360,6 +386,7 @@ test("Cloudflare free architecture consolidates metro requests and normalizes ca
   const worker = await readFile(new URL("../worker/index.ts", import.meta.url), "utf8");
   const airRoute = await readFile(new URL("../app/api/forecast/route.ts", import.meta.url), "utf8");
   const rainRoute = await readFile(new URL("../app/api/rain-forecast/route.ts", import.meta.url), "utf8");
+  const heatRoute = await readFile(new URL("../app/api/heat-forecast/route.ts", import.meta.url), "utf8");
   const airDashboard = await readFile(new URL("../app/forecast-dashboard.tsx", import.meta.url), "utf8");
   const rainDashboard = await readFile(new URL("../app/rain/rain-dashboard.tsx", import.meta.url), "utf8");
   assert.match(worker, /caches\.default/);
@@ -371,6 +398,8 @@ test("Cloudflare free architecture consolidates metro requests and normalizes ca
   assert.match(worker, /X-Edge-Cache/);
   assert.match(airRoute, /createMetroForecastResponse/);
   assert.match(rainRoute, /createMetroRainForecastResponse/);
+  assert.match(worker, /\/api\/heat-forecast/);
+  assert.match(heatRoute, /createMetroHeatForecastResponse/);
   assert.doesNotMatch(airDashboard, /Promise\.allSettled\(provinces/);
   assert.doesNotMatch(rainDashboard, /Promise\.allSettled\(provinces/);
   assert.doesNotMatch(airDashboard, /query\.set\("refresh"/);

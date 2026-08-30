@@ -53,6 +53,7 @@ body:has(.home-shell) {
   justify-content: flex-start;
   align-items: center;
   overflow: visible;
+  overflow-x: clip;
   color: var(--home-navy);
   background:
     radial-gradient(ellipse at 15% 10%, rgba(14, 165, 233, 0.18), transparent 45%),
@@ -94,7 +95,7 @@ body:has(.home-shell) {
 .home-source-state { display: flex; align-items: center; gap: 7px; color: #94a3b8; font-size: 10px; font-weight: 600; }
 .home-source-state i { width: 7px; height: 7px; border-radius: 50%; background: #f59e0b; box-shadow: 0 0 0 4px rgba(245, 158, 11, .13); }
 .home-source-state i.ready { background: #34d399; box-shadow: 0 0 0 4px rgba(52, 211, 153, .13); }
-.home-dashboard-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.home-dashboard-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .home-summary-card { position: relative; min-height: 160px; padding: 18px; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) 46%; grid-template-rows: 1fr auto; gap: 8px 18px; border: 1px solid rgba(148, 163, 184, .2); border-radius: 16px; color: #f8fafc; text-decoration: none; background: linear-gradient(145deg, rgba(30, 41, 59, .9), rgba(15, 23, 42, .76)); box-shadow: 0 8px 8px -8px rgba(0, 0, 0, .8); backdrop-filter: blur(18px); transition: transform .22s, border-color .22s, background .22s; }
 .home-summary-card:hover { transform: translateY(-3px); border-color: rgba(56, 189, 248, .55); background: linear-gradient(145deg, rgba(30, 58, 75, .94), rgba(15, 23, 42, .8)); }
 .home-summary-card:focus-visible { outline: 3px solid #38bdf8; outline-offset: 3px; }
@@ -113,13 +114,14 @@ body:has(.home-shell) {
 .home-seven-day-bars em { display: none; }
 .home-mobile-outlook { display: none; }
 
-.home-topics { width: 100%; max-width: 1200px; margin: 0 auto 22px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(20px, 2.5vw, 32px); align-items: center; }
+.home-topics { width: 100%; max-width: 1200px; margin: 0 auto 22px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(14px, 1.8vw, 24px); align-items: center; }
 .home-topic { height: clamp(300px, 38vh, 390px); min-height: 300px; position: relative; isolation: isolate; overflow: hidden; display: flex; align-items: flex-end; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 28px; color: #fff; text-decoration: none; background-position: center; background-size: cover; box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.5); transform: translateZ(0); cursor: pointer; touch-action: manipulation; transition: border-color .3s, transform .3s, box-shadow .3s; }
 .home-topic::before { content: ""; position: absolute; z-index: -1; inset: 0; background: linear-gradient(90deg, rgba(7, 15, 26, 0.95) 0%, rgba(7, 15, 26, 0.75) 42%, rgba(7, 15, 26, 0.15) 85%), linear-gradient(0deg, rgba(7, 15, 26, 0.85), transparent 70%); transition: opacity .3s; }
 .home-topic::after { content: ""; position: absolute; z-index: -2; inset: 0; background: inherit; background-position: center; background-size: cover; transition: transform .6s cubic-bezier(0.16, 1, 0.3, 1); }
 .home-topic::before, .home-topic::after { pointer-events: none; }
 .home-topic-air { background-image: url("/home-air.png"); }
 .home-topic-rain { background-image: url("/home-rain.png"); }
+.home-topic-heat { background-image: radial-gradient(circle at 78% 22%, rgba(253, 224, 71, .9) 0 4%, rgba(249, 115, 22, .42) 5% 15%, transparent 35%), linear-gradient(145deg, #7c2d12 0%, #ea580c 50%, #f59e0b 100%); }
 .home-topic:hover { border-color: rgba(56, 189, 248, 0.5); transform: translateY(-4px); box-shadow: 0 30px 70px -15px rgba(2, 132, 199, 0.35); }
 .home-topic:hover::after { transform: scale(1.05); }
 .home-topic:focus-visible { outline: 4px solid #38bdf8; outline-offset: 4px; }
@@ -127,8 +129,9 @@ body:has(.home-shell) {
 .home-topic-copy { width: 100%; max-width: 480px; padding: clamp(24px, 3.5vw, 42px); display: flex; flex-direction: column; align-items: flex-start; }
 .home-topic-kicker { display: flex; align-items: center; gap: 8px; color: #a5f3fc; font-family: Manrope, sans-serif; font-size: 10px; font-weight: 800; letter-spacing: .18em; text-transform: uppercase; }
 .home-topic-rain .home-topic-kicker { color: #bae6fd; }
+.home-topic-heat .home-topic-kicker { color: #fde68a; }
 .home-topic-kicker i { width: 8px; height: 8px; border: 2px solid currentColor; border-radius: 50%; box-shadow: 0 0 10px currentColor; }
-.home-topic-copy > strong { margin-top: 12px; font-size: clamp(28px, 3.2vw, 44px); font-weight: 800; line-height: 1.1; letter-spacing: -.03em; }
+.home-topic-copy > strong { margin-top: 12px; font-size: clamp(25px, 2.5vw, 36px); font-weight: 800; line-height: 1.1; letter-spacing: -.03em; }
 .home-topic-copy > small { max-width: 380px; margin-top: 10px; color: #cbd5e1; font-size: 13px; line-height: 1.55; }
 .home-topic-action { min-height: 44px; margin-top: 20px; padding: 0 8px 0 18px; display: flex; align-items: center; gap: 12px; border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 999px; background: rgba(255, 255, 255, 0.12); font-size: 12px; font-weight: 700; backdrop-filter: blur(12px); transition: background .25s, border-color .25s, transform .25s; }
 .home-topic-action b { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: #fff; color: #0f172a; font-family: Manrope, sans-serif; font-size: 14px; font-weight: 800; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); }
@@ -136,7 +139,7 @@ body:has(.home-shell) {
 .home-footer { width: 100%; max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; gap: 20px; color: #64748b; font-size: 11px; font-weight: 500; }
 
 /* Main App Shell Layout - Single Screen Command Center */
-.app-shell, .air-shell, .rain-shell {
+.app-shell, .air-shell, .rain-shell, .heat-shell {
   width: 100%;
   height: 100dvh;
   min-height: 600px;
@@ -190,6 +193,11 @@ body:has(.home-shell) {
 .rain-banner::after { background: linear-gradient(90deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.90) 40%, rgba(240, 249, 255, 0.25) 75%, rgba(240, 249, 255, 0.05)); }
 .rain-banner .banner-kicker { color: #2563eb; }
 .rain-banner .banner-copy h1 em { color: #0284c7; background: linear-gradient(135deg, #2563eb, #0284c7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.heat-banner { background-image: radial-gradient(circle at 76% 30%, rgba(253, 224, 71, .46), transparent 12%), linear-gradient(110deg, #fff 0%, #fff7ed 54%, #fed7aa 100%); }
+.heat-banner::after { background: linear-gradient(90deg, rgba(255,255,255,.98), rgba(255,247,237,.88) 62%, rgba(254,215,170,.2)); }
+.heat-banner .banner-kicker { color: #c2410c; }
+.heat-banner .banner-copy h1 em { background: linear-gradient(135deg, #ea580c, #ca8a04); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.heat-banner .product-nav a[aria-current="page"] { background: linear-gradient(135deg, #ea580c, #d97706); box-shadow: 0 3px 10px rgba(234, 88, 12, .3); }
 
 .province-selector {
   z-index: 3;
@@ -298,7 +306,7 @@ html[data-theme="dark"] .theme-toggle-sun { display: inline; }
 .product-nav a:focus-visible, .sidebar-day-btn:focus-visible, .rain-sidebar-day-btn:focus-visible, .trend-chart button:focus-visible { outline: 3px solid #38bdf8; outline-offset: 2px; }
 
 /* Unified 3-Panel GIS Workspace (Air & Rain) */
-.workspace, .air-workspace, .rain-workspace {
+.workspace, .air-workspace, .rain-workspace, .heat-workspace {
   min-height: 0 !important;
   height: 100% !important;
   display: grid !important;
@@ -2322,4 +2330,79 @@ html[data-theme="dark"] .forecast-note.analysis-note {
   .location-chart-tooltip { min-width: 92px; padding: 6px 9px 6px 11px; }
   .location-chart-tooltip strong { font-size: 14px; }
   .location-chart-hotspots { inset: 40px 0 20px; }
+}
+
+/* Heat outlook */
+.heat-shell { background: radial-gradient(ellipse at 0% 0%, rgba(251, 146, 60, .12), transparent 42vw), radial-gradient(ellipse at 100% 100%, rgba(250, 204, 21, .08), transparent 40vw), #fffaf5; }
+.heat-control-panel { scrollbar-color: #fdba74 transparent; }
+.heat-day-btn.active { border-color: #ea580c; background: linear-gradient(135deg, #ea580c, #d97706); box-shadow: 0 4px 12px rgba(234, 88, 12, .25); }
+.heat-day-values { display: grid; justify-items: end; gap: 1px; white-space: nowrap; }
+.heat-day-values b { font: 800 12px/1 Manrope, sans-serif; }
+.heat-day-values em { font-size: 9.5px; font-style: normal; font-weight: 800; }
+.heat-metric-switch { display: grid; gap: 6px; }
+.heat-metric-switch button { min-height: 48px; padding: 7px 10px; display: grid; gap: 1px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; color: #64748b; text-align: left; cursor: pointer; }
+.heat-metric-switch button b { color: #334155; font-size: 11px; }
+.heat-metric-switch button small { font-size: 9px; }
+.heat-metric-switch button.active { border-color: #fb923c; background: #fff7ed; box-shadow: inset 3px 0 #ea580c; }
+.heat-metric-switch button.active b { color: #c2410c; }
+.heat-bars { height: 104px; display: grid; grid-template-columns: repeat(7, 1fr); align-items: stretch; gap: 3px; }
+.heat-bars button { min-width: 0; padding: 0; display: grid; grid-template-rows: 18px 1fr 17px; align-items: end; justify-items: center; border: 0; border-radius: 7px; background: transparent; color: #64748b; cursor: pointer; }
+.heat-bars button:hover, .heat-bars button.active { background: #fff7ed; }
+.heat-bars b { font: 800 8px/1 Manrope, sans-serif; }
+.heat-bars i { width: 12px; max-height: 65px; min-height: 8px; align-self: end; border-radius: 5px 5px 2px 2px; }
+.heat-bars small { align-self: center; font-size: 8px; font-weight: 800; }
+.heat-map-metric { width: 210px; border-top: 3px solid #fb923c; }
+.heat-surface-status b { color: #c2410c; }
+.heat-legend { max-width: calc(100% - 28px); flex-wrap: wrap; }
+.heat-legend i { box-shadow: none; }
+.heat-insights { grid-template-rows: auto auto minmax(0, 1fr) auto; }
+.heat-risk-card { position: relative; overflow: hidden; display: grid; justify-items: center; text-align: center; background: linear-gradient(145deg, color-mix(in srgb, var(--heat-risk) 11%, white), #fff); }
+.heat-risk-card::before { content: ""; position: absolute; width: 130px; height: 130px; top: -76px; right: -42px; border-radius: 50%; background: color-mix(in srgb, var(--heat-risk) 18%, transparent); }
+.heat-risk-card > span, .heat-dual-card > span { color: #64748b; font-size: 10px; font-weight: 700; }
+.heat-risk-card strong { margin-top: 4px; color: #0f172a; font: 800 42px/1 Manrope, sans-serif; }
+.heat-risk-card strong small { margin-left: 3px; color: #64748b; font-size: 12px; }
+.heat-risk-card > b { margin-top: 5px; padding: 4px 10px; border-radius: 999px; background: var(--heat-risk); color: #fff; font-size: 11px; }
+.heat-risk-card p { margin: 8px 0 0; color: #475569; font-size: 10px; line-height: 1.45; }
+.heat-dual-card > div { margin-top: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.heat-dual-card p { margin: 0; padding: 9px; border-radius: 10px; background: #fff7ed; }
+.heat-dual-card p small { display: block; color: #64748b; font-size: 8.5px; }
+.heat-dual-card p b { display: block; margin-top: 2px; color: #9a3412; font: 800 18px/1.2 Manrope, sans-serif; }
+.heat-dual-card em { display: block; margin-top: 7px; color: #64748b; font-size: 9px; font-style: normal; }
+.heat-hotspots { min-height: 0; overflow-y: auto; }
+.heat-hotspots ol { margin: 0; padding: 0; display: grid; list-style: none; }
+.heat-hotspots li { min-height: 34px; display: grid; grid-template-columns: minmax(0, 1fr) auto 7px; align-items: center; gap: 7px; border-bottom: 1px solid #f1f5f9; }
+.heat-hotspots li span { overflow: hidden; color: #475569; font-size: 9.5px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.heat-hotspots li b { color: #0f172a; font: 800 11px/1 Manrope, sans-serif; }
+.heat-hotspots li i { width: 7px; height: 7px; border-radius: 50%; }
+
+html[data-theme="dark"] .heat-shell { background: radial-gradient(ellipse at 0% 0%, rgba(234, 88, 12, .15), transparent 42vw), #020617; }
+html[data-theme="dark"] .heat-banner::after { background: linear-gradient(90deg, rgba(2, 6, 23, .97), rgba(15, 23, 42, .9) 72%, rgba(124, 45, 18, .45)); }
+html[data-theme="dark"] :is(.heat-risk-card, .heat-dual-card, .heat-hotspots) { border-color: #334155; background-color: #0f172a; }
+html[data-theme="dark"] .heat-risk-card { background: linear-gradient(145deg, color-mix(in srgb, var(--heat-risk) 14%, #0f172a), #0f172a); }
+html[data-theme="dark"] :is(.heat-risk-card strong, .heat-hotspots li b) { color: #f8fafc; }
+html[data-theme="dark"] :is(.heat-risk-card p, .heat-risk-card > span, .heat-dual-card > span, .heat-dual-card em, .heat-hotspots li span) { color: #94a3b8; }
+html[data-theme="dark"] .heat-dual-card p { background: #1c1917; }
+html[data-theme="dark"] .heat-dual-card p b { color: #fdba74; }
+html[data-theme="dark"] .heat-hotspots li { border-color: #1e293b; }
+html[data-theme="dark"] .heat-metric-switch button { border-color: #475569; background: #111827; }
+html[data-theme="dark"] .heat-metric-switch button b { color: #cbd5e1; }
+html[data-theme="dark"] .heat-metric-switch button.active { border-color: #fb923c; background: #292016; }
+html[data-theme="dark"] .heat-metric-switch button.active b { color: #fdba74; }
+html[data-theme="dark"] .heat-bars button:hover, html[data-theme="dark"] .heat-bars button.active { background: #292016; }
+
+@media (max-width: 1080px) and (min-width: 781px) {
+  .home-summary-card { grid-template-columns: 1fr; }
+  .home-topic-copy { padding: 24px; }
+}
+
+@media (max-width: 780px) {
+  .app-shell.heat-shell { display: flex !important; flex-direction: column !important; height: auto !important; min-height: 100dvh !important; padding: 8px 10px 16px !important; overflow: visible !important; gap: 8px !important; }
+  .heat-workspace { display: flex !important; flex-direction: column !important; height: auto !important; overflow: visible !important; gap: 8px !important; }
+  .heat-map-card { height: 58vh; min-height: 460px; order: 2; }
+  .heat-insights { height: auto; max-height: none; order: 3; overflow: visible; }
+  .heat-metric-section, .heat-trend-section { display: none; }
+  .heat-day-values { justify-items: start; }
+  .heat-legend { display: none; }
+  .heat-surface-status { top: auto; right: 12px; bottom: 12px; max-width: 180px; }
+  .heat-map-metric { width: 180px; }
 }

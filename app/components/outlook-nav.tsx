@@ -3,7 +3,7 @@ import type { RegionId } from "../lib/provinces";
 import ThemeToggle from "./theme-toggle";
 
 type OutlookNavProps = {
-  active: "air" | "rain";
+  active: "air" | "rain" | "heat";
   province?: RegionId;
 };
 
@@ -21,6 +21,10 @@ export default function OutlookNav({ active, province }: OutlookNavProps) {
       <a href={`/rain${query}`} aria-current={active === "rain" ? "page" : undefined}>
         <span aria-hidden="true">●</span>
         พยากรณ์ฝน
+      </a>
+      <a href={`/heat${query}`} aria-current={active === "heat" ? "page" : undefined}>
+        <span aria-hidden="true">☀</span>
+        ความร้อน
       </a>
       <ThemeToggle />
     </nav>
