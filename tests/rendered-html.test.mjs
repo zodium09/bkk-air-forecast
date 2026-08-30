@@ -234,9 +234,23 @@ test("server-renders the metropolitan heat forecast page", async () => {
   assert.match(html, /เลือกวันพยากรณ์/);
   assert.match(html, /ชั้นข้อมูลบนแผนที่/);
   assert.match(html, /Heat Index เฉลี่ยสูงสุด/);
+  assert.match(html, /พื้นผิว IDW/);
   assert.match(html, /กรุงเทพมหานครและปริมณฑล/);
   assert.match(html, /href="\/air\?province=metro"/);
   assert.match(html, /href="\/rain\?province=metro"/);
+});
+
+test("heat map uses a boundary-clipped IDW surface and an ImageGen cover", async () => {
+  const dashboard = await readFile(new URL("../app/heat/heat-dashboard.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const cover = await readFile(new URL("../public/home-heat.png", import.meta.url));
+  assert.match(dashboard, /spatialIdw\(lat, lng, anchors/);
+  assert.match(dashboard, /maxDistanceKm: 55/);
+  assert.match(dashboard, /maskContext\.fill\("evenodd"\)/);
+  assert.match(dashboard, /L\.imageOverlay\(surface\.url, surface\.bounds/);
+  assert.match(dashboard, /useState\(false\).*showPoints|\[showPoints, setShowPoints\] = useState\(false\)/s);
+  assert.match(styles, /\.home-topic-heat \{ background-image: url\("\/home-heat\.png"\)/);
+  assert.ok(cover.byteLength > 1_000_000);
 });
 
 test("rain page provides a query-persisted 24-hour accumulation watch mode", async () => {

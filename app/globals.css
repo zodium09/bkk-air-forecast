@@ -121,7 +121,7 @@ body:has(.home-shell) {
 .home-topic::before, .home-topic::after { pointer-events: none; }
 .home-topic-air { background-image: url("/home-air.png"); }
 .home-topic-rain { background-image: url("/home-rain.png"); }
-.home-topic-heat { background-image: radial-gradient(circle at 78% 22%, rgba(253, 224, 71, .9) 0 4%, rgba(249, 115, 22, .42) 5% 15%, transparent 35%), linear-gradient(145deg, #7c2d12 0%, #ea580c 50%, #f59e0b 100%); }
+.home-topic-heat { background-image: url("/home-heat.png"); background-position: 54% center; }
 .home-topic:hover { border-color: rgba(56, 189, 248, 0.5); transform: translateY(-4px); box-shadow: 0 30px 70px -15px rgba(2, 132, 199, 0.35); }
 .home-topic:hover::after { transform: scale(1.05); }
 .home-topic:focus-visible { outline: 4px solid #38bdf8; outline-offset: 4px; }
@@ -193,7 +193,7 @@ body:has(.home-shell) {
 .rain-banner::after { background: linear-gradient(90deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.90) 40%, rgba(240, 249, 255, 0.25) 75%, rgba(240, 249, 255, 0.05)); }
 .rain-banner .banner-kicker { color: #2563eb; }
 .rain-banner .banner-copy h1 em { color: #0284c7; background: linear-gradient(135deg, #2563eb, #0284c7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-.heat-banner { background-image: radial-gradient(circle at 76% 30%, rgba(253, 224, 71, .46), transparent 12%), linear-gradient(110deg, #fff 0%, #fff7ed 54%, #fed7aa 100%); }
+.heat-banner { background-image: url("/home-heat.png"); background-position: center 42%; }
 .heat-banner::after { background: linear-gradient(90deg, rgba(255,255,255,.98), rgba(255,247,237,.88) 62%, rgba(254,215,170,.2)); }
 .heat-banner .banner-kicker { color: #c2410c; }
 .heat-banner .banner-copy h1 em { background: linear-gradient(135deg, #ea580c, #ca8a04); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
@@ -2345,6 +2345,10 @@ html[data-theme="dark"] .forecast-note.analysis-note {
 .heat-metric-switch button small { font-size: 9px; }
 .heat-metric-switch button.active { border-color: #fb923c; background: #fff7ed; box-shadow: inset 3px 0 #ea580c; }
 .heat-metric-switch button.active b { color: #c2410c; }
+.heat-layer-panel { width: 225px; }
+.heat-layer-panel .layer-static { background: #fff7ed; color: #9a3412; }
+.heat-layer-panel .layer-static span { background: #ea580c; }
+.heat-layer-note { margin-top: -3px; color: #64748b; font-size: 8.5px; line-height: 1.4; }
 .heat-bars { height: 104px; display: grid; grid-template-columns: repeat(7, 1fr); align-items: stretch; gap: 3px; }
 .heat-bars button { min-width: 0; padding: 0; display: grid; grid-template-rows: 18px 1fr 17px; align-items: end; justify-items: center; border: 0; border-radius: 7px; background: transparent; color: #64748b; cursor: pointer; }
 .heat-bars button:hover, .heat-bars button.active { background: #fff7ed; }
