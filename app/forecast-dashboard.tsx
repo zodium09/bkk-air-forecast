@@ -16,6 +16,7 @@ import { selectMapLabelLocations } from "./lib/forecast/map-labels";
 import OutlookNav from "./components/outlook-nav";
 import ProvinceSelector from "./components/province-selector";
 import LocationForecastCard, { type LocationSelection } from "./components/location-forecast-card";
+import { MapForecastHover, useMapForecastInteraction } from "./components/map-forecast-interaction";
 import { DEFAULT_REGION_ID, METRO_REGION_ID, buildFallbackBoundary, getRegion, type RegionId } from "./lib/provinces";
 import "leaflet/dist/leaflet.css";
 import "./reliability.css";
@@ -561,10 +562,12 @@ export default function ForecastDashboard() {
     [days, stations],
   );
   const highestStation = sortedStations[0];
-  const selectedAirSeries = useMemo(() => selectedLocation ? days.map((forecastDay, index) => {
-    const value = interpolateIdw(selectedLocation.lng, selectedLocation.lat, stations, index);
+  const selectedAirSeries = useMemo(() => selectedLocation ? Array.from({ length: 16 }, (_, index) => {
+    const dayIndex = Math.floor(index / 8);
+    const hour = index % 8 * 3;
+    const value = interpolateIdw(selectedLocation.lng, selectedLocation.lat, stations, dayIndex);
     return {
-      label: forecastDay.weekday,
+      label: `${days[dayIndex]?.weekday ?? ""} ${String(hour).padStart(2, "0")}`,
       primary: value === null ? null : Math.round(value),
     };
   }) : [], [days, selectedLocation, stations]);
@@ -575,12 +578,25 @@ export default function ForecastDashboard() {
       return nearest === null || distance < nearest.distance ? { station, distance } : nearest;
     }, null);
   }, [selectedLocation, stations]);
+  const getAirSnapshot = useCallback((lat: number, lng: number) => {
+    const rawValue = interpolateIdw(lng, lat, stations, selectedDay);
+    const value = rawValue === null ? null : Math.round(rawValue);
+    const level = value === null ? { label: "ไม่มีข้อมูล", color: "#94a3b8" } : getLevel(value);
+    return { value, valueLabel: "PM2.5", unit: " µg/m³", interpretation: value === null ? "อยู่นอกระยะข้อมูล" : level.label, color: level.color };
+  }, [selectedDay, stations]);
+  const { hover: mapHover, selectedArea } = useMapForecastInteraction({
+    mapReady,
+    mapRef: mapInstanceRef,
+    selection: selectedLocation,
+    getSnapshot: getAirSnapshot,
+    onSelect: (next) => { setSelectedLocation(next); setLocationError(""); },
+  });
   const selectedLocationName = selectedLocation
-    ? nearestStation
+    ? selectedArea?.label ?? (nearestStation
       ? `บริเวณใกล้${nearestStation.station.district} · จุดอ้างอิง ${nearestStation.distance.toFixed(1)} กม.`
-      : "บริเวณตำแหน่งที่เลือก"
+      : "บริเวณตำแหน่งที่เลือก")
     : null;
-  const focusValue = selectedLocation ? selectedAirSeries[selectedDay]?.primary ?? null : mean;
+  const focusValue = selectedLocation ? getAirSnapshot(selectedLocation.lat, selectedLocation.lng).value : mean;
   const focusLevel = focusValue === null ? { label: "ไม่มีข้อมูล", color: "#94a3b8" } : getLevel(focusValue);
   const focusTitle = selectedLocation
     ? selectedLocation.source === "gps" ? "พยากรณ์ใกล้ตำแหน่งของคุณ" : "พยากรณ์ ณ จุดที่เลือก"
@@ -732,6 +748,7 @@ export default function ForecastDashboard() {
         <div className="map-card air-map-card">
           <div className="map-wrap">
             <div ref={mapElementRef} className="map" data-basemap={basemap} data-map-theme={mapTheme} role="application" aria-label={`แผนที่ PM2.5 ${selectedRegion.nameTh} พยากรณ์ล่วงหน้า ${day.lead} วัน`} />
+            <MapForecastHover hover={mapHover} />
             <div className={`map-location-tools ${selectedLocation?.source === "gps" ? "located" : ""}`}>
               <button type="button" onClick={locateMe} aria-label="ใช้ตำแหน่งของฉันบนแผนที่">
                 <span aria-hidden="true">{selectedLocation?.source === "gps" ? "●" : "◎"}</span>
@@ -812,8 +829,7 @@ export default function ForecastDashboard() {
             selection={selectedLocation}
             series={selectedAirSeries}
             placeName={selectedLocationName ?? undefined}
-            activeIndex={selectedDay}
-            onSelectIndex={setSelectedDay}
+            activeIndex={0}
             onClear={() => setSelectedLocation(null)}
           />
           <div className={`average-card ${selectedLocation ? "personal" : ""}`}>

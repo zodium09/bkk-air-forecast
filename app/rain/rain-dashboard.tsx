@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import OutlookNav from "../components/outlook-nav";
 import ProvinceSelector from "../components/province-selector";
 import LocationForecastCard, { type LocationSelection } from "../components/location-forecast-card";
+import { MapForecastHover, useMapForecastInteraction } from "../components/map-forecast-interaction";
 import {
   buildRainDayShells,
   rainAmountLevel,
@@ -791,25 +792,54 @@ export default function RainDashboard() {
   const radarFrames = radarMode === "observed" ? radarPayload?.observedFrames ?? [] : radarPayload?.nowcastFrames ?? [];
   const safeRadarFrameIndex = Math.min(radarFrameIndex, Math.max(0, radarFrames.length - 1));
   const selectedRadarFrame = radarFrames[safeRadarFrameIndex] ?? null;
-  const selectedRainSeries = useMemo(() => Array.from({ length: 8 }, (_, windowIndex) => {
+  const startDayIndex = Math.max(0, days.findIndex((forecastDay) => forecastDay.dateKey === bangkokNow.dateKey));
+  const selectedRainSeries = useMemo(() => Array.from({ length: 16 }, (_, index) => {
+    const absoluteWindow = currentWindowIndex + index;
+    const dayIndex = startDayIndex + Math.floor(absoluteWindow / 8);
+    const windowIndex = absoluteWindow % 8;
     const rainValues = points
-      .map((point) => ({ point, value: getPointValue(point, selectedDay, windowIndex, "rain") }))
+      .map((point) => ({ point, value: getPointValue(point, dayIndex, windowIndex, "rain") }))
       .filter((entry): entry is { point: RainPoint; value: number } => entry.value !== null);
     const probabilityValues = points
-      .map((point) => ({ point, value: getPointValue(point, selectedDay, windowIndex, "probability") }))
+      .map((point) => ({ point, value: getPointValue(point, dayIndex, windowIndex, "probability") }))
       .filter((entry): entry is { point: RainPoint; value: number } => entry.value !== null);
-    const label = dayWindows.find((window) => window.windowIndex === windowIndex)?.start.slice(11, 16)
-      ?? `${String(windowIndex * 3).padStart(2, "0")}:00`;
+    const label = `${days[dayIndex]?.weekday ?? ""} ${String(windowIndex * 3).padStart(2, "0")}`;
     return {
       label,
       primary: selectedLocation && rainValues.length >= 3
-        ? interpolateIdw(selectedLocation.lng, selectedLocation.lat, rainValues)
+        ? Math.round((interpolateIdw(selectedLocation.lng, selectedLocation.lat, rainValues) ?? 0) * 10) / 10
         : null,
       secondary: selectedLocation && probabilityValues.length >= 3
-        ? interpolateIdw(selectedLocation.lng, selectedLocation.lat, probabilityValues)
+        ? Math.round(interpolateIdw(selectedLocation.lng, selectedLocation.lat, probabilityValues) ?? 0)
         : null,
     };
-  }), [dayWindows, points, selectedDay, selectedLocation]);
+  }), [currentWindowIndex, days, points, selectedLocation, startDayIndex]);
+
+  const getRainSnapshot = useCallback((lat: number, lng: number) => {
+    const values = points.map((point) => ({ point, value: getPointValue(point, selectedDay, selectedWindowIndex, effectiveMetricMode) }))
+      .filter((entry): entry is { point: RainPoint; value: number } => entry.value !== null);
+    const interpolated = values.length >= 3 ? interpolateIdw(lng, lat, values) : null;
+    const value = interpolated === null ? null : effectiveMetricMode === "probability" ? Math.round(interpolated) : Math.round(interpolated * 10) / 10;
+    const level = effectiveMetricMode === "probability" ? getRainLikelihood(value) : rainAmountLevel(value);
+    const probabilityValues = points.map((point) => ({ point, value: getPointValue(point, selectedDay, selectedWindowIndex, "probability") }))
+      .filter((entry): entry is { point: RainPoint; value: number } => entry.value !== null);
+    const probability = probabilityValues.length >= 3 ? interpolateIdw(lng, lat, probabilityValues) : null;
+    return {
+      value,
+      valueLabel: effectiveMetricMode === "probability" ? "โอกาสฝน" : effectiveMetricMode === "daily-rain" ? "ฝนสะสม 24 ชม." : "ปริมาณฝน",
+      unit: effectiveMetricMode === "probability" ? "%" : " มม.",
+      secondary: effectiveMetricMode === "probability" || probability === null ? undefined : `โอกาสฝนประมาณ ${Math.round(probability)}%`,
+      interpretation: value === null ? "อยู่นอกระยะข้อมูล" : level.label,
+      color: level.color,
+    };
+  }, [effectiveMetricMode, points, selectedDay, selectedWindowIndex]);
+  const { hover: mapHover, selectedArea } = useMapForecastInteraction({
+    mapReady,
+    mapRef: mapInstanceRef,
+    selection: selectedLocation,
+    getSnapshot: getRainSnapshot,
+    onSelect: (next) => { setSelectedLocation(next); setLocationError(""); },
+  });
 
   const selectDay = (index: number) => {
     selectedDayRef.current = index;
@@ -1126,6 +1156,7 @@ export default function RainDashboard() {
         <div className="map-card rain-map-card">
           <div className="map-wrap rain-map-wrap">
             <div ref={mapElementRef} className="map rain-map" data-basemap={basemap} data-map-theme={mapTheme} role="region" aria-label={radarEnabled && selectedRadarFrame ? `แผนที่เรดาร์ฝน TMD ${selectedRegion.nameTh} ${selectedRadarFrame.label}` : viewMode === "watch" ? `แผนที่เฝ้าระวังฝนสะสม 24 ชั่วโมง ${selectedRegion.nameTh} ${day?.weekday ?? ""} ${day?.date ?? ""}` : `แผนที่พยากรณ์ฝน ${selectedRegion.nameTh} ${day?.weekday ?? ""} ${day?.date ?? ""} ${selectedWindow?.label ?? ""}`} />
+            <MapForecastHover hover={mapHover} />
             <div className="map-location-tools rain" aria-label="เครื่องมือเลือกตำแหน่งพยากรณ์ฝน">
               <button type="button" onClick={locateMe}><span aria-hidden="true">⌖</span> ตำแหน่งของฉัน</button>
               <small>{locationError || (selectedLocation ? "แตะจุดอื่นบนแผนที่เพื่อเปลี่ยน" : "แตะแผนที่เพื่อดูกราฟรายจุด")}</small>
@@ -1312,6 +1343,7 @@ export default function RainDashboard() {
               kind="rain"
               selection={selectedLocation}
               series={selectedRainSeries}
+              placeName={selectedArea?.label}
               onClear={() => {
                 setSelectedLocation(null);
                 setLocationError("");

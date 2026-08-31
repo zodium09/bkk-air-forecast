@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import OutlookNav from "../components/outlook-nav";
 import ProvinceSelector from "../components/province-selector";
+import LocationForecastCard, { type LocationSelection } from "../components/location-forecast-card";
+import { MapForecastHover, useMapForecastInteraction } from "../components/map-forecast-interaction";
 import { buildHeatDayShells, getHeatRisk, type HeatForecastPayload, type HeatPoint } from "../lib/heat-forecast-data";
 import { getBasemapConfig, getCurrentBasemapTheme, type BasemapKind, type BasemapTheme } from "../lib/basemap";
 import { spatialIdw } from "../lib/forecast/interpolation";
@@ -162,12 +164,14 @@ export default function HeatDashboard() {
   const [showPoints, setShowPoints] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [mapReady, setMapReady] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState<LocationSelection | null>(null);
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<import("leaflet").Map | null>(null);
   const tileRef = useRef<import("leaflet").TileLayer | null>(null);
   const boundaryRef = useRef<import("leaflet").GeoJSON | null>(null);
   const surfaceRef = useRef<import("leaflet").ImageOverlay | null>(null);
   const valuesRef = useRef<import("leaflet").LayerGroup | null>(null);
+  const selectedLocationRef = useRef<import("leaflet").CircleMarker | null>(null);
 
   const selectedRegion = getRegion(selectedProvinceId);
   const days = useMemo(() => payload?.days ?? buildHeatDayShells(), [payload]);
@@ -187,6 +191,7 @@ export default function HeatDashboard() {
     setSelectedProvinceId(value);
     setSelectedDay(0);
     setSelectedWindowIndex(0);
+    setSelectedLocation(null);
     setDataState("loading");
     setBoundaryState("loading");
     window.history.replaceState(null, "", `/heat?province=${value}`);
@@ -233,6 +238,7 @@ export default function HeatDashboard() {
       if (disposed || !mapElementRef.current) return;
       const L = module.default;
       const map = L.map(mapElementRef.current, { zoomControl: true, attributionControl: true, preferCanvas: true }).setView([13.78, 100.43], 9);
+      map.createPane("selectedLocationPane").style.zIndex = "680";
       mapRef.current = map;
       valuesRef.current = L.layerGroup().addTo(map);
       setMapReady(true);
@@ -246,6 +252,7 @@ export default function HeatDashboard() {
       boundaryRef.current = null;
       surfaceRef.current = null;
       valuesRef.current = null;
+      selectedLocationRef.current = null;
     };
   }, []);
 
@@ -259,6 +266,24 @@ export default function HeatDashboard() {
       tileRef.current = L.tileLayer(config.url, { attribution: config.attribution, maxZoom: config.maxZoom }).addTo(map);
     });
   }, [basemap, mapReady, mapTheme]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapReady || !map) return;
+    if (selectedLocationRef.current) {
+      map.removeLayer(selectedLocationRef.current);
+      selectedLocationRef.current = null;
+    }
+    if (!selectedLocation) return;
+    let cancelled = false;
+    import("leaflet").then((module) => {
+      if (cancelled || !mapRef.current) return;
+      selectedLocationRef.current = module.default.circleMarker([selectedLocation.lat, selectedLocation.lng], {
+        pane: "selectedLocationPane", radius: 8, color: "#ffffff", weight: 3, fillColor: "#ea580c", fillOpacity: 1,
+      }).addTo(map);
+    });
+    return () => { cancelled = true; };
+  }, [mapReady, selectedLocation]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -305,6 +330,54 @@ export default function HeatDashboard() {
   }, [boundary, boundaryState, mapReady, metric, points, selectedDay, selectedProvinceId, selectedWindowIndex, showPoints]);
 
   const hotspots = useMemo(() => [...points].map((point) => ({ point, value: pointWindow(point, selectedDay, selectedWindowIndex)?.maxHeatIndexC ?? null })).filter((item): item is { point: HeatPoint; value: number } => item.value !== null).sort((a, b) => b.value - a.value).slice(0, 5), [points, selectedDay, selectedWindowIndex]);
+  const startDayIndex = Math.max(0, days.findIndex((forecastDay) => forecastDay.dateKey === bangkokNow.dateKey));
+  const selectedHeatSeries = useMemo(() => selectedLocation ? Array.from({ length: 16 }, (_, index) => {
+    const absoluteWindow = currentWindowIndex + index;
+    const dayIndex = startDayIndex + Math.floor(absoluteWindow / 8);
+    const windowIndex = absoluteWindow % 8;
+    const heatAnchors = points.map((point) => ({ lat: point.lat, lng: point.lng, value: pointValue(point, dayIndex, windowIndex, "heat-index") }))
+      .filter((anchor): anchor is { lat: number; lng: number; value: number } => anchor.value !== null);
+    const tempAnchors = points.map((point) => ({ lat: point.lat, lng: point.lng, value: pointValue(point, dayIndex, windowIndex, "temperature") }))
+      .filter((anchor): anchor is { lat: number; lng: number; value: number } => anchor.value !== null);
+    const heat = spatialIdw(selectedLocation.lat, selectedLocation.lng, heatAnchors, { maxDistanceKm: 55, maxNeighbors: 12, minNeighbors: 3 });
+    const temperature = spatialIdw(selectedLocation.lat, selectedLocation.lng, tempAnchors, { maxDistanceKm: 55, maxNeighbors: 12, minNeighbors: 3 });
+    return {
+      label: `${days[dayIndex]?.weekday ?? ""} ${String(windowIndex * 3).padStart(2, "0")}`,
+      primary: heat === null ? null : Math.round(heat * 10) / 10,
+      secondary: temperature === null ? null : Math.round(temperature * 10) / 10,
+    };
+  }) : [], [currentWindowIndex, days, points, selectedLocation, startDayIndex]);
+  const getHeatSnapshot = useCallback((lat: number, lng: number) => {
+    const anchors = points.map((point) => ({ lat: point.lat, lng: point.lng, value: pointValue(point, selectedDay, selectedWindowIndex, metric) }))
+      .filter((anchor): anchor is { lat: number; lng: number; value: number } => anchor.value !== null);
+    const otherMetric: MetricMode = metric === "heat-index" ? "temperature" : "heat-index";
+    const otherAnchors = points.map((point) => ({ lat: point.lat, lng: point.lng, value: pointValue(point, selectedDay, selectedWindowIndex, otherMetric) }))
+      .filter((anchor): anchor is { lat: number; lng: number; value: number } => anchor.value !== null);
+    const interpolated = spatialIdw(lat, lng, anchors, { maxDistanceKm: 55, maxNeighbors: 12, minNeighbors: 3 });
+    const other = spatialIdw(lat, lng, otherAnchors, { maxDistanceKm: 55, maxNeighbors: 12, minNeighbors: 3 });
+    const value = interpolated === null ? null : Math.round(interpolated * 10) / 10;
+    const level = metric === "heat-index" ? getHeatRisk(value) : value === null
+      ? { label: "ไม่มีข้อมูล", color: "#94a3b8" }
+      : value < 30 ? { label: "อากาศค่อนข้างร้อน", color: "#facc15" }
+      : value < 34 ? { label: "อากาศร้อน", color: "#f59e0b" }
+      : value < 38 ? { label: "ร้อนจัด", color: "#f97316" }
+      : { label: "ร้อนจัดมาก", color: "#dc2626" };
+    return {
+      value,
+      valueLabel: metric === "heat-index" ? "Heat Index" : "อุณหภูมิ",
+      unit: "°C",
+      secondary: other === null ? undefined : `${otherMetric === "heat-index" ? "Heat Index" : "อุณหภูมิ"} ${other.toFixed(1)}°C`,
+      interpretation: value === null ? "อยู่นอกระยะข้อมูล" : level.label,
+      color: level.color,
+    };
+  }, [metric, points, selectedDay, selectedWindowIndex]);
+  const { hover: mapHover, selectedArea } = useMapForecastInteraction({
+    mapReady,
+    mapRef,
+    selection: selectedLocation,
+    getSnapshot: getHeatSnapshot,
+    onSelect: setSelectedLocation,
+  });
   const chartMax = Math.max(42, ...days.map((item) => item.maxHeatIndexC ?? 0));
 
   return (
@@ -371,6 +444,7 @@ export default function HeatDashboard() {
         <div className="map-card heat-map-card">
           <div className="map-wrap">
             <div ref={mapElementRef} className="map" data-basemap={basemap} data-map-theme={mapTheme} role="application" aria-label={`แผนที่พยากรณ์ความร้อน ${selectedRegion.nameTh} ${day?.weekday ?? ""} ${day?.date ?? ""} ${selectedWindow?.label ?? ""}`} />
+            <MapForecastHover hover={mapHover} />
             {dataState === "unavailable" && <div className="forecast-unavailable" role="alert"><b>ยังโหลดข้อมูลความร้อนไม่ได้</b><span>ระบบปิดค่าบนแผนที่เพื่อป้องกันความเข้าใจผิด</span><button onClick={() => { setDataState("loading"); setReloadKey((value) => value + 1); }}>ลองใหม่</button></div>}
             <div className="layer-menu">
               <button className="layer-menu-trigger" onClick={() => setLayerMenuOpen((open) => !open)} aria-expanded={layerMenuOpen} aria-label="ตั้งค่าแผนที่"><span className="layer-symbol"><i /><i /><i /></span></button>
@@ -389,6 +463,7 @@ export default function HeatDashboard() {
         </div>
 
         <aside className="insights heat-insights">
+          <LocationForecastCard kind="heat" selection={selectedLocation} series={selectedHeatSeries} placeName={selectedArea?.label} onClear={() => setSelectedLocation(null)} />
           <div className="heat-risk-card" style={{ "--heat-risk": risk.color } as React.CSSProperties}><span>ระดับสูงสุดในช่วงที่เลือก</span><strong>{selectedWindow?.pointMaxHeatIndexC ?? "—"}<small>°C</small></strong><b>{risk.label}</b><p>{risk.guidance}</p></div>
           <div className="heat-dual-card"><span>ภาพรวมช่วง {selectedWindow?.label ?? "ที่เลือก"}</span><div><p><small>อุณหภูมิเฉลี่ย</small><b>{selectedWindow?.maxTemperatureC ?? "—"}°C</b></p><p><small>Heat Index เฉลี่ย</small><b>{selectedWindow?.maxHeatIndexC ?? "—"}°C</b></p></div><em>จุดร้อนสุดประมาณ {selectedWindow?.peakHour ?? "—"}</em></div>
           <div className="heat-hotspots"><div className="panel-title"><span>พื้นที่ตัวอย่างที่ร้อนสุด</span><small>{selectedWindow?.label ?? "ตามช่วงที่เลือก"}</small></div><ol>{hotspots.map(({ point, value }) => <li key={point.id}><span>{point.label}</span><b>{value.toFixed(1)}°</b><i style={{ background: getHeatRisk(value).color }} /></li>)}</ol></div>

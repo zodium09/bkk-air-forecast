@@ -167,7 +167,10 @@ test("server-renders the Bangkok rain forecast page", async () => {
 test("map location forecasts use private geolocation and bounded IDW without storing coordinates", async () => {
   const airDashboard = await readFile(new URL("../app/forecast-dashboard.tsx", import.meta.url), "utf8");
   const rainDashboard = await readFile(new URL("../app/rain/rain-dashboard.tsx", import.meta.url), "utf8");
+  const heatDashboard = await readFile(new URL("../app/heat/heat-dashboard.tsx", import.meta.url), "utf8");
   const locationCard = await readFile(new URL("../app/components/location-forecast-card.tsx", import.meta.url), "utf8");
+  const mapInteraction = await readFile(new URL("../app/components/map-forecast-interaction.tsx", import.meta.url), "utf8");
+  const areaRoute = await readFile(new URL("../app/api/administrative-area/route.ts", import.meta.url), "utf8");
   const homeDashboard = await readFile(new URL("../app/home-dashboard.tsx", import.meta.url), "utf8");
   for (const dashboard of [airDashboard, rainDashboard]) {
     assert.match(dashboard, /navigator\.geolocation\.getCurrentPosition/);
@@ -177,6 +180,14 @@ test("map location forecasts use private geolocation and bounded IDW without sto
     assert.doesNotMatch(dashboard, /localStorage|sessionStorage/);
   }
   assert.match(locationCard, /เป็นค่าประมาณเชิงพื้นที่ใกล้ตำแหน่ง/);
+  for (const dashboard of [airDashboard, rainDashboard, heatDashboard]) {
+    assert.match(dashboard, /MapForecastHover/);
+    assert.match(dashboard, /length: 16/);
+  }
+  assert.match(mapInteraction, /mousemove/);
+  assert.match(mapInteraction, /คลิกเพื่อดูแนวโน้ม 48 ชั่วโมง/);
+  assert.match(areaRoute, /FGDS_BMA_SUBDISTRICT_POLYGON/);
+  assert.match(areaRoute, /TAM_NAM_T,AMPHOE_T,PROV_NAM_T/);
   assert.match(homeDashboard, /\/api\/forecast\?province=metro/);
   assert.match(homeDashboard, /\/api\/rain-forecast\?province=metro/);
   assert.doesNotMatch(homeDashboard, /\/api\/tmd-radar|TmdRadarPayload|home-radar-pulse/);
