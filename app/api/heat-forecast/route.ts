@@ -112,7 +112,7 @@ function aggregateRegion(points: HeatPoint[], dateKeys: string[]): { days: HeatD
         windowIndex,
         start: `${String(startHour).padStart(2, "0")}:00`,
         end: `${String(endHour).padStart(2, "0")}:00`,
-        label: `${String(startHour).padStart(2, "0")}:00–${String(endHour).padStart(2, "0")}:00 น.`,
+        label: `${String(startHour).padStart(2, "0")}.00`,
         maxTemperatureC: mean(temperatures),
         maxHeatIndexC: mean(heatIndices),
         pointMaxTemperatureC: temperatures.length ? rounded(Math.max(...temperatures)) : null,

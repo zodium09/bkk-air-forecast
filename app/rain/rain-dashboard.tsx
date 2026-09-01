@@ -1015,7 +1015,7 @@ export default function RainDashboard() {
 
             <div className="rain-sidebar-graph-wrap">
               {(() => {
-                const windows = dayWindows.length ? dayWindows : Array.from({ length: 8 }, (_, index) => ({ windowIndex: index, label: `${String(index * 3).padStart(2, "0")}:00`, areaMeanProbabilityPeak: null }));
+                const windows = dayWindows.length ? dayWindows : Array.from({ length: 8 }, (_, index) => ({ windowIndex: index, label: `${String(index * 3).padStart(2, "0")}.00`, areaMeanProbabilityPeak: null }));
                 const svgPts = windows.map((w, i) => {
                   const x = i * (240 / 7);
                   const val = w.areaMeanProbabilityPeak ?? 0;
@@ -1067,7 +1067,17 @@ export default function RainDashboard() {
 
             {/* 8-Window Time Selector 2-Column Grid */}
             <div className="rain-panel-windows" role="group" aria-label="เลือกช่วงเวลา 3 ชั่วโมง">
-              {(dayWindows.length ? dayWindows : Array.from({ length: 8 }, (_, index) => ({ windowIndex: index, label: `${String(index * 3).padStart(2, "0")}:00`, areaMeanProbabilityPeak: null }))).map((window) => {
+              {(dayWindows.length ? dayWindows : Array.from({ length: 8 }, (_, index) => {
+                const startHour = index * 3;
+                const endHour = (startHour + 3) % 24;
+                return {
+                  windowIndex: index,
+                  start: `${String(startHour).padStart(2, "0")}:00`,
+                  end: `${String(endHour).padStart(2, "0")}:00`,
+                  label: `${String(startHour).padStart(2, "0")}.00`,
+                  areaMeanProbabilityPeak: null,
+                };
+              })).map((window) => {
                 const isActive = selectedWindowIndex === window.windowIndex;
                 const val = window.areaMeanProbabilityPeak;
                 const isNow = selectedDayIsToday && window.windowIndex === currentWindowIndex;
@@ -1078,6 +1088,7 @@ export default function RainDashboard() {
                     className={`panel-window-btn ${isActive ? "active" : ""}`}
                     onClick={() => setSelectedWindowIndex(window.windowIndex)}
                     aria-pressed={isActive}
+                    aria-label={`ช่วง ${window.start} ถึง ${window.end} แนวโน้มฝน${getRainLikelihood(val).label} ${formatProbabilityContext(val, selectedDay)}`}
                     disabled={!dayWindows.length}
                     title={`ช่วง ${window.label}: แนวโน้มฝน${getRainLikelihood(val).label} · ${formatProbabilityContext(val, selectedDay)}`}
                   >

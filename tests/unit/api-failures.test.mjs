@@ -258,6 +258,8 @@ test("rain provider failover uses GFS after Best Match fails", async () => {
   assert.equal(payload.dataQuality.providerFallback, true);
   assert.equal(payload.days.length, 7);
   assert.equal(payload.windows.length, 56);
+  assert.equal(payload.windows[0].label, "00.00");
+  assert.equal(payload.windows[7].label, "21.00");
   assert.ok(payload.points.every((point) => point.daily.length === 7));
 });
 

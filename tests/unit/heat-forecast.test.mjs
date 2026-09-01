@@ -51,8 +51,8 @@ test("heat endpoint returns seven days and 56 three-hour windows for nine model 
   assert.ok(payload.points.every((point) => point.windows.length === 56));
   assert.ok(payload.days.every((day) => day.maxTemperatureC !== null && day.maxHeatIndexC !== null));
   assert.ok(payload.days[0].maxHeatIndexC > payload.days[0].maxTemperatureC);
-  assert.equal(payload.windows[0].label, "00:00–03:00 น.");
-  assert.equal(payload.windows[7].label, "21:00–00:00 น.");
+  assert.equal(payload.windows[0].label, "00.00");
+  assert.equal(payload.windows[7].label, "21.00");
   assert.ok(payload.windows[4].maxHeatIndexC > payload.windows[3].maxHeatIndexC);
   assert.equal(payload.windows[4].peakHour, "14:00 น.");
 });

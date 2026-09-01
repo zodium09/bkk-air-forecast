@@ -413,13 +413,21 @@ export default function HeatDashboard() {
               {(dayWindows.length ? dayWindows : Array.from({ length: 8 }, (_, windowIndex) => {
                 const startHour = windowIndex * 3;
                 const endHour = (startHour + 3) % 24;
-                return { windowIndex, label: `${String(startHour).padStart(2, "0")}:00–${String(endHour).padStart(2, "0")}:00 น.`, maxTemperatureC: null, maxHeatIndexC: null, pointMaxHeatIndexC: null };
+                return {
+                  windowIndex,
+                  start: `${String(startHour).padStart(2, "0")}:00`,
+                  end: `${String(endHour).padStart(2, "0")}:00`,
+                  label: `${String(startHour).padStart(2, "0")}.00`,
+                  maxTemperatureC: null,
+                  maxHeatIndexC: null,
+                  pointMaxHeatIndexC: null,
+                };
               })).map((window) => {
                 const isActive = selectedWindowIndex === window.windowIndex;
                 const isNow = selectedDayIsToday && window.windowIndex === currentWindowIndex;
                 const isPeak = window.windowIndex === peakWindowIndex;
                 const windowRisk = getHeatRisk(window.pointMaxHeatIndexC ?? window.maxHeatIndexC);
-                return <button key={window.windowIndex} className={`panel-window-btn heat-window-btn ${isActive ? "active" : ""}`} onClick={() => setSelectedWindowIndex(window.windowIndex)} aria-pressed={isActive} disabled={!dayWindows.length} title={`${window.label} · Heat Index ${window.maxHeatIndexC ?? "ไม่มีข้อมูล"} องศา`}>
+                return <button key={window.windowIndex} className={`panel-window-btn heat-window-btn ${isActive ? "active" : ""}`} onClick={() => setSelectedWindowIndex(window.windowIndex)} aria-pressed={isActive} aria-label={`ช่วง ${window.start} ถึง ${window.end} Heat Index ${window.maxHeatIndexC ?? "ไม่มีข้อมูล"} องศา`} disabled={!dayWindows.length} title={`${window.label} · Heat Index ${window.maxHeatIndexC ?? "ไม่มีข้อมูล"} องศา`}>
                   <div className="window-time-wrap"><i className="window-color-dot" style={{ backgroundColor: isActive ? "#fff" : windowRisk.color }} /><span className="window-clock">{window.label}</span></div>
                   <div className="window-val-wrap"><b className="window-prob">HI {window.maxHeatIndexC ?? "—"}°</b><small className="window-prob-secondary">{window.maxTemperatureC ?? "—"}°C</small>{isNow && <em className="badge-now">ตอนนี้</em>}{isPeak && !isNow && <em className="badge-peak">ร้อนสุด</em>}</div>
                 </button>;

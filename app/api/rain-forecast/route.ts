@@ -71,8 +71,7 @@ function mostCommon(values: number[]) {
 }
 
 function windowLabel(hour: number) {
-  const end = (hour + 3) % 24;
-  return `${String(hour).padStart(2, "0")}:00–${String(end).padStart(2, "0")}:00 น.`;
+  return `${String(hour).padStart(2, "0")}.00`;
 }
 
 function aggregatePoint(raw: OpenMeteoLocation, index: number, forecastPoints: ReturnType<typeof getRainForecastContext>["points"]): RainPoint | null {
