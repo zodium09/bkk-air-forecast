@@ -327,7 +327,7 @@ html[data-theme="dark"] .theme-toggle-sun { display: inline; }
   min-height: 0;
   overflow-y: auto;
 }
-.rain-view-mode {
+.rain-view-mode, .heat-view-mode {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 3px;
@@ -336,7 +336,7 @@ html[data-theme="dark"] .theme-toggle-sun { display: inline; }
   border-radius: 12px;
   background: #e2e8f0;
 }
-.rain-view-mode button {
+.rain-view-mode button, .heat-view-mode button {
   min-width: 0;
   min-height: 48px;
   padding: 6px 7px;
@@ -351,13 +351,14 @@ html[data-theme="dark"] .theme-toggle-sun { display: inline; }
   text-align: left;
   transition: color .18s, background .18s, box-shadow .18s;
 }
-.rain-view-mode button > span:first-child { flex: 0 0 auto; font-size: 15px; }
-.rain-view-mode button > span:last-child { min-width: 0; display: grid; }
-.rain-view-mode b { overflow: hidden; font-size: 10.5px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
-.rain-view-mode small { overflow: hidden; font-size: 8.5px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
-.rain-view-mode button[aria-pressed="true"] { background: #ffffff; color: #1d4ed8; box-shadow: 0 2px 7px rgba(15, 23, 42, .12); }
+.rain-view-mode button > span:first-child, .heat-view-mode button > span:first-child { flex: 0 0 auto; font-size: 15px; }
+.rain-view-mode button > span:last-child, .heat-view-mode button > span:last-child { min-width: 0; display: grid; }
+.rain-view-mode b, .heat-view-mode b { overflow: hidden; font-size: 10.5px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.rain-view-mode small, .heat-view-mode small { overflow: hidden; font-size: 8.5px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.rain-view-mode button[aria-pressed="true"], .heat-view-mode button[aria-pressed="true"] { background: #ffffff; color: #1d4ed8; box-shadow: 0 2px 7px rgba(15, 23, 42, .12); }
 .rain-view-mode button:last-child[aria-pressed="true"] { color: #9a3412; }
-.rain-view-mode button:focus-visible { outline: 3px solid #38bdf8; outline-offset: 2px; }
+.heat-view-mode button[aria-pressed="true"] { color: #c2410c; }
+.rain-view-mode button:focus-visible, .heat-view-mode button:focus-visible { outline: 3px solid #38bdf8; outline-offset: 2px; }
 .panel-section, .rain-panel-section {
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(16px);
@@ -2091,10 +2092,11 @@ html[data-theme="dark"] :is(.sidebar-day-btn, .rain-sidebar-day-btn, .panel-wind
   background: #111827;
   color: #cbd5e1;
 }
-html[data-theme="dark"] .rain-view-mode { border-color: #475569; background: #020617; }
-html[data-theme="dark"] .rain-view-mode button { color: #94a3b8; }
-html[data-theme="dark"] .rain-view-mode button[aria-pressed="true"] { background: #1e293b; color: #7dd3fc; }
+html[data-theme="dark"] :is(.rain-view-mode, .heat-view-mode) { border-color: #475569; background: #020617; }
+html[data-theme="dark"] :is(.rain-view-mode, .heat-view-mode) button { color: #94a3b8; }
+html[data-theme="dark"] :is(.rain-view-mode, .heat-view-mode) button[aria-pressed="true"] { background: #1e293b; color: #7dd3fc; }
 html[data-theme="dark"] .rain-view-mode button:last-child[aria-pressed="true"] { color: #fdba74; }
+html[data-theme="dark"] .heat-view-mode button[aria-pressed="true"] { color: #fdba74; }
 html[data-theme="dark"] .rain-watch-level {
   border-color: color-mix(in srgb, var(--watch-color) 38%, #334155);
   background: color-mix(in srgb, var(--watch-color) 12%, #0f172a);
@@ -2418,12 +2420,6 @@ html[data-theme="dark"] .forecast-note.analysis-note {
 .heat-window-btn.active { border-color: #ea580c; background: linear-gradient(135deg, #ea580c, #d97706); box-shadow: 0 3px 10px rgba(234, 88, 12, .28); }
 .heat-window-btn .window-clock { font-size: 9px; }
 .heat-window-btn.active .window-clock, .heat-window-btn.active .window-prob-secondary { color: #ffedd5; }
-.heat-metric-switch { display: grid; gap: 6px; }
-.heat-metric-switch button { min-height: 48px; padding: 7px 10px; display: grid; gap: 1px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; color: #64748b; text-align: left; cursor: pointer; }
-.heat-metric-switch button b { color: #334155; font-size: 11px; }
-.heat-metric-switch button small { font-size: 9px; }
-.heat-metric-switch button.active { border-color: #fb923c; background: #fff7ed; box-shadow: inset 3px 0 #ea580c; }
-.heat-metric-switch button.active b { color: #c2410c; }
 .heat-layer-panel { width: 225px; }
 .heat-layer-panel .layer-static { background: #fff7ed; color: #9a3412; }
 .heat-layer-panel .layer-static span { background: #ea580c; }
@@ -2467,10 +2463,6 @@ html[data-theme="dark"] :is(.heat-risk-card p, .heat-risk-card > span, .heat-dua
 html[data-theme="dark"] .heat-dual-card p { background: #1c1917; }
 html[data-theme="dark"] .heat-dual-card p b { color: #fdba74; }
 html[data-theme="dark"] .heat-hotspots li { border-color: #1e293b; }
-html[data-theme="dark"] .heat-metric-switch button { border-color: #475569; background: #111827; }
-html[data-theme="dark"] .heat-metric-switch button b { color: #cbd5e1; }
-html[data-theme="dark"] .heat-metric-switch button.active { border-color: #fb923c; background: #292016; }
-html[data-theme="dark"] .heat-metric-switch button.active b { color: #fdba74; }
 html[data-theme="dark"] .heat-bars button:hover, html[data-theme="dark"] .heat-bars button.active { background: #292016; }
 html[data-theme="dark"] .heat-window-btn:hover:not(:disabled) { border-color: #fb923c; background: #292016; }
 html[data-theme="dark"] .heat-window-btn.active { border-color: #fb923c; background: linear-gradient(135deg, #c2410c, #a16207); }
@@ -2485,7 +2477,7 @@ html[data-theme="dark"] .heat-window-btn.active { border-color: #fb923c; backgro
   .heat-workspace { display: flex !important; flex-direction: column !important; height: auto !important; overflow: visible !important; gap: 8px !important; }
   .heat-map-card { height: 58vh; min-height: 460px; order: 2; }
   .heat-insights { height: auto; max-height: none; order: 3; overflow: visible; }
-  .heat-metric-section, .heat-trend-section { display: none; }
+  .heat-trend-section { display: none; }
   .heat-panel-windows { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
   .heat-window-btn { min-width: 0; min-height: 43px; padding: 4px 2px; }
   .heat-window-btn .window-clock { font-size: 8px; letter-spacing: -.2px; }

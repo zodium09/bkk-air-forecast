@@ -395,6 +395,16 @@ export default function HeatDashboard() {
 
       <section className="workspace heat-workspace">
         <aside className="control-panel heat-control-panel" aria-label="เลือกวันและตัวแปรพยากรณ์ความร้อน">
+          <div className="heat-view-mode" role="group" aria-label="เลือกตัวแปรพยากรณ์ความร้อน">
+            <button type="button" onClick={() => setMetric("heat-index")} aria-pressed={metric === "heat-index"}>
+              <span aria-hidden="true">♨</span>
+              <span><b>Heat Index</b><small>ความร้อนที่ร่างกายรับรู้</small></span>
+            </button>
+            <button type="button" onClick={() => setMetric("temperature")} aria-pressed={metric === "temperature"}>
+              <span aria-hidden="true">℃</span>
+              <span><b>อุณหภูมิสูงสุด</b><small>ค่าสูงสุดในช่วง 3 ชั่วโมง</small></span>
+            </button>
+          </div>
           <div className="panel-section">
             <div className="panel-title"><span>📅 เลือกวันพยากรณ์</span><small>7 วันล่วงหน้า</small></div>
             <nav className="sidebar-days" aria-label="เลือกวันพยากรณ์">
@@ -432,13 +442,6 @@ export default function HeatDashboard() {
                   <div className="window-val-wrap"><b className="window-prob">HI {window.maxHeatIndexC ?? "—"}°</b><small className="window-prob-secondary">{window.maxTemperatureC ?? "—"}°C</small>{isNow && <em className="badge-now">ตอนนี้</em>}{isPeak && !isNow && <em className="badge-peak">ร้อนสุด</em>}</div>
                 </button>;
               })}
-            </div>
-          </div>
-          <div className="panel-section heat-metric-section">
-            <div className="panel-title"><span>🗺️ ชั้นข้อมูลบนแผนที่</span></div>
-            <div className="heat-metric-switch" role="group" aria-label="เลือกชั้นข้อมูลความร้อน">
-              <button className={metric === "heat-index" ? "active" : ""} onClick={() => setMetric("heat-index")} aria-pressed={metric === "heat-index"}><b>Heat Index</b><small>ความร้อนที่ร่างกายรับรู้</small></button>
-              <button className={metric === "temperature" ? "active" : ""} onClick={() => setMetric("temperature")} aria-pressed={metric === "temperature"}><b>อุณหภูมิสูงสุด</b><small>ค่าสูงสุดในช่วง 3 ชั่วโมง</small></button>
             </div>
           </div>
           <div className="panel-section heat-trend-section">

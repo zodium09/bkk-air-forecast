@@ -249,7 +249,9 @@ test("server-renders the metropolitan heat forecast page", async () => {
   assert.match(html, /ช่วงละ 3 ชั่วโมง/);
   assert.match(html, /00\.00/);
   assert.match(html, /21\.00/);
-  assert.match(html, /ชั้นข้อมูลบนแผนที่/);
+  assert.match(html, /เลือกตัวแปรพยากรณ์ความร้อน/);
+  assert.match(html, /heat-view-mode/);
+  assert.doesNotMatch(html, /ชั้นข้อมูลบนแผนที่/);
   assert.match(html, /Heat Index เฉลี่ยช่วงนี้/);
   assert.match(html, /พื้นผิว IDW/);
   assert.match(html, /กรุงเทพมหานครและปริมณฑล/);
