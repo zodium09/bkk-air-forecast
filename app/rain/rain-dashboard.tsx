@@ -193,6 +193,8 @@ function interpolateIdw(lng: number, lat: number, values: Array<{ point: RainPoi
     maxDistanceKm: 55,
     maxNeighbors: 12,
     minNeighbors: 3,
+    power: 1.55,
+    smoothingKm: 3.5,
   });
 }
 
@@ -1017,7 +1019,7 @@ export default function RainDashboard() {
               {(() => {
                 const windows = dayWindows.length ? dayWindows : Array.from({ length: 8 }, (_, index) => ({ windowIndex: index, label: `${String(index * 3).padStart(2, "0")}.00`, areaMeanProbabilityPeak: null }));
                 const svgPts = windows.map((w, i) => {
-                  const x = i * (240 / 7);
+                  const x = (i + 0.5) * (240 / 8);
                   const val = w.areaMeanProbabilityPeak ?? 0;
                   const y = 32 - (val / 100) * 22;
                   return { x, y };
@@ -1042,15 +1044,12 @@ export default function RainDashboard() {
                       {lineD && <path d={lineD} stroke="url(#panelLineGrad)" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />}
                     </svg>
                     <div className="rain-hourly-chart" role="group" aria-label="กราฟแนวโน้มฝนระดับพื้นที่ 24 ชั่วโมงของวันที่เลือก">
-                      {windows.map((w, i) => {
+                      {windows.map((w) => {
                         const val = w.areaMeanProbabilityPeak;
-                        const leftPct = (i / 7) * 100;
-                        const alignClass = i === 0 ? "align-left" : i === 7 ? "align-right" : "align-center";
                         return (
                           <button
                             key={w.windowIndex}
-                            className={`${selectedWindowIndex === w.windowIndex ? "active" : ""} ${alignClass}`}
-                            style={{ left: `${leftPct}%` }}
+                            className={selectedWindowIndex === w.windowIndex ? "active" : ""}
                             onClick={() => setSelectedWindowIndex(w.windowIndex)}
                             aria-label={`ช่วง ${w.label} แนวโน้มฝน${getRainLikelihood(val).label} ${formatProbabilityContext(val, selectedDay)}`}
                           >

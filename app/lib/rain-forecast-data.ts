@@ -165,8 +165,8 @@ export function aggregateMetroRain(payloads: RainForecastPayload[]): RainForecas
     province: metroRegion,
     status: payloads.length === provinces.length && payloads.every((payload) => payload.status === "live") ? "live" : "degraded",
     fetchedAt: usable.map((payload) => payload.fetchedAt).sort().at(-1) ?? primary.fetchedAt,
-    model: "Open-Meteo Best Match / GFS · 54-point metropolitan grid",
-    disclaimer: "ภาพรวมใช้ค่าเฉลี่ยเชิงพื้นที่ของกริดในแต่ละช่วง 3 ชั่วโมง รวม 54 จุดจาก 6 จังหวัด จึงไม่ใช้ค่าสูงสุดของจุดเดียวแทนทั้งพื้นที่ และไม่ใช่เรดาร์ฝนหรือประกาศเตือนภัย",
+    model: "Open-Meteo Best Match / GFS · 54 boundary-aware metropolitan samples",
+    disclaimer: "ภาพรวมใช้ค่าเฉลี่ยเชิงพื้นที่ของจุดตัวอย่างในแต่ละช่วง 3 ชั่วโมง รวม 54 จุดจาก 6 จังหวัด จึงไม่ใช้ค่าสูงสุดของจุดเดียวแทนทั้งพื้นที่ และไม่ใช่เรดาร์ฝนหรือประกาศเตือนภัย",
     sources: [...new Set(usable.flatMap((payload) => payload.sources))],
     dataQuality: {
       ...primary.dataQuality,

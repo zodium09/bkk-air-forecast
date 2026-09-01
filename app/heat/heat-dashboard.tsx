@@ -135,7 +135,7 @@ function createHeatSurface(boundary: BoundaryCollection, points: HeatPoint[], da
       const pixelIndex = (y * width + x) * 4;
       if (mask[pixelIndex + 3] === 0) continue;
       const lng = bounds.minLng + ((x + 0.5) / width) * (bounds.maxLng - bounds.minLng);
-      const value = spatialIdw(lat, lng, anchors, { maxDistanceKm: 55, maxNeighbors: 12, minNeighbors: 3, power: 2 });
+      const value = spatialIdw(lat, lng, anchors, { maxDistanceKm: 55, maxNeighbors: 12, minNeighbors: 3, power: 1.55, smoothingKm: 3.5 });
       if (value === null) continue;
       const [red, green, blue] = interpolateSurfaceColor(value, metric);
       image.data[pixelIndex] = red;
@@ -339,8 +339,8 @@ export default function HeatDashboard() {
       .filter((anchor): anchor is { lat: number; lng: number; value: number } => anchor.value !== null);
     const tempAnchors = points.map((point) => ({ lat: point.lat, lng: point.lng, value: pointValue(point, dayIndex, windowIndex, "temperature") }))
       .filter((anchor): anchor is { lat: number; lng: number; value: number } => anchor.value !== null);
-    const heat = spatialIdw(selectedLocation.lat, selectedLocation.lng, heatAnchors, { maxDistanceKm: 55, maxNeighbors: 12, minNeighbors: 3 });
-    const temperature = spatialIdw(selectedLocation.lat, selectedLocation.lng, tempAnchors, { maxDistanceKm: 55, maxNeighbors: 12, minNeighbors: 3 });
+    const heat = spatialIdw(selectedLocation.lat, selectedLocation.lng, heatAnchors, { maxDistanceKm: 55, maxNeighbors: 12, minNeighbors: 3, power: 1.55, smoothingKm: 3.5 });
+    const temperature = spatialIdw(selectedLocation.lat, selectedLocation.lng, tempAnchors, { maxDistanceKm: 55, maxNeighbors: 12, minNeighbors: 3, power: 1.55, smoothingKm: 3.5 });
     return {
       label: `${days[dayIndex]?.weekday ?? ""} ${String(windowIndex * 3).padStart(2, "0")}`,
       primary: heat === null ? null : Math.round(heat * 10) / 10,
@@ -353,8 +353,8 @@ export default function HeatDashboard() {
     const otherMetric: MetricMode = metric === "heat-index" ? "temperature" : "heat-index";
     const otherAnchors = points.map((point) => ({ lat: point.lat, lng: point.lng, value: pointValue(point, selectedDay, selectedWindowIndex, otherMetric) }))
       .filter((anchor): anchor is { lat: number; lng: number; value: number } => anchor.value !== null);
-    const interpolated = spatialIdw(lat, lng, anchors, { maxDistanceKm: 55, maxNeighbors: 12, minNeighbors: 3 });
-    const other = spatialIdw(lat, lng, otherAnchors, { maxDistanceKm: 55, maxNeighbors: 12, minNeighbors: 3 });
+    const interpolated = spatialIdw(lat, lng, anchors, { maxDistanceKm: 55, maxNeighbors: 12, minNeighbors: 3, power: 1.55, smoothingKm: 3.5 });
+    const other = spatialIdw(lat, lng, otherAnchors, { maxDistanceKm: 55, maxNeighbors: 12, minNeighbors: 3, power: 1.55, smoothingKm: 3.5 });
     const value = interpolated === null ? null : Math.round(interpolated * 10) / 10;
     const level = metric === "heat-index" ? getHeatRisk(value) : value === null
       ? { label: "ไม่มีข้อมูล", color: "#94a3b8" }

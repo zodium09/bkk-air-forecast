@@ -73,6 +73,8 @@ function interpolateIdw(lng: number, lat: number, stations: ForecastStation[], d
     maxDistanceKm: 50,
     maxNeighbors: 12,
     minNeighbors: 3,
+    power: 1.55,
+    smoothingKm: 3.5,
   });
 }
 

@@ -295,10 +295,10 @@ export async function createForecastResponse(options: ForecastHandlerOptions = {
     return Response.json({
       province: { id: province.id, nameTh: province.nameTh, shortNameTh: province.shortNameTh, nameEn: province.nameEn },
       dataMode: hasAir4Bias ? "air4thai-cams" : "cams-only", status: "degraded" satisfies ForecastStatus, issuedAt: formatIssuedAt(hasAir4Bias ? latestAir4Timestamp : now),
-      model: `CAMS Global model grid · ${province.nameEn} · ${hasAir4Bias ? "Air4Thai bias correction" : "no local bias correction"}`,
+      model: `CAMS Global boundary-aware samples · ${province.nameEn} · ${hasAir4Bias ? "Air4Thai bias correction" : "no local bias correction"}`,
       disclaimer: `ค่าล่วงหน้าของ${province.nameTh}มาจากแบบจำลอง CAMS${hasAir4Bias ? "ที่ปรับด้วยค่าตรวจวัด Air4Thai ล่าสุด" : "โดยไม่มีการปรับด้วยสถานีตรวจวัดท้องถิ่น"} คะแนนความน่าเชื่อถือเป็น heuristic ไม่ใช่ probability หรือคำแนะนำสุขภาพทางการ`,
       sources: [...(hasAir4Bias ? ["Air4Thai PCD observations"] : []), "CAMS Global via Open-Meteo", "Open-Meteo Weather Forecast", isBangkok ? "BMA GIS district boundary" : "DMR province boundary"], degradedReasons,
-      dataQuality: { upstream, acceptedStations: stations.length, air4thaiStations: freshAir4thaiRecords.length, regionalBias: Math.round(regionalBias * 10) / 10, camsMinimumCoverageHours: Math.min(...coverageByDay), camsCoverageHoursByDay: coverageByDay, weatherAvailable, qualityControl: hasAir4Bias ? "CAMS 9-point spatial grid with median Air4Thai bias correction" : "CAMS 9-point spatial grid without local station bias correction" },
+      dataQuality: { upstream, acceptedStations: stations.length, air4thaiStations: freshAir4thaiRecords.length, regionalBias: Math.round(regionalBias * 10) / 10, camsMinimumCoverageHours: Math.min(...coverageByDay), camsCoverageHoursByDay: coverageByDay, weatherAvailable, qualityControl: hasAir4Bias ? "CAMS 9-point boundary-aware sample with median Air4Thai bias correction" : "CAMS 9-point boundary-aware sample without local station bias correction" },
       days, stations,
     }, { headers: { "Cache-Control": "public, max-age=60, stale-while-revalidate=3600", "CDN-Cache-Control": "public, max-age=600, stale-while-revalidate=3600", "X-Forecast-Status": "degraded", "X-Province": province.id } });
   }

@@ -180,7 +180,7 @@ function normalizedResponse(raw: OpenMeteoHeatLocation[] | OpenMeteoHeatLocation
     province: { id: province.id, nameTh: province.nameTh, shortNameTh: province.shortNameTh, nameEn: province.nameEn },
     status,
     fetchedAt: new Date().toISOString(),
-    model: `${provider.model} · 9-point ${province.nameEn} grid`,
+    model: `${provider.model} · 9 boundary-aware ${province.nameEn} samples`,
     disclaimer: "Heat Index คำนวณจากอุณหภูมิและความชื้นสัมพัทธ์รายชั่วโมงด้วยสมการ Rothfusz ของ NOAA/NWS และจัดระดับตามเกณฑ์กรมอนามัย ใช้เพื่อวางแผนเบื้องต้น ไม่ใช่ประกาศเตือนภัย",
     sources: [provider.source, ...(provider.id === "tmd-nwp-hybrid" ? ["Open-Meteo Weather Forecast"] : []), "NOAA/NWS Heat Index equation", "กรมอนามัย กระทรวงสาธารณสุข", province.id === "bangkok" ? "BMA GIS district boundary" : "DMR province boundary", "OpenStreetMap"],
     dataQuality: { expectedPoints: forecastPoints.length, acceptedPoints: points.length, rejectedPoints: forecastPoints.length - points.length, coverageHours: Math.min(...points.map((point) => point.daily.filter((day) => day.maxHeatIndexC !== null).length * 24)), minimumHourlyCoverage: MINIMUM_HOURLY_COVERAGE, provider: provider.id, providerFallback: provider.id === "gfs" || tmdIntegration.status === "unavailable", tmdStatus: tmdIntegration.status, tmdAcceptedPoints: tmdIntegration.acceptedPoints, tmdForecastValues: tmdIntegration.forecastValues, tmdFailureReason: tmdIntegration.failureReason },

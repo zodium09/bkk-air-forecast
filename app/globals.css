@@ -542,6 +542,10 @@ html[data-theme="dark"] .theme-toggle-sun { display: inline; }
   inset: 0;
   z-index: 2;
 }
+.rain-hourly-chart {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+}
 .air-trend-nodes button, .rain-hourly-chart button {
   position: absolute;
   top: 0;
@@ -558,6 +562,12 @@ html[data-theme="dark"] .theme-toggle-sun { display: inline; }
   cursor: pointer;
   transition: background .18s, transform .18s;
 }
+.rain-hourly-chart button {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  min-width: 0;
+}
 .air-trend-nodes button.align-left, .rain-hourly-chart button.align-left { transform: translateX(0); }
 .air-trend-nodes button.align-center, .rain-hourly-chart button.align-center { transform: translateX(-50%); }
 .air-trend-nodes button.align-right, .rain-hourly-chart button.align-right { transform: translateX(-100%); }
@@ -567,10 +577,14 @@ html[data-theme="dark"] .theme-toggle-sun { display: inline; }
   background: rgba(204, 251, 241, 0.85);
   box-shadow: 0 2px 8px rgba(15, 118, 110, 0.2);
 }
-.rain-hourly-chart button:hover { background: #eff6ff; }
+.rain-hourly-chart button:hover { background: transparent; }
 .rain-hourly-chart button.active {
-  background: rgba(219, 234, 254, 0.85);
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
+  background: transparent;
+  box-shadow: none;
+}
+.rain-hourly-chart button:focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: -2px;
 }
 .trend-node-dot, .sidebar-line-dot {
   width: 7px;
@@ -603,12 +617,22 @@ html[data-theme="dark"] .theme-toggle-sun { display: inline; }
   font-weight: 700;
   line-height: 1;
 }
+.rain-hourly-chart button small {
+  min-width: 24px;
+  padding: 2px 3px;
+  border-radius: 4px;
+}
+.rain-hourly-chart button:hover small {
+  background: rgba(219, 234, 254, 0.72);
+  color: #1d4ed8;
+}
 .air-trend-nodes button.active small {
   color: #0f766e;
   font-weight: 800;
 }
 .rain-hourly-chart button.active small {
-  color: #1d4ed8;
+  background: #2563eb;
+  color: #ffffff;
   font-weight: 800;
 }
 

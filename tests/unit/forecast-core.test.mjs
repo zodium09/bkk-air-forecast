@@ -38,6 +38,18 @@ test("IDW returns the station value, a finite midpoint, and null without anchors
   assert.equal(spatialIdw(13.8, 100.6, []), null);
 });
 
+test("smoothed IDW blends nearby anchors instead of drawing a bullseye at each sample", () => {
+  const anchors = [
+    { lat: 13.75, lng: 100.50, value: 0 },
+    { lat: 13.75, lng: 100.60, value: 100 },
+    { lat: 13.85, lng: 100.50, value: 100 },
+    { lat: 13.65, lng: 100.50, value: 100 },
+  ];
+  assert.equal(spatialIdw(13.75, 100.50, anchors), 0);
+  const smoothed = spatialIdw(13.75, 100.50, anchors, { power: 1.55, smoothingKm: 3.5 });
+  assert.ok(smoothed > 10 && smoothed < 90);
+});
+
 test("bounded IDW uses nearby cross-boundary evidence and leaves unsupported areas blank", () => {
   const anchors = [
     { lat: 13.70, lng: 100.50, value: 20 },

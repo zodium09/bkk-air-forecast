@@ -247,7 +247,7 @@ function normalizedResponse(
     province: { id: province.id, nameTh: province.nameTh, shortNameTh: province.shortNameTh, nameEn: province.nameEn },
     status,
     fetchedAt: new Date().toISOString(),
-    model: `${provider.model} · 9-point ${province.nameEn} grid`,
+    model: `${provider.model} · 9 boundary-aware ${province.nameEn} samples`,
     disclaimer: "ค่าภาพรวมคือค่าเฉลี่ยเชิงพื้นที่ของจุดแบบจำลองในช่วง 3 ชั่วโมงที่สูงสุด ไม่ใช่โอกาสฝนตกทุกแห่ง ส่วนค่ารายจุดยังคงเป็นพยากรณ์เฉพาะตำแหน่ง และไม่ใช่ประกาศเตือนภัย",
     sources: [provider.source, ...(provider.id === "tmd-nwp-hybrid" ? ["Open-Meteo Weather Forecast"] : []), province.id === "bangkok" ? "BMA GIS district boundary" : "DMR province boundary", "OpenStreetMap"],
     dataQuality: {

@@ -186,7 +186,7 @@ export function aggregateMetroHeat(payloads: HeatForecastPayload[]): HeatForecas
     province: metroRegion,
     status: payloads.length === provinces.length && payloads.every((payload) => payload.status === "live") ? "live" : "degraded",
     fetchedAt: usable.map((payload) => payload.fetchedAt).sort().at(-1) ?? primary.fetchedAt,
-    model: "TMD NWP (เมื่อพร้อม) + Open-Meteo · 54-point metropolitan grid",
+    model: "TMD NWP (เมื่อพร้อม) + Open-Meteo · 54 boundary-aware metropolitan samples",
     disclaimer: "อุณหภูมิสูงสุดและ Heat Index เป็นค่าประมาณจากแบบจำลอง 54 จุดใน 6 จังหวัด ใช้เพื่อวางแผนเบื้องต้น ไม่ใช่ประกาศเตือนภัยทางการ",
     sources: [...new Set(usable.flatMap((payload) => payload.sources))],
     dataQuality: {
