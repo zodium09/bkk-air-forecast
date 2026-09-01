@@ -485,6 +485,7 @@ html[data-theme="dark"] .theme-toggle-sun { display: inline; }
   display: flex;
   align-items: baseline;
   gap: 5px;
+  min-width: 0;
 }
 .day-val-badge {
   font-family: Manrope, sans-serif;
@@ -500,13 +501,23 @@ html[data-theme="dark"] .theme-toggle-sun { display: inline; }
   white-space: nowrap;
 }
 .day-peak-time {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
   font-size: 9.5px;
   font-weight: 700;
   color: #64748b;
   white-space: nowrap;
 }
+.day-peak-window {
+  color: #0369a1;
+  font-weight: 800;
+}
 .rain-sidebar-day-btn.active .day-peak-time {
   color: #bfdbfe;
+}
+.rain-sidebar-day-btn.active .day-peak-window {
+  color: #ffffff;
 }
 .badge-trend {
   font-size: 9px;
@@ -1819,7 +1830,7 @@ html[data-theme="dark"] .theme-toggle-sun { display: inline; }
     scroll-snap-type: x proximity;
   }
   .rain-sidebar-day-btn {
-    min-width: 86px;
+    min-width: 128px;
     min-height: 44px;
     padding: 4px 7px;
     scroll-snap-align: start;
@@ -1842,10 +1853,6 @@ html[data-theme="dark"] .theme-toggle-sun { display: inline; }
     font-size: 10.5px;
   }
   .rain-sidebar-day-btn .day-peak-time {
-    max-width: 46px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
     font-size: 8.5px;
   }
   .sidebar-day-btn:hover:not(.active), .rain-sidebar-day-btn:hover:not(.active) {
@@ -2066,6 +2073,12 @@ html[data-theme="dark"] .location-card-empty,
 html[data-theme="dark"] .location-forecast-card > small,
 html[data-theme="dark"] .forecast-note small {
   color: #94a3b8;
+}
+html[data-theme="dark"] .day-peak-window {
+  color: #7dd3fc;
+}
+html[data-theme="dark"] .rain-sidebar-day-btn.active .day-peak-window {
+  color: #ffffff;
 }
 html[data-theme="dark"] :is(.province-selector, .banner-status, .product-nav, .panel-section, .rain-panel-section, .map-card, .air-map-card, .rain-map-card, .insights, .air-insights, .rain-insights, .map-metric, .rain-map-metric, .surface-status, .rain-surface-status, .legend, .rain-legend, .layer-menu-panel) {
   border-color: rgba(71, 85, 105, .78);

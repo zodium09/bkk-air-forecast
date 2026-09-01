@@ -987,7 +987,7 @@ export default function RainDashboard() {
                     aria-pressed={isActive}
                     aria-label={viewMode === "watch"
                       ? `${forecastDay.weekday} ${forecastDay.date} ระดับ${watchLevel.label} ฝนสะสมสูงสุด ${forecastDay.rainMaxMm ?? "ไม่มีข้อมูล"} มิลลิเมตร`
-                      : `${forecastDay.weekday} ${forecastDay.date} แนวโน้มฝน${likelihood.label} ฝนเฉลี่ย ${forecastDay.rainMeanMm ?? "ไม่มีข้อมูล"} มิลลิเมตร ${dayContext}`}
+                      : `${forecastDay.weekday} ${forecastDay.date} แนวโน้มฝน${likelihood.label} ช่วงเด่น ${forecastDay.peakWindow ?? "ไม่มีข้อมูล"} ฝนเฉลี่ย ${forecastDay.rainMeanMm ?? "ไม่มีข้อมูล"} มิลลิเมตร ${dayContext}`}
                   >
                     <div className="day-btn-left">
                       <b className="day-name">{forecastDay.weekday}</b>
@@ -998,7 +998,11 @@ export default function RainDashboard() {
                         {viewMode === "watch" ? watchLevel.label : likelihood.label}
                       </span>
                       <small className="day-peak-time">
-                        {forecastDay.rainMeanMm === null ? "—" : viewMode === "watch" ? `สูงสุด ${forecastDay.rainMaxMm ?? forecastDay.rainMeanMm} มม.` : `เฉลี่ย ${forecastDay.rainMeanMm} มม.`}
+                        {forecastDay.rainMeanMm === null ? "—" : viewMode === "watch" ? `สูงสุด ${forecastDay.rainMaxMm ?? forecastDay.rainMeanMm} มม.` : <>
+                          <span className="day-peak-window">{forecastDay.peakWindow ?? "—"}</span>
+                          <span aria-hidden="true">·</span>
+                          <span>{forecastDay.rainMeanMm} มม.</span>
+                        </>}
                       </small>
                     </div>
                   </button>

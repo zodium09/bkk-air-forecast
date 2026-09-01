@@ -202,8 +202,10 @@ test("rain day changes preserve the selected three-hour window and use a compact
   assert.match(selectDayHandler, /setSelectedDay\(index\)/);
   assert.doesNotMatch(selectDayHandler, /setSelectedWindowIndex/);
   assert.doesNotMatch(dashboard, /rain-day-mobile-select/);
+  assert.match(dashboard, /day-peak-window/);
+  assert.match(dashboard, /forecastDay\.peakWindow/);
   assert.match(styles, /@media \(max-width: 780px\)[\s\S]*?\.rain-sidebar-days \{[\s\S]*?scroll-snap-type: x proximity;/);
-  assert.match(styles, /\.rain-sidebar-day-btn \{[\s\S]*?min-width: 86px;[\s\S]*?min-height: 44px;/);
+  assert.match(styles, /\.rain-sidebar-day-btn \{[\s\S]*?min-width: 128px;[\s\S]*?min-height: 44px;/);
   assert.doesNotMatch(styles, /\.rain-sidebar-days \{ display: none; \}/);
 });
 
