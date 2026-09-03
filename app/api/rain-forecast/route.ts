@@ -15,10 +15,12 @@ import { fetchWithTimeout } from "../../lib/fetch-with-timeout.ts";
 import {
   buildRainForecastUrl,
   getRainForecastProvider,
+  getRainForecastSource,
   getRainForecastContext,
   rainForecastProviders,
   tmdHybridRainProvider,
   type RainForecastProviderLike,
+  type RainForecastSource,
 } from "../../lib/rain-forecast-provider.ts";
 import { buildTmdPointForecastUrls, mergeTmdRainForecast, type TmdNwpPayload } from "../../lib/tmd-nwp-provider.ts";
 
@@ -180,21 +182,24 @@ function aggregateCity(points: RainPoint[], dateKeys: string[]) {
   return { days, windows };
 }
 
-function unavailableResponse(error: unknown, provinceId: unknown) {
+function unavailableResponse(error: unknown, provinceId: unknown, requestedSource: RainForecastSource = "tmd") {
   const { province, points } = getRainForecastContext(provinceId);
   return Response.json({
     province: { id: province.id, nameTh: province.nameTh, shortNameTh: province.shortNameTh, nameEn: province.nameEn },
     status: "unavailable",
     fetchedAt: new Date().toISOString(),
-    model: "Open-Meteo Best Match / GFS",
+    model: requestedSource === "tmd" ? "TMD NWP + Open-Meteo extended range" : "Open-Meteo Best Match / GFS",
     disclaimer: "ยังโหลดค่าพยากรณ์จากแบบจำลองไม่ได้ในขณะนี้ และไม่มีการสร้างค่าฝนสำรองขึ้นมา กรุณาลองใหม่ภายหลัง",
-    sources: rainForecastProviders.map((provider) => provider.source),
+    sources: requestedSource === "tmd"
+      ? [tmdHybridRainProvider.source, ...rainForecastProviders.map((provider) => provider.source)]
+      : rainForecastProviders.map((provider) => provider.source),
     dataQuality: {
       expectedPoints: points.length,
       acceptedPoints: 0,
       coverageHours: 0,
       rejectedPoints: points.length,
       minimumHourlyCoverage: MINIMUM_HOURLY_COVERAGE,
+      requestedSource,
       providersTried: rainForecastProviders.map((provider) => provider.id),
       error: error instanceof Error ? error.message : "unknown upstream error",
     },
@@ -229,6 +234,7 @@ function normalizedResponse(
   provinceId: unknown,
   deliveryFallback = false,
   tmdIntegration: TmdIntegration = { status: "not-configured" },
+  requestedSource: RainForecastSource = "tmd",
 ) {
   const { province, points: forecastPoints } = getRainForecastContext(provinceId);
   const locations = Array.isArray(raw) ? raw : [raw];
@@ -242,12 +248,15 @@ function normalizedResponse(
   const { days, windows } = aggregateCity(points, dateKeys);
   const coverageHours = Math.min(...points.map((point) => point.windows.filter((window) => window.rainMm !== null).length * 3));
   const status = points.length === forecastPoints.length ? "live" : "degraded";
+  const model = requestedSource === "tmd" && tmdIntegration.status !== "live"
+    ? `${provider.model} (temporary TMD fallback)`
+    : provider.model;
 
   return Response.json({
     province: { id: province.id, nameTh: province.nameTh, shortNameTh: province.shortNameTh, nameEn: province.nameEn },
     status,
     fetchedAt: new Date().toISOString(),
-    model: `${provider.model} · 9 boundary-aware ${province.nameEn} samples`,
+    model: `${model} · 9 boundary-aware ${province.nameEn} samples`,
     disclaimer: "ค่าภาพรวมคือค่าเฉลี่ยเชิงพื้นที่ของจุดแบบจำลองในช่วง 3 ชั่วโมงที่สูงสุด ไม่ใช่โอกาสฝนตกทุกแห่ง ส่วนค่ารายจุดยังคงเป็นพยากรณ์เฉพาะตำแหน่ง และไม่ใช่ประกาศเตือนภัย",
     sources: [provider.source, ...(provider.id === "tmd-nwp-hybrid" ? ["Open-Meteo Weather Forecast"] : []), province.id === "bangkok" ? "BMA GIS district boundary" : "DMR province boundary", "OpenStreetMap"],
     dataQuality: {
@@ -256,8 +265,10 @@ function normalizedResponse(
       coverageHours,
       rejectedPoints: forecastPoints.length - points.length,
       minimumHourlyCoverage: MINIMUM_HOURLY_COVERAGE,
+      requestedSource,
       provider: provider.id,
-      providerFallback: provider.id === rainForecastProviders[1].id || tmdIntegration.status === "unavailable",
+      providerFallback: provider.id === rainForecastProviders[1].id
+        || (requestedSource === "tmd" && tmdIntegration.status !== "live"),
       tmdStatus: tmdIntegration.status,
       tmdAcceptedPoints: tmdIntegration.acceptedPoints,
       tmdForecastValues: tmdIntegration.forecastValues,
@@ -289,6 +300,7 @@ export async function createRainForecastResponse(options: {
   provinceId?: unknown;
   tmdToken?: string | null;
   tmdBaseUrl?: string;
+  forecastSource?: unknown;
   now?: () => number;
 } = {}) {
   const failures: string[] = [];
@@ -296,6 +308,7 @@ export async function createRainForecastResponse(options: {
   const timeoutMs = options.timeoutMs ?? 9_000;
   const { province } = getRainForecastContext(options.provinceId);
   const tmdToken = options.tmdToken === undefined ? process.env.TMD_NWP_TOKEN?.trim() : options.tmdToken?.trim();
+  const forecastSource = getRainForecastSource(options.forecastSource);
 
   for (const provider of rainForecastProviders) {
     try {
@@ -305,8 +318,10 @@ export async function createRainForecastResponse(options: {
       if (!response.ok) throw new Error(`status ${response.status}`);
       let raw = await response.json() as OpenMeteoLocation[] | OpenMeteoLocation;
       let effectiveProvider: RainForecastProviderLike = provider;
-      let tmdIntegration: TmdIntegration = { status: tmdToken ? "unavailable" : "not-configured" };
-      if (tmdToken) {
+      let tmdIntegration: TmdIntegration = {
+        status: forecastSource === "tmd" && tmdToken ? "unavailable" : "not-configured",
+      };
+      if (forecastSource === "tmd" && tmdToken) {
         try {
           const tmdPayloads = await Promise.all(buildTmdPointForecastUrls(province.id, options.tmdBaseUrl).map(async (tmdUrl) => {
             const tmdResponse = await fetchWithTimeout(fetchImpl, tmdUrl, {
@@ -326,16 +341,22 @@ export async function createRainForecastResponse(options: {
           tmdIntegration = { status: "unavailable", failureReason: tmdFailureReason(error) };
         }
       }
-      return normalizedResponse(raw, effectiveProvider, province.id, false, tmdIntegration);
+      return normalizedResponse(raw, effectiveProvider, province.id, false, tmdIntegration, forecastSource);
     } catch (error) {
       failures.push(`${provider.id}: ${error instanceof Error ? error.message : "unknown error"}`);
     }
   }
 
-  return unavailableResponse(new Error(failures.join("; ")), province.id);
+  return unavailableResponse(new Error(failures.join("; ")), province.id, forecastSource);
 }
 
-export async function createMetroRainForecastResponse(options: { fetchImpl?: typeof fetch; timeoutMs?: number } = {}) {
+export async function createMetroRainForecastResponse(options: {
+  fetchImpl?: typeof fetch;
+  timeoutMs?: number;
+  tmdToken?: string | null;
+  tmdBaseUrl?: string;
+  forecastSource?: unknown;
+} = {}) {
   const results = await Promise.allSettled(provinces.map(async (province) => {
     const response = await createRainForecastResponse({ ...options, provinceId: province.id });
     if (!response.ok) throw new Error(`${province.id} rain forecast unavailable`);
@@ -362,10 +383,12 @@ export async function createMetroRainForecastResponse(options: { fetchImpl?: typ
 }
 
 export async function GET(request: Request) {
-  const provinceId = new URL(request.url).searchParams.get("province");
+  const searchParams = new URL(request.url).searchParams;
+  const provinceId = searchParams.get("province");
+  const forecastSource = getRainForecastSource(searchParams.get("source"));
   return provinceId === METRO_REGION_ID
-    ? createMetroRainForecastResponse()
-    : createRainForecastResponse({ provinceId });
+    ? createMetroRainForecastResponse({ forecastSource })
+    : createRainForecastResponse({ provinceId, forecastSource });
 }
 export async function POST(request: Request) {
   try {
@@ -374,8 +397,8 @@ export async function POST(request: Request) {
     const body = await request.json() as { provider?: unknown; province?: unknown; raw?: unknown };
     const provider = getRainForecastProvider(body.provider);
     if (!provider || !body.raw || typeof body.raw !== "object") throw new Error("invalid fallback payload");
-    return normalizedResponse(body.raw as OpenMeteoLocation[] | OpenMeteoLocation, provider, body.province, true);
+    return normalizedResponse(body.raw as OpenMeteoLocation[] | OpenMeteoLocation, provider, body.province, true, { status: "not-configured" }, "open-meteo");
   } catch (error) {
-    return unavailableResponse(error, null);
+    return unavailableResponse(error, null, "open-meteo");
   }
 }

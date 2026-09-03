@@ -18,7 +18,13 @@ import {
   getRainLikelihood,
   getRainWatchLevel,
 } from "../lib/rain-communication";
-import { buildRainForecastUrl, rainForecastProviders } from "../lib/rain-forecast-provider";
+import {
+  DEFAULT_RAIN_FORECAST_SOURCE,
+  buildRainForecastUrl,
+  getRainForecastSource,
+  rainForecastProviders,
+  type RainForecastSource,
+} from "../lib/rain-forecast-provider";
 import { FORECAST_DAYS } from "../lib/forecast-horizon";
 import { getBasemapConfig, getCurrentBasemapTheme, type BasemapTheme } from "../lib/basemap";
 import { spatialIdw } from "../lib/forecast/interpolation";
@@ -325,11 +331,19 @@ function getPeakWindowIndex(windows: RainForecastPayload["windows"], dayIndex: n
   return peak?.windowIndex ?? 0;
 }
 
-async function fetchRainForecastPayload(provinceId: RegionId, forceRefresh = false) {
+async function fetchRainForecastPayload(
+  provinceId: RegionId,
+  forecastSource: RainForecastSource,
+  forceRefresh = false,
+) {
   let unavailablePayload: RainForecastPayload | null = null;
 
   try {
-    const query = new URLSearchParams({ horizon: String(FORECAST_DAYS), province: provinceId });
+    const query = new URLSearchParams({
+      horizon: String(FORECAST_DAYS),
+      province: provinceId,
+      source: forecastSource,
+    });
     const response = await fetch(`/api/rain-forecast?${query}`, { cache: forceRefresh ? "no-cache" : "default" });
     if (response.ok) {
       const payload = await response.json() as RainForecastPayload;
@@ -340,7 +354,7 @@ async function fetchRainForecastPayload(provinceId: RegionId, forceRefresh = fal
     // The browser-to-provider fallback below keeps the page usable during a server-side upstream outage.
   }
 
-  if (provinceId === METRO_REGION_ID) {
+  if (provinceId === METRO_REGION_ID || forecastSource === "tmd") {
     if (unavailablePayload) return unavailablePayload;
     throw new Error("metropolitan rain forecast unavailable");
   }
@@ -372,8 +386,12 @@ async function fetchRainForecastPayload(provinceId: RegionId, forceRefresh = fal
   throw new Error("rain forecast unavailable");
 }
 
-async function fetchRainRegionPayload(regionId: RegionId, forceRefresh = false) {
-  return fetchRainForecastPayload(regionId, forceRefresh);
+async function fetchRainRegionPayload(
+  regionId: RegionId,
+  forecastSource: RainForecastSource,
+  forceRefresh = false,
+) {
+  return fetchRainForecastPayload(regionId, forecastSource, forceRefresh);
 }
 async function fetchRainRegionBoundary(regionId: RegionId): Promise<{ boundary: BoundaryCollection; state: "official" | "fallback" }> {
   const url = regionId === "bangkok" ? "/api/bangkok-boundary" : `/api/province-boundary?province=${regionId}`;
@@ -396,6 +414,8 @@ async function fetchRainRegionBoundary(regionId: RegionId): Promise<{ boundary: 
 export default function RainDashboard() {
   const [selectedProvinceId, setSelectedProvinceId] = useState<RegionId>("bangkok");
   const [viewMode, setViewMode] = useState<RainViewMode>("forecast");
+  const [forecastSource, setForecastSource] = useState<RainForecastSource>(DEFAULT_RAIN_FORECAST_SOURCE);
+  const [tmdStatus, setTmdStatus] = useState<"loading" | "live" | "unavailable" | "not-configured">("loading");
   const [selectedDay, setSelectedDay] = useState(0);
   const [selectedWindowIndex, setSelectedWindowIndex] = useState(0);
   const [days, setDays] = useState(() => buildRainDayShells());
@@ -440,7 +460,7 @@ export default function RainDashboard() {
 
   const loadForecast = useCallback((forceRefresh = false) => {
     let active = true;
-    fetchRainRegionPayload(selectedProvinceId, forceRefresh)
+    fetchRainRegionPayload(selectedProvinceId, forecastSource, forceRefresh)
       .then((payload) => {
         if (!active) return;
         setDays(payload.days);
@@ -449,6 +469,7 @@ export default function RainDashboard() {
         setFetchedAt(payload.fetchedAt);
         setModel(payload.model);
         setDisclaimer(payload.disclaimer);
+        setTmdStatus(payload.dataQuality.tmdStatus ?? "not-configured");
         setDataState(payload.status);
         const bangkokNow = getBangkokDateParts();
         const activeDayIndex = Math.min(selectedDayRef.current, Math.max(0, payload.days.length - 1));
@@ -461,12 +482,13 @@ export default function RainDashboard() {
         if (!active) return;
         setPoints([]);
         setWindows([]);
+        setTmdStatus(forecastSource === "tmd" ? "unavailable" : "not-configured");
         setDataState("unavailable");
       });
     return () => {
       active = false;
     };
-  }, [selectedProvinceId]);
+  }, [forecastSource, selectedProvinceId]);
 
   useEffect(() => loadForecast(reloadKey > 0), [loadForecast, reloadKey]);
 
@@ -475,9 +497,11 @@ export default function RainDashboard() {
     const searchParams = new URLSearchParams(window.location.search);
     const requestedProvince = searchParams.get("province");
     const requestedMode = searchParams.get("mode");
+    const requestedSource = getRainForecastSource(searchParams.get("source"));
     Promise.resolve().then(() => {
       setSelectedProvinceId(requestedProvince ? getRegion(requestedProvince).id : "bangkok");
       setViewMode(requestedMode === "watch" ? "watch" : "forecast");
+      setForecastSource(requestedSource);
     });
   }, []);
 
@@ -860,14 +884,29 @@ export default function RainDashboard() {
     window.history.replaceState({}, "", url);
   };
 
+  const selectForecastSource = (source: RainForecastSource) => {
+    if (source === forecastSource) return;
+    setForecastSource(source);
+    setDataState("loading");
+    setTmdStatus(source === "tmd" ? "loading" : "not-configured");
+    setFetchedAt("");
+    setModel("กำลังเชื่อมต่อข้อมูลพยากรณ์จริง");
+    const url = new URL(window.location.href);
+    if (source === DEFAULT_RAIN_FORECAST_SOURCE) url.searchParams.delete("source");
+    else url.searchParams.set("source", source);
+    window.history.replaceState({}, "", url);
+  };
+
   const retryForecast = () => {
     setDataState("loading");
+    setTmdStatus(forecastSource === "tmd" ? "loading" : "not-configured");
     setReloadKey((value) => value + 1);
   };
 
   const selectProvince = (provinceId: RegionId) => {
     selectedDayRef.current = 0;
     setDataState("loading");
+    setTmdStatus(forecastSource === "tmd" ? "loading" : "not-configured");
     setBoundaryState("loading");
     setSelectedDay(0);
     setSelectedLocation(null);
@@ -933,6 +972,15 @@ export default function RainDashboard() {
       : dataState === "unavailable"
         ? "โหลดพยากรณ์ไม่สำเร็จ"
         : "กำลังโหลดพยากรณ์ฝน";
+  const sourceStatusLabel = forecastSource === "open-meteo"
+    ? "Best Match / GFS · ครบ 7 วัน"
+    : tmdStatus === "live"
+      ? "TMD NWP ช่วง 0–48 ชม. · Open-Meteo วันที่ 3–7"
+      : tmdStatus === "loading"
+        ? "กำลังเชื่อมต่อ TMD NWP"
+        : tmdStatus === "unavailable"
+          ? "TMD NWP ไม่พร้อม · ใช้ Open-Meteo สำรอง"
+          : "ยังไม่ตั้งค่า TMD NWP · ใช้ Open-Meteo สำรอง";
 
   return (
     <main className="app-shell rain-shell">
@@ -965,6 +1013,36 @@ export default function RainDashboard() {
               <span aria-hidden="true">≋</span>
               <span><b>เฝ้าระวังฝนสะสม</b><small>ปริมาณรวม 24 ชม.</small></span>
             </button>
+          </div>
+          <div className="rain-panel-section rain-source-section">
+            <div className="rain-panel-title">
+              <span>🌦️ แหล่งพยากรณ์ 7 วัน</span>
+              <small>เลือกชุดข้อมูล</small>
+            </div>
+            <div className="rain-source-mode" role="group" aria-label="เลือกแหล่งข้อมูลพยากรณ์ฝน 7 วัน">
+              <button
+                type="button"
+                aria-pressed={forecastSource === "tmd"}
+                onClick={() => selectForecastSource("tmd")}
+              >
+                <span className="rain-source-mark" aria-hidden="true">TMD</span>
+                <span><b>กรมอุตุฯ (TMD)</b><small>ข้อมูลหลัก 0–48 ชม.</small></span>
+              </button>
+              <button
+                type="button"
+                aria-pressed={forecastSource === "open-meteo"}
+                onClick={() => selectForecastSource("open-meteo")}
+              >
+                <span className="rain-source-mark" aria-hidden="true">OM</span>
+                <span><b>Open-Meteo</b><small>Best Match / GFS 7 วัน</small></span>
+              </button>
+            </div>
+            <p
+              className={`rain-source-status ${forecastSource === "tmd" ? tmdStatus : "live"}`}
+              aria-live="polite"
+            >
+              {sourceStatusLabel}
+            </p>
           </div>
           {/* Section 1: 7-Day Outlook Selector */}
           <div className="rain-panel-section">
@@ -1474,7 +1552,11 @@ export default function RainDashboard() {
               <b>{viewMode === "watch" ? "ภาพรวมเฝ้าระวัง 7 วัน" : "สรุปวันที่เลือก"}</b>
               {viewMode === "watch" ? `${rainWatchCount ? `พบ ${rainWatchCount} วันที่แตะระดับเฝ้าระวังขึ้นไป` : "ยังไม่พบวันที่แตะระดับเฝ้าระวัง"}${highestRainWatch ? ` วันที่สูงสุดคือ${highestRainWatch.day.weekday} ${highestRainWatch.day.date} (${highestRainWatch.level.label} ${highestRainWatch.day.rainMaxMm ?? "—"} มม.)` : ""}` : day?.dailyPeakAreaMeanProbability === null ? "ยังโหลดข้อมูลไม่ได้" : `${dailyNarrative} เด่นช่วง ${day.peakWindow ?? "—"} ปริมาณเฉลี่ย ${day.rainMeanMm ?? "—"} มม. · ${probabilityContext}${highestPoint ? ` จุดแบบจำลองที่มีปริมาณสูงสุดคือ${highestPoint.label}` : ""}`}
               <small className="rain-model-explainer">{viewMode === "watch" ? "ระดับเฝ้าระวังคำนวณจากฝนสะสมสูงสุดของจุดแบบจำลองเพื่อช่วยวางแผน ไม่ใช่ประกาศเตือนภัยจากหน่วยงานรัฐ" : "เปอร์เซ็นต์คือค่าสูงสุดของค่าเฉลี่ยจุดแบบจำลองในช่วง 3 ชั่วโมง ไม่ใช่สัดส่วนพื้นที่และไม่ยืนยันว่าจะตก ณ ตำแหน่งของคุณ"}</small>
-              <small>{model} · อัปเดต {formatFetchedAt(fetchedAt)} · {viewMode === "watch" ? "ปริมาณฝนสะสมเป็นผลรวมรายวันจากจุดแบบจำลอง และอาจต่างจากค่าตรวจวัดจริง" : disclaimer} <a href="https://open-meteo.com/en/docs" target="_blank" rel="noreferrer">ที่มาข้อมูล</a></small>
+              <small>
+                {model} · อัปเดต {formatFetchedAt(fetchedAt)} · {viewMode === "watch" ? "ปริมาณฝนสะสมเป็นผลรวมรายวันจากจุดแบบจำลอง และอาจต่างจากค่าตรวจวัดจริง" : disclaimer} · ที่มาข้อมูล:{" "}
+                {forecastSource === "tmd" && <><a href="https://www.tmd.go.th/service/serviceData" target="_blank" rel="noreferrer">กรมอุตุนิยมวิทยา</a> · </>}
+                <a href="https://open-meteo.com/en/docs" target="_blank" rel="noreferrer">Open-Meteo</a>
+              </small>
             </p>
           </div>
         </aside>

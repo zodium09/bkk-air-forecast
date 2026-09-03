@@ -5,10 +5,10 @@ BKK Air Forecast is a Bangkok-metropolitan web application for viewing seven-day
 ## Features
 
 - Seven-day PM2.5 outlook with Bangkok station observations, province model grids, and spatial IDW surfaces
-- Seven-day rain outlook with 3-hour windows, probability and rain-amount views
+- Seven-day rain outlook with 3-hour windows, probability and rain-amount views, plus a user-selectable TMD/Open-Meteo source mode
 - Province selector shared across air and rain views, defaulting to the six-province metropolitan overview
 - Optional TMD RadarGIS observed and 0–3 hour nowcast layers
-- Optional authenticated TMD NWP rainfall overlay (`TMD_NWP_TOKEN`) with Open-Meteo/GFS fallback
+- Optional authenticated TMD NWP rainfall mode (`TMD_NWP_TOKEN`) with an explicit Open-Meteo/GFS mode and transparent fallback status
 - Explicit `live`, `degraded`, and `unavailable` data states
 - Upstream timeout handling, quality-control summaries, and safe no-data behavior
 - Responsive Leaflet maps with bounded surface caches
@@ -31,7 +31,7 @@ The default metropolitan views call one consolidated forecast endpoint and one c
 - **BMA GIS:** official Bangkok district boundary when available.
 - **Department of Mineral Resources GIS:** official province boundaries for the five metropolitan provinces.
 - **TMD RadarGIS:** observed radar and short-range nowcast image layers.
-- **TMD NWP:** authenticated 3 km hourly rainfall values for the first 48 hours when `TMD_NWP_TOKEN` is configured. Open-Meteo supplies probability fields, fills missing periods, and extends the outlook to seven days.
+- **TMD NWP:** selectable authenticated 3 km hourly rainfall values for the first 48 hours when `TMD_NWP_TOKEN` is configured. Open-Meteo supplies probability fields, fills missing periods, and extends the outlook to seven days. Users can switch to a separate Open-Meteo-only seven-day mode from the rain page.
 - **OpenStreetMap:** basemap tiles.
 
 ## PM2.5 Forecast Method

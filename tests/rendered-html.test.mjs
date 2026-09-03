@@ -293,6 +293,18 @@ test("rain page provides a query-persisted 24-hour accumulation watch mode", asy
   assert.match(styles, /\.rain-watch-summary/);
 });
 
+test("rain page lets users switch the seven-day forecast between TMD and Open-Meteo", async () => {
+  const dashboard = await readFile(new URL("../app/rain/rain-dashboard.tsx", import.meta.url), "utf8");
+  const route = await readFile(new URL("../app/api/rain-forecast/route.ts", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(dashboard, /แหล่งพยากรณ์ 7 วัน/);
+  assert.match(dashboard, /selectForecastSource\("tmd"\)/);
+  assert.match(dashboard, /selectForecastSource\("open-meteo"\)/);
+  assert.match(dashboard, /source: forecastSource/);
+  assert.match(route, /getRainForecastSource\(searchParams\.get\("source"\)\)/);
+  assert.match(styles, /\.rain-source-mode/);
+});
+
 test("rain palette is white to cyan, blue, and purple without green", async () => {
   const dashboard = await readFile(new URL("../app/rain/rain-dashboard.tsx", import.meta.url), "utf8");
   const probabilityStops = dashboard.match(/const probabilityStops = \[[\s\S]*?\n\];/)?.[0] ?? "";

@@ -6,6 +6,10 @@ export const rainForecastProviders = [
   { id: "gfs", url: "https://api.open-meteo.com/v1/gfs", model: "Open-Meteo GFS Seamless", source: "Open-Meteo GFS Forecast" },
 ] as const;
 
+export const rainForecastSources = ["tmd", "open-meteo"] as const;
+export type RainForecastSource = (typeof rainForecastSources)[number];
+export const DEFAULT_RAIN_FORECAST_SOURCE: RainForecastSource = "tmd";
+
 export type RainForecastProvider = (typeof rainForecastProviders)[number];
 export type RainForecastProviderLike = { id: string; url: string; model: string; source: string };
 export type RainForecastProviderId = RainForecastProvider["id"];
@@ -13,7 +17,7 @@ export type RainForecastProviderId = RainForecastProvider["id"];
 export const tmdHybridRainProvider: RainForecastProviderLike = {
   id: "tmd-nwp-hybrid",
   url: "https://data.tmd.go.th/nwpapi/v1/forecast/location/hourly/at",
-  model: "TMD NWP 3 km (0–48h) + Open-Meteo probability and extended-range fallback",
+  model: "TMD NWP 3 km (0–48h) + Open-Meteo (days 3–7)",
   source: "กรมอุตุนิยมวิทยา (TMD NWP)",
 };
 
@@ -38,4 +42,8 @@ export function getRainForecastContext(value: unknown) {
 
 export function getRainForecastProvider(id: unknown) {
   return rainForecastProviders.find((provider) => provider.id === id) ?? null;
+}
+
+export function getRainForecastSource(value: unknown): RainForecastSource {
+  return rainForecastSources.find((source) => source === value) ?? DEFAULT_RAIN_FORECAST_SOURCE;
 }

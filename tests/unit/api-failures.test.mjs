@@ -249,6 +249,24 @@ test("TMD NWP failure falls back to Open-Meteo without hiding the forecast", asy
   assert.equal(payload.points.length, 9);
 });
 
+test("Open-Meteo rain mode bypasses TMD even when a TMD token is configured", async () => {
+  const requested = [];
+  const payload = await (await createRainForecastResponse({
+    forecastSource: "open-meteo",
+    tmdToken: "configured-token",
+    fetchImpl: async (input) => {
+      requested.push(String(input));
+      return json(rainRaw(9));
+    },
+  })).json();
+  assert.equal(payload.status, "live");
+  assert.equal(payload.dataQuality.requestedSource, "open-meteo");
+  assert.equal(payload.dataQuality.provider, "best-match");
+  assert.equal(payload.dataQuality.providerFallback, false);
+  assert.equal(payload.dataQuality.tmdStatus, "not-configured");
+  assert.equal(requested.some((url) => url.includes("data.tmd.go.th")), false);
+});
+
 test("rain provider failover uses GFS after Best Match fails", async () => {
   let calls = 0;
   const response = await createRainForecastResponse({ fetchImpl: async () => ++calls === 1 ? json({}, 500) : json(rainRaw(9)) });
