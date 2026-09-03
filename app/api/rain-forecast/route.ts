@@ -379,7 +379,9 @@ export async function createRainForecastResponse(options: {
             status: "live",
             acceptedPoints: merged.acceptedPoints,
             forecastValues: merged.forecastValues,
-            cadenceHours: "cadenceHours" in merged ? merged.cadenceHours : null,
+            cadenceHours: "cadenceHours" in merged && typeof merged.cadenceHours === "number"
+              ? merged.cadenceHours
+              : null,
             product: forecastMode === "accumulation" ? "daily-7d" : "hourly-48h",
           };
         } catch (error) {
