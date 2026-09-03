@@ -1520,7 +1520,11 @@ export default function RainDashboard() {
                   aria-label={viewMode === "watch" ? `${days[index]?.weekday ?? "วัน"} ${days[index]?.date ?? ""} ${watchLevel.label} ฝนสะสมสูงสุด ${days[index]?.rainMaxMm ?? "—"} มิลลิเมตร` : `${days[index]?.weekday ?? "วัน"} ${days[index]?.date ?? ""} แนวโน้มฝน${getRainLikelihood(days[index]?.dailyPeakAreaMeanProbability).label} ${formatProbabilityContext(days[index]?.dailyPeakAreaMeanProbability, index)}`}
                   aria-pressed={selectedDay === index}
                 >
-                  <span>{viewMode === "watch" ? `${days[index]?.rainMaxMm ?? "—"}` : getRainLikelihood(days[index]?.dailyPeakAreaMeanProbability).label}</span>
+                  <span>{viewMode === "watch"
+                    ? `${days[index]?.rainMaxMm ?? "—"}`
+                    : days[index]?.dailyPeakAreaMeanProbability === null
+                      ? "—"
+                      : `${Math.round(value)}%`}</span>
                   <i style={{ height: `${viewMode === "watch" ? Math.max(8, Math.min(100, (value / 90) * 100)) : Math.max(8, value)}%`, background: viewMode === "watch" ? watchLevel.color : "linear-gradient(#4fc3e1, #3156ad)" }} />
                   <small>{days[index]?.weekday.slice(0, 2)}</small>
                 </button>

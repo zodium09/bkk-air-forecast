@@ -305,6 +305,17 @@ test("rain page lets users switch the seven-day forecast between TMD and Open-Me
   assert.match(styles, /\.rain-source-mode/);
 });
 
+test("rain insight cards flow below the seven-day chart without shrinking", async () => {
+  const dashboard = await readFile(new URL("../app/rain/rain-dashboard.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(styles, /\.rain-insights \{[\s\S]*?display: flex;[\s\S]*?flex-direction: column;[\s\S]*?overflow-y: auto;/);
+  assert.match(styles, /\.rain-insights > div \{ flex: 0 0 auto; \}/);
+  assert.match(styles, /\.rain-trend-card \.trend-heading \{[\s\S]*?display: grid;/);
+  assert.match(styles, /\.rain-watch-card \{ overflow: visible; \}/);
+  assert.match(styles, /\.rain-watch-card li > span \{[\s\S]*?text-overflow: ellipsis;/);
+  assert.match(dashboard, /`\$\{Math\.round\(value\)\}%`/);
+});
+
 test("rain palette is white to cyan, blue, and purple without green", async () => {
   const dashboard = await readFile(new URL("../app/rain/rain-dashboard.tsx", import.meta.url), "utf8");
   const probabilityStops = dashboard.match(/const probabilityStops = \[[\s\S]*?\n\];/)?.[0] ?? "";
