@@ -1,4 +1,5 @@
 import { FORECAST_DAYS } from "./forecast-horizon.ts";
+import type { HeatForecastSource } from "./heat-forecast-provider.ts";
 import { metroRegion, provinces, type RegionId } from "./provinces.ts";
 
 export type HeatStatus = "live" | "degraded" | "unavailable";
@@ -65,6 +66,7 @@ export type HeatForecastPayload = {
     coverageHours: number;
     rejectedPoints?: number;
     minimumHourlyCoverage?: number;
+    requestedSource?: HeatForecastSource;
     provider?: string;
     providerFallback?: boolean;
     tmdStatus?: "live" | "unavailable" | "not-configured";
@@ -181,16 +183,36 @@ export function aggregateMetroHeat(payloads: HeatForecastPayload[]): HeatForecas
       peakHour: hottest?.peakHour ?? null,
     };
   });
+  const requestedSource = primary.dataQuality.requestedSource ?? "tmd";
+  const liveTmdPayloads = usable.filter((payload) => payload.dataQuality.tmdStatus === "live");
+  const tmdStatus = requestedSource === "open-meteo"
+    ? "not-configured"
+    : liveTmdPayloads.length === usable.length
+      ? "live"
+      : liveTmdPayloads.length || usable.some((payload) => payload.dataQuality.tmdStatus === "unavailable")
+        ? "unavailable"
+        : "not-configured";
+  const model = requestedSource === "open-meteo"
+    ? "Open-Meteo Best Match / GFS · 54 boundary-aware metropolitan samples"
+    : tmdStatus === "live"
+      ? "TMD NWP 3 km (0–48h) + Open-Meteo (days 3–7) · 54 boundary-aware metropolitan samples"
+      : "Open-Meteo Best Match / GFS (temporary TMD fallback) · 54 boundary-aware metropolitan samples";
   return {
     ...primary,
     province: metroRegion,
     status: payloads.length === provinces.length && payloads.every((payload) => payload.status === "live") ? "live" : "degraded",
     fetchedAt: usable.map((payload) => payload.fetchedAt).sort().at(-1) ?? primary.fetchedAt,
-    model: "TMD NWP (เมื่อพร้อม) + Open-Meteo · 54 boundary-aware metropolitan samples",
+    model,
     disclaimer: "อุณหภูมิสูงสุดและ Heat Index เป็นค่าประมาณจากแบบจำลอง 54 จุดใน 6 จังหวัด ใช้เพื่อวางแผนเบื้องต้น ไม่ใช่ประกาศเตือนภัยทางการ",
     sources: [...new Set(usable.flatMap((payload) => payload.sources))],
     dataQuality: {
       ...primary.dataQuality,
+      requestedSource,
+      provider: requestedSource === "tmd" && liveTmdPayloads.length ? "tmd-nwp-hybrid" : primary.dataQuality.provider,
+      providerFallback: usable.some((payload) => payload.dataQuality.providerFallback),
+      tmdStatus,
+      tmdAcceptedPoints: usable.reduce((sum, payload) => sum + (payload.dataQuality.tmdAcceptedPoints ?? 0), 0),
+      tmdForecastValues: usable.reduce((sum, payload) => sum + (payload.dataQuality.tmdForecastValues ?? 0), 0),
       expectedPoints: usable.reduce((sum, payload) => sum + payload.dataQuality.expectedPoints, 0),
       acceptedPoints: usable.reduce((sum, payload) => sum + payload.dataQuality.acceptedPoints, 0),
       rejectedPoints: usable.reduce((sum, payload) => sum + (payload.dataQuality.rejectedPoints ?? 0), 0),

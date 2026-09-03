@@ -49,7 +49,7 @@ export default function HomeDashboard() {
     let active = true;
     Promise.allSettled([
       fetch("/api/forecast?province=metro").then((response) => response.ok ? response.json() : Promise.reject()),
-      fetch("/api/rain-forecast?province=metro").then((response) => response.ok ? response.json() : Promise.reject()),
+      fetch("/api/rain-forecast?province=metro&source=open-meteo&mode=chance").then((response) => response.ok ? response.json() : Promise.reject()),
       fetch("/api/heat-forecast?province=metro").then((response) => response.ok ? response.json() : Promise.reject()),
     ]).then(([airResult, rainResult, heatResult]) => {
       if (!active) return;
@@ -63,9 +63,9 @@ export default function HomeDashboard() {
   const airMeans = useMemo(() => air?.days.map((_, dayIndex) => mean(air.stations.map((station) => station.values[dayIndex]))) ?? [], [air]);
   const airToday = airMeans[0] ?? null;
   const airLevel = airToday === null ? { label: "รอข้อมูล", color: "#94a3b8" } : getLevel(airToday);
-  const rainProbabilities = rain?.days.map((day) => day.dailyPeakAreaMeanProbability) ?? [];
+  const rainProbabilities = rain?.days.map((day) => day.dailyAreaMeanProbability) ?? [];
   const rainToday = rain?.days[0] ?? null;
-  const rainLikelihood = getRainLikelihood(rainToday?.dailyPeakAreaMeanProbability);
+  const rainLikelihood = getRainLikelihood(rainToday?.dailyAreaMeanProbability);
   const airDayLabels = air?.days.map((day) => day.weekday.slice(0, 2)) ?? [];
   const rainDayLabels = rain?.days.map((day) => day.weekday.slice(0, 2)) ?? [];
   const airColors = airMeans.map((value) => value === null ? "#64748b" : getLevel(value).color);

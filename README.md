@@ -5,10 +5,11 @@ BKK Air Forecast is a Bangkok-metropolitan web application for viewing seven-day
 ## Features
 
 - Seven-day PM2.5 outlook with Bangkok station observations, province model grids, and spatial IDW surfaces
-- Seven-day rain outlook with 3-hour windows, probability and rain-amount views, plus a user-selectable TMD/Open-Meteo source mode
+- Rain outlook split into a chance mode (TMD-assisted 0–48 hours or Open-Meteo 7 days) and a 24-hour accumulation mode (TMD Daily or Open-Meteo 7 days)
+- Seven-day heat outlook with 3-hour windows and a user-selectable TMD/Open-Meteo source mode
 - Province selector shared across air and rain views, defaulting to the six-province metropolitan overview
 - Optional TMD RadarGIS observed and 0–3 hour nowcast layers
-- Optional authenticated TMD NWP rainfall mode (`TMD_NWP_TOKEN`) with an explicit Open-Meteo/GFS mode and transparent fallback status
+- Optional authenticated TMD NWP rain and heat mode (`TMD_NWP_TOKEN`) for the first 48 hours, with an explicit Open-Meteo/GFS seven-day mode and transparent fallback status
 - Explicit `live`, `degraded`, and `unavailable` data states
 - Upstream timeout handling, quality-control summaries, and safe no-data behavior
 - Responsive Leaflet maps with bounded surface caches
@@ -17,7 +18,7 @@ BKK Air Forecast is a Bangkok-metropolitan web application for viewing seven-day
 
 The application uses React 19 and vinext with file-based routes under `app/`. Server routes adapt upstream sources into stable JSON contracts. Pure PM2.5 logic lives under `app/lib/forecast/` so timestamps, quality control, interpolation, CAMS aggregation, bias correction, and reliability scoring can be tested without network access.
 
-The browser renders Leaflet base maps and generates clipped raster IDW surfaces. Generated PM2.5 surfaces are cached by day, station-data version, and boundary version. Rain surfaces use a 24-entry LRU-style cache keyed by day, 3-hour window, metric, data version, and boundary version.
+The browser renders Leaflet base maps and generates clipped raster IDW surfaces. Generated PM2.5 surfaces are cached by day, station-data version, and boundary version. Rain surfaces use a 24-entry LRU-style cache keyed by day, 3-hour window, metric, data version, and boundary version. Daily rain-chance summaries use the mean of available hourly probabilities across the model points; peak probability is retained only for the three-hour timeline.
 
 The default metropolitan views call one consolidated forecast endpoint and one consolidated boundary endpoint instead of six province endpoints. Successful public-data responses are stored in Cloudflare Cache API with normalized cache keys: PM2.5 for 10 minutes, rain for 30 minutes, radar for 5 minutes, and boundaries for 7 days. Client-generated refresh values are excluded from cache keys, and Air4Thai downloads are deduplicated within each metropolitan refresh. This design requires no D1, KV, R2, or paid add-on.
 
@@ -31,7 +32,7 @@ The default metropolitan views call one consolidated forecast endpoint and one c
 - **BMA GIS:** official Bangkok district boundary when available.
 - **Department of Mineral Resources GIS:** official province boundaries for the five metropolitan provinces.
 - **TMD RadarGIS:** observed radar and short-range nowcast image layers.
-- **TMD NWP:** selectable authenticated 3 km hourly rainfall values for the first 48 hours when `TMD_NWP_TOKEN` is configured. Open-Meteo supplies probability fields, fills missing periods, and extends the outlook to seven days. Users can switch to a separate Open-Meteo-only seven-day mode from the rain page.
+- **TMD NWP:** selectable authenticated 3 km hourly rainfall, temperature, and relative-humidity values for the first 48 hours when `TMD_NWP_TOKEN` is configured. The rain accumulation mode separately uses TMD Daily `rain` totals for all seven days. Open-Meteo supplies precipitation probability and supporting fields, and can be selected as a separate seven-day source on the rain and heat pages.
 - **OpenStreetMap:** basemap tiles.
 
 ## PM2.5 Forecast Method
@@ -42,7 +43,7 @@ The PM2.5 surface is an interpolation, not a direct measurement at every pixel o
 
 ## Rain Forecast Method
 
-Rain values come from nine boundary-aware model samples distributed inside each selected province; the metropolitan view combines all 54 points into one continuous surface and clips it to the six official boundaries. When configured, three concurrent server-side TMD NWP point requests per province supply 3 km hourly rainfall amounts for the first 48 hours and are mapped to the nearest display samples; Open-Meteo supplies precipitation probability, fills missing TMD periods, and extends the outlook to seven days. Hourly values are aggregated into eight 3-hour windows per day. Point probabilities remain local to their samples, while province and metropolitan summaries use the spatial mean for each 3-hour window and report the day's highest area-mean window. This prevents one isolated 100% value from being described as 100% for the whole province or metropolitan region. The display surface uses regularized IDW with a 3.5 km smoothing distance, the nearest 12 points within 55 km, and transparent unsupported pixels. The optional TMD RadarGIS layer is displayed separately and keeps observed frames available when the nowcast feed is temporarily incomplete.
+Rain values come from nine boundary-aware model samples distributed inside each selected province; the metropolitan view combines all 54 points into one continuous surface and clips it to the six official boundaries. Chance mode uses TMD NWP rainfall signals only for the first 48 hours when selected, while probability percentages come from Open-Meteo; the Open-Meteo source mode exposes all seven days. Its daily probability summary is the mean across available hours and sample points, not the daily maximum. Accumulation mode uses TMD Daily `rain` totals or Open-Meteo daily totals for all seven days. The display surface uses regularized IDW with a 3.5 km smoothing distance, the nearest 12 points within 55 km, and transparent unsupported pixels. The optional TMD RadarGIS layer is displayed separately and keeps observed frames available when the nowcast feed is temporarily incomplete.
 
 ## Data Quality / Fallback Behavior
 

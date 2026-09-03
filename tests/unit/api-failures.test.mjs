@@ -213,6 +213,14 @@ function tmdRainRaw(value = 2) {
   })) };
 }
 
+function tmdDailyRainRaw(value = 18) {
+  const dates = ["2026-08-21", "2026-08-22", "2026-08-23", "2026-08-24", "2026-08-25", "2026-08-26", "2026-08-27"];
+  return { weather_forecast: { locations: Array.from({ length: 9 }, (_, index) => ({
+    location: { lat: 13.64 + Math.floor(index / 3) * 0.16, lon: 100.34 + (index % 3) * 0.27 },
+    forecasts: dates.map((time, dayIndex) => ({ time: `${time}T00:00:00+07:00`, data: { rain: value + dayIndex } })),
+  })) } };
+}
+
 test("TMD NWP overlays rainfall without exposing the token in the URL", async () => {
   const requested = [];
   const response = await createRainForecastResponse({
@@ -229,6 +237,9 @@ test("TMD NWP overlays rainfall without exposing the token in the URL", async ()
   assert.equal(payload.dataQuality.tmdStatus, "live");
   assert.equal(payload.dataQuality.tmdAcceptedPoints, 9);
   assert.equal(payload.dataQuality.tmdCadenceHours, 1);
+  assert.equal(payload.dataQuality.tmdProduct, "hourly-48h");
+  assert.equal(payload.days.length, 2);
+  assert.equal(payload.windows.length, 16);
   assert.equal(payload.days[0].rainMeanMm, 48);
   assert.ok(payload.sources.includes("กรมอุตุนิยมวิทยา (TMD NWP)"));
   assert.equal(requested.some((request) => request.url.includes("test-secret-token")), false);
@@ -247,6 +258,29 @@ test("TMD NWP failure falls back to Open-Meteo without hiding the forecast", asy
   assert.equal(payload.dataQuality.tmdStatus, "unavailable");
   assert.equal(payload.dataQuality.tmdFailureReason, "http_401");
   assert.equal(payload.points.length, 9);
+});
+
+test("TMD Daily supplies seven days of 24-hour accumulated rainfall", async () => {
+  const requested = [];
+  const payload = await (await createRainForecastResponse({
+    forecastMode: "accumulation",
+    forecastSource: "tmd",
+    tmdToken: "daily-token",
+    fetchImpl: async (input, init = {}) => {
+      requested.push({ url: String(input), authorization: new Headers(init.headers).get("authorization") });
+      return String(input).includes("/daily/at") ? json(tmdDailyRainRaw()) : json(rainRaw(9));
+    },
+  })).json();
+  assert.equal(payload.status, "live");
+  assert.equal(payload.days.length, 7);
+  assert.equal(payload.dataQuality.requestedMode, "accumulation");
+  assert.equal(payload.dataQuality.provider, "tmd-nwp-daily");
+  assert.equal(payload.dataQuality.tmdProduct, "daily-7d");
+  assert.equal(payload.days[0].rainMeanMm, 18);
+  assert.equal(payload.days[6].rainMeanMm, 24);
+  assert.equal(requested.filter((request) => request.url.includes("/daily/at")).length, 3);
+  assert.ok(requested.filter((request) => request.url.includes("/daily/at")).every((request) => request.url.includes("duration=7")));
+  assert.equal(requested.find((request) => request.url.includes("/daily/at")).authorization, "Bearer daily-token");
 });
 
 test("Open-Meteo rain mode bypasses TMD even when a TMD token is configured", async () => {
@@ -269,7 +303,7 @@ test("Open-Meteo rain mode bypasses TMD even when a TMD token is configured", as
 
 test("rain provider failover uses GFS after Best Match fails", async () => {
   let calls = 0;
-  const response = await createRainForecastResponse({ fetchImpl: async () => ++calls === 1 ? json({}, 500) : json(rainRaw(9)) });
+  const response = await createRainForecastResponse({ forecastSource: "open-meteo", fetchImpl: async () => ++calls === 1 ? json({}, 500) : json(rainRaw(9)) });
   const payload = await response.json();
   assert.equal(payload.status, "live");
   assert.equal(payload.dataQuality.provider, "gfs");
@@ -299,7 +333,21 @@ test("an isolated 100% rain point does not become a 100% province-wide summary",
   })).json();
   assert.equal(payload.points[0].windows[0].pointProbabilityPeak, 100);
   assert.equal(payload.windows[0].areaMeanProbabilityPeak, 11);
-  assert.equal(payload.days[0].dailyPeakAreaMeanProbability, 11);
+  assert.equal(payload.days[0].dailyAreaMeanProbability, 11);
+});
+
+test("daily rain chance is the all-hour mean rather than the daily maximum", async () => {
+  const raw = rainRaw(9).map((location) => ({
+    ...location,
+    hourly: {
+      ...location.hourly,
+      precipitation_probability: location.hourly.time.map((_, index) => index % 24 === 0 ? 100 : 0),
+    },
+    daily: { ...location.daily, precipitation_probability_max: location.daily.time.map(() => 100) },
+  }));
+  const payload = await (await createRainForecastResponse({ forecastSource: "open-meteo", fetchImpl: async () => json(raw) })).json();
+  assert.equal(payload.days[0].dailyAreaMeanProbability, 4);
+  assert.notEqual(payload.days[0].dailyAreaMeanProbability, 100);
 });
 
 test("rain forecast uses coordinates and metadata for the selected metro province", async () => {

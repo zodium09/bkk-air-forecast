@@ -359,14 +359,14 @@ html[data-theme="dark"] .theme-toggle-sun { display: inline; }
 .rain-view-mode button:last-child[aria-pressed="true"] { color: #9a3412; }
 .heat-view-mode button[aria-pressed="true"] { color: #c2410c; }
 .rain-view-mode button:focus-visible, .heat-view-mode button:focus-visible { outline: 3px solid #38bdf8; outline-offset: 2px; }
-.rain-source-section { display: grid; gap: 8px; }
-.rain-source-section .rain-panel-title { margin-bottom: 0; }
-.rain-source-mode {
+.rain-source-section, .heat-source-section { display: grid; gap: 8px; }
+.rain-source-section .rain-panel-title, .heat-source-section .panel-title { margin-bottom: 0; }
+.rain-source-mode, .heat-source-mode {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
 }
-.rain-source-mode button {
+.rain-source-mode button, .heat-source-mode button {
   min-width: 0;
   min-height: 54px;
   padding: 7px 8px;
@@ -381,10 +381,10 @@ html[data-theme="dark"] .theme-toggle-sun { display: inline; }
   text-align: left;
   transition: border-color .18s, color .18s, background .18s, box-shadow .18s;
 }
-.rain-source-mode button > span:last-child { min-width: 0; display: grid; gap: 1px; }
-.rain-source-mode b { overflow: hidden; font-size: 12.5px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
-.rain-source-mode small { overflow: hidden; font-size: 10.5px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
-.rain-source-mark {
+.rain-source-mode button > span:last-child, .heat-source-mode button > span:last-child { min-width: 0; display: grid; gap: 1px; }
+.rain-source-mode b, .heat-source-mode b { overflow: hidden; font-size: 12.5px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.rain-source-mode small, .heat-source-mode small { overflow: hidden; font-size: 10.5px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.rain-source-mark, .heat-source-mark {
   min-width: 30px;
   padding: 4px 3px;
   border-radius: 7px;
@@ -402,8 +402,15 @@ html[data-theme="dark"] .theme-toggle-sun { display: inline; }
   box-shadow: 0 0 0 2px rgba(56, 189, 248, .13);
 }
 .rain-source-mode button[aria-pressed="true"] .rain-source-mark { background: #0284c7; color: #ffffff; }
-.rain-source-mode button:focus-visible { outline: 3px solid #38bdf8; outline-offset: 2px; }
-.rain-source-status {
+.heat-source-mode button[aria-pressed="true"] {
+  border-color: #fb923c;
+  background: #fff7ed;
+  color: #9a3412;
+  box-shadow: 0 0 0 2px rgba(251, 146, 60, .13);
+}
+.heat-source-mode button[aria-pressed="true"] .heat-source-mark { background: #ea580c; color: #ffffff; }
+.rain-source-mode button:focus-visible, .heat-source-mode button:focus-visible { outline: 3px solid #38bdf8; outline-offset: 2px; }
+.rain-source-status, .heat-source-status {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -412,10 +419,10 @@ html[data-theme="dark"] .theme-toggle-sun { display: inline; }
   font-size: 10.5px;
   line-height: 1.45;
 }
-.rain-source-status::before { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 999px; background: #22c55e; content: ""; }
-.rain-source-status.loading::before { background: #38bdf8; box-shadow: 0 0 0 3px rgba(56, 189, 248, .15); }
-.rain-source-status.unavailable::before { background: #f97316; }
-.rain-source-status.not-configured::before { background: #94a3b8; }
+.rain-source-status::before, .heat-source-status::before { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 999px; background: #22c55e; content: ""; }
+.rain-source-status.loading::before, .heat-source-status.loading::before { background: #38bdf8; box-shadow: 0 0 0 3px rgba(56, 189, 248, .15); }
+.rain-source-status.unavailable::before, .heat-source-status.unavailable::before { background: #f97316; }
+.rain-source-status.not-configured::before, .heat-source-status.not-configured::before { background: #94a3b8; }
 .panel-section, .rain-panel-section {
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(16px);
@@ -1341,6 +1348,19 @@ html[data-theme="dark"] .theme-toggle-sun { display: inline; }
   overflow-y: auto;
 }
 .rain-insights > div { flex: 0 0 auto; }
+.rain-control-panel > *,
+.rain-insights > * {
+  position: relative;
+  flex-shrink: 0;
+}
+.rain-trend-card,
+.rain-watch-card,
+.rain-forecast-note {
+  overflow: visible;
+}
+.rain-trend-card .trend-chart {
+  flex: 0 0 74px;
+}
 .insights > div, .air-insights > div, .rain-insights > div {
   min-height: 0;
   padding: 13px 16px;
@@ -2180,11 +2200,13 @@ html[data-theme="dark"] :is(.rain-view-mode, .heat-view-mode) button { color: #9
 html[data-theme="dark"] :is(.rain-view-mode, .heat-view-mode) button[aria-pressed="true"] { background: #1e293b; color: #7dd3fc; }
 html[data-theme="dark"] .rain-view-mode button:last-child[aria-pressed="true"] { color: #fdba74; }
 html[data-theme="dark"] .heat-view-mode button[aria-pressed="true"] { color: #fdba74; }
-html[data-theme="dark"] .rain-source-mode button { border-color: #475569; background: #111827; color: #94a3b8; }
+html[data-theme="dark"] :is(.rain-source-mode, .heat-source-mode) button { border-color: #475569; background: #111827; color: #94a3b8; }
 html[data-theme="dark"] .rain-source-mode button[aria-pressed="true"] { border-color: #38bdf8; background: #0c4a6e; color: #e0f2fe; }
-html[data-theme="dark"] .rain-source-mark { background: #334155; color: #cbd5e1; }
+html[data-theme="dark"] .heat-source-mode button[aria-pressed="true"] { border-color: #fb923c; background: #7c2d12; color: #ffedd5; }
+html[data-theme="dark"] :is(.rain-source-mark, .heat-source-mark) { background: #334155; color: #cbd5e1; }
 html[data-theme="dark"] .rain-source-mode button[aria-pressed="true"] .rain-source-mark { background: #38bdf8; color: #082f49; }
-html[data-theme="dark"] .rain-source-status { color: #94a3b8; }
+html[data-theme="dark"] .heat-source-mode button[aria-pressed="true"] .heat-source-mark { background: #fb923c; color: #431407; }
+html[data-theme="dark"] :is(.rain-source-status, .heat-source-status) { color: #94a3b8; }
 html[data-theme="dark"] .rain-watch-level {
   border-color: color-mix(in srgb, var(--watch-color) 38%, #334155);
   background: color-mix(in srgb, var(--watch-color) 12%, #0f172a);

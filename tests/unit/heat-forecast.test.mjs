@@ -66,6 +66,7 @@ test("TMD temperature and humidity overlay the first 48 hours without exposing t
       return String(input).includes("data.tmd.go.th") ? json(tmdHeatRaw()) : json(heatRaw());
     },
   })).json();
+  assert.equal(payload.dataQuality.requestedSource, "tmd");
   assert.equal(payload.dataQuality.provider, "tmd-nwp-hybrid");
   assert.equal(payload.dataQuality.tmdStatus, "live");
   assert.equal(payload.dataQuality.tmdAcceptedPoints, 9);
@@ -74,6 +75,26 @@ test("TMD temperature and humidity overlay the first 48 hours without exposing t
   assert.ok(payload.windows[16].maxHeatIndexC < 50);
   assert.equal(requested.some((request) => request.url.includes("heat-secret")), false);
   assert.equal(requested.find((request) => request.url.includes("data.tmd.go.th")).authorization, "Bearer heat-secret");
+});
+
+test("Open-Meteo heat mode bypasses TMD and provides the full seven-day forecast", async () => {
+  const requested = [];
+  const payload = await (await createHeatForecastResponse({
+    forecastSource: "open-meteo",
+    tmdToken: "heat-secret",
+    fetchImpl: async (input) => {
+      requested.push(String(input));
+      return json(heatRaw());
+    },
+  })).json();
+  assert.equal(payload.status, "live");
+  assert.equal(payload.days.length, 7);
+  assert.equal(payload.dataQuality.requestedSource, "open-meteo");
+  assert.equal(payload.dataQuality.provider, "best-match");
+  assert.equal(payload.dataQuality.providerFallback, false);
+  assert.equal(payload.dataQuality.tmdStatus, "not-configured");
+  assert.equal(requested.length, 1);
+  assert.equal(requested.some((url) => url.includes("data.tmd.go.th")), false);
 });
 
 test("heat endpoint fails over to GFS and rejects insufficient coverage", async () => {

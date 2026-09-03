@@ -1,5 +1,5 @@
 import { FORECAST_DAYS } from "./forecast-horizon.ts";
-import type { RainForecastSource } from "./rain-forecast-provider.ts";
+import type { RainForecastMode, RainForecastSource } from "./rain-forecast-provider.ts";
 import { metroRegion, provinces, type RegionId } from "./provinces.ts";
 
 export type RainStatus = "live" | "degraded" | "unavailable";
@@ -10,7 +10,7 @@ export type RainDay = {
   date: string;
   weekday: string;
   year: number;
-  dailyPeakAreaMeanProbability: number | null;
+  dailyAreaMeanProbability: number | null;
   rainMeanMm: number | null;
   rainMaxMm: number | null;
   wetHours: number | null;
@@ -31,6 +31,7 @@ export type RainWindow = {
 
 export type RainPointDay = {
   pointProbabilityMax: number | null;
+  pointProbabilityMean: number | null;
   rainMm: number | null;
   wetHours: number | null;
   weatherCode: number | null;
@@ -65,6 +66,7 @@ export type RainForecastPayload = {
     coverageHours: number;
     rejectedPoints?: number;
     minimumHourlyCoverage?: number;
+    requestedMode?: RainForecastMode;
     requestedSource?: RainForecastSource;
     provider?: string;
     providerFallback?: boolean;
@@ -72,6 +74,7 @@ export type RainForecastPayload = {
     tmdAcceptedPoints?: number;
     tmdForecastValues?: number;
     tmdCadenceHours?: number | null;
+    tmdProduct?: "hourly-48h" | "daily-7d";
     tmdFailureReason?: string;
     deliveryFallback?: boolean;
     providersTried?: string[];
@@ -109,7 +112,7 @@ export function buildRainDayShells(startDateKey?: string): RainDay[] {
       lead: index + 1,
       dateKey,
       ...formatted,
-      dailyPeakAreaMeanProbability: null,
+      dailyAreaMeanProbability: null,
       rainMeanMm: null,
       rainMaxMm: null,
       wetHours: null,
@@ -153,9 +156,7 @@ export function aggregateMetroRain(payloads: RainForecastPayload[]): RainForecas
       .sort((a, b) => (b.rainMeanMm ?? -1) - (a.rainMeanMm ?? -1) || (b.areaMeanProbabilityPeak ?? -1) - (a.areaMeanProbabilityPeak ?? -1))[0];
     return {
       ...baseDay,
-      dailyPeakAreaMeanProbability: maxNullable(windows
-        .filter((window) => window.dayIndex === dayIndex)
-        .map((window) => window.areaMeanProbabilityPeak)),
+      dailyAreaMeanProbability: meanNullable(matches.map((day) => day?.dailyAreaMeanProbability)),
       rainMeanMm: meanNullable(matches.map((day) => day?.rainMeanMm)),
       rainMaxMm: maxNullable(matches.map((day) => day?.rainMaxMm)),
       wetHours: meanNullable(matches.map((day) => day?.wetHours)),
@@ -163,6 +164,7 @@ export function aggregateMetroRain(payloads: RainForecastPayload[]): RainForecas
     };
   });
   const requestedSource = primary.dataQuality.requestedSource ?? "tmd";
+  const requestedMode = primary.dataQuality.requestedMode ?? "chance";
   const liveTmdPayloads = usable.filter((payload) => payload.dataQuality.tmdStatus === "live");
   const tmdStatus = requestedSource === "open-meteo"
     ? "not-configured"
@@ -174,7 +176,9 @@ export function aggregateMetroRain(payloads: RainForecastPayload[]): RainForecas
   const model = requestedSource === "open-meteo"
     ? "Open-Meteo Best Match / GFS · 54 boundary-aware metropolitan samples"
     : tmdStatus === "live"
-      ? "TMD NWP 3 km (0–48h) + Open-Meteo (days 3–7) · 54 boundary-aware metropolitan samples"
+      ? requestedMode === "accumulation"
+        ? "TMD NWP Daily (7 days) + Open-Meteo supporting fields · 54 boundary-aware metropolitan samples"
+        : "TMD NWP 3 km (0–48h) + Open-Meteo probability / days 3–7 · 54 boundary-aware metropolitan samples"
       : "Open-Meteo Best Match / GFS (temporary TMD fallback) · 54 boundary-aware metropolitan samples";
   return {
     ...primary,
@@ -186,8 +190,11 @@ export function aggregateMetroRain(payloads: RainForecastPayload[]): RainForecas
     sources: [...new Set(usable.flatMap((payload) => payload.sources))],
     dataQuality: {
       ...primary.dataQuality,
+      requestedMode,
       requestedSource,
-      provider: requestedSource === "tmd" && liveTmdPayloads.length ? "tmd-nwp-hybrid" : primary.dataQuality.provider,
+      provider: requestedSource === "tmd" && liveTmdPayloads.length
+        ? requestedMode === "accumulation" ? "tmd-nwp-daily" : "tmd-nwp-hybrid"
+        : primary.dataQuality.provider,
       providerFallback: usable.some((payload) => payload.dataQuality.providerFallback),
       tmdStatus,
       tmdAcceptedPoints: usable.reduce((sum, payload) => sum + (payload.dataQuality.tmdAcceptedPoints ?? 0), 0),
@@ -195,6 +202,7 @@ export function aggregateMetroRain(payloads: RainForecastPayload[]): RainForecas
       tmdCadenceHours: liveTmdPayloads.length
         ? Math.max(...liveTmdPayloads.map((payload) => payload.dataQuality.tmdCadenceHours ?? 0)) || null
         : null,
+      tmdProduct: liveTmdPayloads[0]?.dataQuality.tmdProduct,
       expectedPoints: usable.reduce((sum, payload) => sum + payload.dataQuality.expectedPoints, 0),
       acceptedPoints: usable.reduce((sum, payload) => sum + payload.dataQuality.acceptedPoints, 0),
       rejectedPoints: usable.reduce((sum, payload) => sum + (payload.dataQuality.rejectedPoints ?? 0), 0),

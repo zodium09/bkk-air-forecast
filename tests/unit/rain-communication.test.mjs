@@ -13,7 +13,7 @@ function rainDay(overrides = {}) {
     dateKey: "2026-08-28",
     weekday: "ศุกร์",
     date: "28 ส.ค.",
-    dailyPeakAreaMeanProbability: 100,
+    dailyAreaMeanProbability: 100,
     rainMeanMm: 0.5,
     rainMaxMm: 2,
     wetHours: 1,
@@ -34,7 +34,7 @@ test("high model probability with little short-lived rain is not described as he
 
 test("waterlogging watch is driven by accumulated rain, not probability alone", () => {
   const lowProbabilityHeavyRain = rainDay({
-    dailyPeakAreaMeanProbability: 35,
+    dailyAreaMeanProbability: 35,
     rainMeanMm: 38,
     rainMaxMm: 78,
     wetHours: 8,

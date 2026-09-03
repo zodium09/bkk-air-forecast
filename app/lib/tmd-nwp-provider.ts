@@ -3,7 +3,10 @@ import { getProvincePoints, type ProvinceId, type ProvincePoint } from "./provin
 export const TMD_NWP_BASE_URL = "https://data.tmd.go.th/nwpapi";
 type TmdForecast = { time?: unknown; data?: { rain?: unknown; tc?: unknown; rh?: unknown } };
 type TmdWeatherForecast = { location?: { lat?: unknown; lon?: unknown; latitude?: unknown; longitude?: unknown }; forecasts?: unknown };
-export type TmdNwpPayload = { WeatherForecasts?: unknown };
+export type TmdNwpPayload = {
+  WeatherForecasts?: unknown;
+  weather_forecast?: { locations?: unknown };
+};
 export type TmdMergeableLocation = {
   latitude: number; longitude: number;
   hourly?: { time: string[]; precipitation_probability: Array<number | null>; precipitation: Array<number | null>; rain: Array<number | null>; showers: Array<number | null>; weather_code: Array<number | null> };
@@ -28,6 +31,28 @@ export function buildTmdPointForecastUrls(provinceId: ProvinceId, baseUrl = TMD_
   });
 }
 
+export function buildTmdDailyPointForecastUrls(provinceId: ProvinceId, baseUrl = TMD_NWP_BASE_URL, fields = "rain", duration = 7) {
+  const points = getProvincePoints(provinceId);
+  return [points[0], points[4], points[8]].filter(Boolean).map((point) => {
+    const url = new URL("v1/forecast/location/daily/at", `${baseUrl.replace(/\/$/, "")}/`);
+    url.searchParams.set("lat", String(point.lat));
+    url.searchParams.set("lon", String(point.lng));
+    url.searchParams.set("fields", fields);
+    url.searchParams.set("duration", String(duration));
+    return url;
+  });
+}
+
+function forecastItems(payload: TmdNwpPayload) {
+  if (Array.isArray(payload?.WeatherForecasts)) return payload.WeatherForecasts as TmdWeatherForecast[];
+  if (Array.isArray(payload?.weather_forecast?.locations)) return payload.weather_forecast.locations as TmdWeatherForecast[];
+  return [];
+}
+
+export function combineTmdNwpPayloads(payloads: TmdNwpPayload[]): TmdNwpPayload {
+  return { WeatherForecasts: payloads.flatMap((payload) => forecastItems(payload)) };
+}
+
 export type TmdHeatMergeableLocation = {
   latitude: number;
   longitude: number;
@@ -36,7 +61,7 @@ export type TmdHeatMergeableLocation = {
 
 export function mergeTmdHeatForecast<T extends TmdHeatMergeableLocation>(raw: T[] | T, payload: TmdNwpPayload, provinceId: ProvinceId) {
   const locations = (Array.isArray(raw) ? raw : [raw]).map((location) => structuredClone(location));
-  const items = Array.isArray(payload?.WeatherForecasts) ? payload.WeatherForecasts as TmdWeatherForecast[] : [];
+  const items = forecastItems(payload);
   const tmdLocations = items.map((item) => {
     const lat = finite(item.location?.lat ?? item.location?.latitude, -90, 90);
     const lng = finite(item.location?.lon ?? item.location?.longitude, -180, 180);
@@ -86,6 +111,11 @@ function hourKey(value: unknown) {
   const match = trimmed.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2})/);
   return match ? `${match[1]}T${match[2]}:00` : null;
 }
+function dateKey(value: unknown) {
+  if (typeof value !== "string") return null;
+  const match = value.trim().match(/^(\d{4}-\d{2}-\d{2})/);
+  return match?.[1] ?? null;
+}
 function cadence(keys: string[]) {
   const gaps = keys.slice(1).map((key, index) => (Date.parse(`${key}:00Z`) - Date.parse(`${keys[index]}:00Z`)) / 3_600_000).filter((value) => value > 0 && value <= 6).sort((a, b) => a - b);
   return gaps.length ? Math.max(1, Math.round(gaps[Math.floor(gaps.length / 2)])) : 1;
@@ -96,7 +126,7 @@ function distance(point: ProvincePoint, location: { lat: number; lng: number }) 
   return dx * dx + dy * dy;
 }
 function parseTmd(payload: TmdNwpPayload) {
-  const items = Array.isArray(payload?.WeatherForecasts) ? payload.WeatherForecasts as TmdWeatherForecast[] : [];
+  const items = forecastItems(payload);
   return items.map((item) => {
     const lat = finite(item.location?.lat ?? item.location?.latitude, -90, 90);
     const lng = finite(item.location?.lon ?? item.location?.longitude, -180, 180);
@@ -144,4 +174,38 @@ export function mergeTmdRainForecast<T extends TmdMergeableLocation>(raw: T[] | 
     });
   });
   return { locations, acceptedPoints, forecastValues, cadenceHours: cadences.length ? Math.max(...cadences) : null };
+}
+
+export function mergeTmdDailyRainForecast<T extends TmdMergeableLocation>(raw: T[] | T, payload: TmdNwpPayload, provinceId: ProvinceId) {
+  const locations = (Array.isArray(raw) ? raw : [raw]).map((location) => structuredClone(location));
+  const tmdLocations = forecastItems(payload).map((item) => {
+    const lat = finite(item.location?.lat ?? item.location?.latitude, -90, 90);
+    const lng = finite(item.location?.lon ?? item.location?.longitude, -180, 180);
+    const forecasts = Array.isArray(item.forecasts) ? item.forecasts as TmdForecast[] : [];
+    const values = forecasts
+      .map((forecast) => ({ key: dateKey(forecast.time), rain: finite(forecast.data?.rain, 0, 1_000) }))
+      .filter((value): value is { key: string; rain: number } => value.key !== null && value.rain !== null);
+    return lat === null || lng === null || values.length < 7 ? null : { lat, lng, values };
+  }).filter((item): item is NonNullable<typeof item> => item !== null);
+
+  let acceptedPoints = 0;
+  let forecastValues = 0;
+  locations.forEach((location, index) => {
+    const point = getProvincePoints(provinceId)[index];
+    if (!point || !location.daily || !tmdLocations.length) return;
+    const nearest = [...tmdLocations].sort((a, b) => distance(point, a) - distance(point, b))[0];
+    if (!nearest || distance(point, nearest) > 0.12) return;
+    const indices = new Map(location.daily.time.map((date, dayIndex) => [dateKey(date), dayIndex]));
+    let merged = 0;
+    nearest.values.forEach(({ key, rain }) => {
+      const target = indices.get(key);
+      if (target === undefined) return;
+      location.daily!.precipitation_sum[target] = rain;
+      merged += 1;
+    });
+    if (merged < 7) return;
+    acceptedPoints += 1;
+    forecastValues += merged;
+  });
+  return { locations, acceptedPoints, forecastValues };
 }

@@ -10,6 +10,10 @@ export const rainForecastSources = ["tmd", "open-meteo"] as const;
 export type RainForecastSource = (typeof rainForecastSources)[number];
 export const DEFAULT_RAIN_FORECAST_SOURCE: RainForecastSource = "tmd";
 
+export const rainForecastModes = ["chance", "accumulation"] as const;
+export type RainForecastMode = (typeof rainForecastModes)[number];
+export const DEFAULT_RAIN_FORECAST_MODE: RainForecastMode = "chance";
+
 export type RainForecastProvider = (typeof rainForecastProviders)[number];
 export type RainForecastProviderLike = { id: string; url: string; model: string; source: string };
 export type RainForecastProviderId = RainForecastProvider["id"];
@@ -19,6 +23,13 @@ export const tmdHybridRainProvider: RainForecastProviderLike = {
   url: "https://data.tmd.go.th/nwpapi/v1/forecast/location/hourly/at",
   model: "TMD NWP 3 km (0–48h) + Open-Meteo (days 3–7)",
   source: "กรมอุตุนิยมวิทยา (TMD NWP)",
+};
+
+export const tmdDailyRainProvider: RainForecastProviderLike = {
+  id: "tmd-nwp-daily",
+  url: "https://data.tmd.go.th/nwpapi/v1/forecast/location/daily/at",
+  model: "TMD NWP Daily (7 days)",
+  source: "กรมอุตุนิยมวิทยา (TMD NWP Daily)",
 };
 
 export const rainForecastPoints = getProvincePoints(DEFAULT_PROVINCE_ID);
@@ -46,4 +57,8 @@ export function getRainForecastProvider(id: unknown) {
 
 export function getRainForecastSource(value: unknown): RainForecastSource {
   return rainForecastSources.find((source) => source === value) ?? DEFAULT_RAIN_FORECAST_SOURCE;
+}
+
+export function getRainForecastMode(value: unknown): RainForecastMode {
+  return rainForecastModes.find((mode) => mode === value) ?? DEFAULT_RAIN_FORECAST_MODE;
 }

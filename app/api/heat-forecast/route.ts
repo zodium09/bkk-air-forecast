@@ -14,10 +14,12 @@ import { FORECAST_DAYS } from "../../lib/forecast-horizon.ts";
 import { fetchWithTimeout } from "../../lib/fetch-with-timeout.ts";
 import {
   buildHeatForecastUrl,
+  getHeatForecastSource,
   getHeatForecastContext,
   heatForecastProviders,
   tmdHybridHeatProvider,
   type HeatForecastProviderLike,
+  type HeatForecastSource,
 } from "../../lib/heat-forecast-provider.ts";
 import { METRO_REGION_ID, provinces } from "../../lib/provinces.ts";
 import { buildTmdPointForecastUrls, mergeTmdHeatForecast, type TmdNwpPayload } from "../../lib/tmd-nwp-provider.ts";
@@ -148,23 +150,25 @@ function tmdFailureReason(error: unknown) {
   return "invalid_payload_or_network";
 }
 
-function unavailableResponse(error: unknown, provinceId: unknown) {
+function unavailableResponse(error: unknown, provinceId: unknown, requestedSource: HeatForecastSource = "tmd") {
   const { province, points } = getHeatForecastContext(provinceId);
   return Response.json({
     province: { id: province.id, nameTh: province.nameTh, shortNameTh: province.shortNameTh, nameEn: province.nameEn },
     status: "unavailable",
     fetchedAt: new Date().toISOString(),
-    model: "TMD NWP / Open-Meteo",
+    model: requestedSource === "tmd" ? "TMD NWP + Open-Meteo extended range" : "Open-Meteo Best Match / GFS",
     disclaimer: "ยังโหลดข้อมูลอุณหภูมิและความชื้นจากแบบจำลองไม่ได้ในขณะนี้ ระบบไม่สร้างค่าจำลองสำรองขึ้นมา กรุณาลองใหม่ภายหลัง",
-    sources: heatForecastProviders.map((provider) => provider.source),
-    dataQuality: { expectedPoints: points.length, acceptedPoints: 0, coverageHours: 0, rejectedPoints: points.length, minimumHourlyCoverage: MINIMUM_HOURLY_COVERAGE, providersTried: heatForecastProviders.map((provider) => provider.id), error: error instanceof Error ? error.message : "unknown upstream error" },
+    sources: requestedSource === "tmd"
+      ? [tmdHybridHeatProvider.source, ...heatForecastProviders.map((provider) => provider.source)]
+      : heatForecastProviders.map((provider) => provider.source),
+    dataQuality: { expectedPoints: points.length, acceptedPoints: 0, coverageHours: 0, rejectedPoints: points.length, minimumHourlyCoverage: MINIMUM_HOURLY_COVERAGE, requestedSource, providersTried: heatForecastProviders.map((provider) => provider.id), error: error instanceof Error ? error.message : "unknown upstream error" },
     days: buildHeatDayShells(),
     windows: [],
     points: [],
   }, { headers: { "Cache-Control": "no-store", "X-Heat-Forecast-Status": "unavailable" } });
 }
 
-function normalizedResponse(raw: OpenMeteoHeatLocation[] | OpenMeteoHeatLocation, provider: HeatForecastProviderLike, provinceId: unknown, tmdIntegration: { status: "live" | "unavailable" | "not-configured"; acceptedPoints?: number; forecastValues?: number; failureReason?: string }) {
+function normalizedResponse(raw: OpenMeteoHeatLocation[] | OpenMeteoHeatLocation, provider: HeatForecastProviderLike, provinceId: unknown, tmdIntegration: { status: "live" | "unavailable" | "not-configured"; acceptedPoints?: number; forecastValues?: number; failureReason?: string }, requestedSource: HeatForecastSource) {
   const { province, points: forecastPoints } = getHeatForecastContext(provinceId);
   const locations = Array.isArray(raw) ? raw : [raw];
   const dateKeys = locations.find((location) => location.hourly)?.hourly?.time
@@ -176,14 +180,17 @@ function normalizedResponse(raw: OpenMeteoHeatLocation[] | OpenMeteoHeatLocation
   if (points.length < 6) throw new Error(`insufficient forecast points ${points.length}/${forecastPoints.length}`);
   const status = points.length === forecastPoints.length ? "live" : "degraded";
   const aggregate = aggregateRegion(points, dateKeys);
+  const model = requestedSource === "tmd" && tmdIntegration.status !== "live"
+    ? `${provider.model} (temporary TMD fallback)`
+    : provider.model;
   return Response.json({
     province: { id: province.id, nameTh: province.nameTh, shortNameTh: province.shortNameTh, nameEn: province.nameEn },
     status,
     fetchedAt: new Date().toISOString(),
-    model: `${provider.model} · 9 boundary-aware ${province.nameEn} samples`,
+    model: `${model} · 9 boundary-aware ${province.nameEn} samples`,
     disclaimer: "Heat Index คำนวณจากอุณหภูมิและความชื้นสัมพัทธ์รายชั่วโมงด้วยสมการ Rothfusz ของ NOAA/NWS และจัดระดับตามเกณฑ์กรมอนามัย ใช้เพื่อวางแผนเบื้องต้น ไม่ใช่ประกาศเตือนภัย",
     sources: [provider.source, ...(provider.id === "tmd-nwp-hybrid" ? ["Open-Meteo Weather Forecast"] : []), "NOAA/NWS Heat Index equation", "กรมอนามัย กระทรวงสาธารณสุข", province.id === "bangkok" ? "BMA GIS district boundary" : "DMR province boundary", "OpenStreetMap"],
-    dataQuality: { expectedPoints: forecastPoints.length, acceptedPoints: points.length, rejectedPoints: forecastPoints.length - points.length, coverageHours: Math.min(...points.map((point) => point.daily.filter((day) => day.maxHeatIndexC !== null).length * 24)), minimumHourlyCoverage: MINIMUM_HOURLY_COVERAGE, provider: provider.id, providerFallback: provider.id === "gfs" || tmdIntegration.status === "unavailable", tmdStatus: tmdIntegration.status, tmdAcceptedPoints: tmdIntegration.acceptedPoints, tmdForecastValues: tmdIntegration.forecastValues, tmdFailureReason: tmdIntegration.failureReason },
+    dataQuality: { expectedPoints: forecastPoints.length, acceptedPoints: points.length, rejectedPoints: forecastPoints.length - points.length, coverageHours: Math.min(...points.map((point) => point.daily.filter((day) => day.maxHeatIndexC !== null).length * 24)), minimumHourlyCoverage: MINIMUM_HOURLY_COVERAGE, requestedSource, provider: provider.id, providerFallback: provider.id === "gfs" || (requestedSource === "tmd" && tmdIntegration.status !== "live"), tmdStatus: tmdIntegration.status, tmdAcceptedPoints: tmdIntegration.acceptedPoints, tmdForecastValues: tmdIntegration.forecastValues, tmdFailureReason: tmdIntegration.failureReason },
     days: aggregate.days,
     windows: aggregate.windows,
     points,
@@ -192,11 +199,12 @@ function normalizedResponse(raw: OpenMeteoHeatLocation[] | OpenMeteoHeatLocation
   });
 }
 
-export async function createHeatForecastResponse(options: { fetchImpl?: typeof fetch; timeoutMs?: number; provinceId?: unknown; tmdToken?: string | null; tmdBaseUrl?: string } = {}) {
+export async function createHeatForecastResponse(options: { fetchImpl?: typeof fetch; timeoutMs?: number; provinceId?: unknown; tmdToken?: string | null; tmdBaseUrl?: string; forecastSource?: unknown } = {}) {
   const fetchImpl = options.fetchImpl ?? fetch;
   const timeoutMs = options.timeoutMs ?? 9_000;
   const { province } = getHeatForecastContext(options.provinceId);
   const tmdToken = options.tmdToken === undefined ? process.env.TMD_NWP_TOKEN?.trim() : options.tmdToken?.trim();
+  const forecastSource = getHeatForecastSource(options.forecastSource);
   const failures: string[] = [];
 
   for (const provider of heatForecastProviders) {
@@ -205,8 +213,8 @@ export async function createHeatForecastResponse(options: { fetchImpl?: typeof f
       if (!response.ok) throw new Error(`status ${response.status}`);
       let raw = await response.json() as OpenMeteoHeatLocation[] | OpenMeteoHeatLocation;
       let effectiveProvider: HeatForecastProviderLike = provider;
-      let tmdIntegration: { status: "live" | "unavailable" | "not-configured"; acceptedPoints?: number; forecastValues?: number; failureReason?: string } = { status: tmdToken ? "unavailable" : "not-configured" };
-      if (tmdToken) {
+      let tmdIntegration: { status: "live" | "unavailable" | "not-configured"; acceptedPoints?: number; forecastValues?: number; failureReason?: string } = { status: forecastSource === "tmd" && tmdToken ? "unavailable" : "not-configured" };
+      if (forecastSource === "tmd" && tmdToken) {
         try {
           const tmdPayloads = await Promise.all(buildTmdPointForecastUrls(province.id, options.tmdBaseUrl, "tc,rh", 48).map(async (url) => {
             const tmdResponse = await fetchWithTimeout(fetchImpl, url, { headers: { Accept: "application/json", Authorization: `Bearer ${tmdToken}`, "User-Agent": "BKK-Air-Forecast/1.0" } }, timeoutMs);
@@ -223,21 +231,25 @@ export async function createHeatForecastResponse(options: { fetchImpl?: typeof f
           tmdIntegration = { status: "unavailable", failureReason: tmdFailureReason(error) };
         }
       }
-      return normalizedResponse(raw, effectiveProvider, province.id, tmdIntegration);
+      return normalizedResponse(raw, effectiveProvider, province.id, tmdIntegration, forecastSource);
     } catch (error) {
       failures.push(`${provider.id}: ${error instanceof Error ? error.message : "unknown error"}`);
     }
   }
-  return unavailableResponse(new Error(failures.join("; ")), province.id);
+  return unavailableResponse(new Error(failures.join("; ")), province.id, forecastSource);
 }
 
-export async function createMetroHeatForecastResponse(options: { fetchImpl?: typeof fetch; timeoutMs?: number; tmdToken?: string | null; tmdBaseUrl?: string } = {}) {
+export async function createMetroHeatForecastResponse(options: { fetchImpl?: typeof fetch; timeoutMs?: number; tmdToken?: string | null; tmdBaseUrl?: string; forecastSource?: unknown } = {}) {
   const payloads = await Promise.all(provinces.map(async (province) => (await createHeatForecastResponse({ ...options, provinceId: province.id })).json() as Promise<HeatForecastPayload>));
   const payload = aggregateMetroHeat(payloads);
   return Response.json(payload, { headers: { "Cache-Control": "public, max-age=60, stale-while-revalidate=7200", "CDN-Cache-Control": "public, max-age=1800, stale-while-revalidate=7200", "X-Heat-Forecast-Status": payload.status, "X-Province": METRO_REGION_ID } });
 }
 
 export async function GET(request: Request) {
-  const provinceId = new URL(request.url).searchParams.get("province");
-  return provinceId === METRO_REGION_ID ? createMetroHeatForecastResponse() : createHeatForecastResponse({ provinceId });
+  const searchParams = new URL(request.url).searchParams;
+  const provinceId = searchParams.get("province");
+  const forecastSource = getHeatForecastSource(searchParams.get("source"));
+  return provinceId === METRO_REGION_ID
+    ? createMetroHeatForecastResponse({ forecastSource })
+    : createHeatForecastResponse({ provinceId, forecastSource });
 }

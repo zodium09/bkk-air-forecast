@@ -81,8 +81,8 @@ export function getRainIntensity(meanMm: number | null | undefined, maxMm: numbe
 }
 
 export function getDailyRainNarrative(day: RainDay | null | undefined) {
-  if (!day || day.dailyPeakAreaMeanProbability === null || day.rainMeanMm === null) return "กำลังประมวลผลแนวโน้มฝน";
-  const probability = day.dailyPeakAreaMeanProbability;
+  if (!day || day.dailyAreaMeanProbability === null || day.rainMeanMm === null) return "กำลังประมวลผลแนวโน้มฝน";
+  const probability = day.dailyAreaMeanProbability;
   const meanMm = day.rainMeanMm;
   const wetHours = day.wetHours ?? 0;
 
@@ -102,7 +102,7 @@ export function getRainAdvisory(
   peakWindowMeanRainMm: number | null | undefined,
   sampleWetCoveragePct: number | null | undefined,
 ): RainAdvisory {
-  if (!day || day.dailyPeakAreaMeanProbability === null) {
+  if (!day || day.dailyAreaMeanProbability === null) {
     return {
       title: "กำลังประมวลผลข้อมูล",
       desc: "ระบบกำลังรวบรวมข้อมูลพยากรณ์ฝนล่าสุดจากแบบจำลอง",
@@ -118,7 +118,7 @@ export function getRainAdvisory(
   const meanMm = day.rainMeanMm ?? 0;
   const maxMm = day.rainMaxMm ?? meanMm;
   const wetHours = day.wetHours ?? 0;
-  const likelihood = getRainLikelihood(day.dailyPeakAreaMeanProbability).label;
+  const likelihood = getRainLikelihood(day.dailyAreaMeanProbability).label;
   const intensity = getRainIntensity(day.rainMeanMm, day.rainMaxMm);
   const floodWatch = meanMm >= 35 || maxMm >= 70 || (maxMm >= 50 && wetHours >= 6);
   const heavyLocalized = meanMm >= 10 || maxMm >= 35 || (peakWindowMeanRainMm ?? 0) >= 10;
@@ -151,7 +151,7 @@ export function getRainAdvisory(
       impact: "กระทบการเดินทางบางช่วง",
     };
   }
-  if (day.dailyPeakAreaMeanProbability >= 60) {
+  if (day.dailyAreaMeanProbability >= 60) {
     return {
       title: "แนวโน้มสูง แต่ปริมาณรวมยังไม่มาก",
       desc: `แบบจำลองเห็นสัญญาณฝนใน${coverage} แต่อาจตกช่วงสั้นหรือไม่ตรงตำแหน่งของคุณ ให้ใช้เรดาร์ตอบคำถามว่าฝนกำลังเข้าใกล้หรือไม่`,
@@ -166,7 +166,7 @@ export function getRainAdvisory(
   return {
     title: "ยังไม่พบสัญญาณผลกระทบเด่น",
     desc: "ปริมาณฝนที่คาดยังไม่สูง หากต้องทำกิจกรรมกลางแจ้งควรตรวจเรดาร์ใกล้เวลาอีกครั้ง",
-    icon: day.dailyPeakAreaMeanProbability >= 25 ? "⛅" : "☀️",
+    icon: day.dailyAreaMeanProbability >= 25 ? "⛅" : "☀️",
     risk: "ผลกระทบต่ำ",
     riskColor: "#10b981",
     likelihood,

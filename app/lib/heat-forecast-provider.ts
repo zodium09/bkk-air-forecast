@@ -8,6 +8,16 @@ export const heatForecastProviders = [
 
 export type HeatForecastProviderLike = { id: string; url: string; model: string; source: string };
 
+export const heatForecastSources = ["tmd", "open-meteo"] as const;
+export type HeatForecastSource = typeof heatForecastSources[number];
+export const DEFAULT_HEAT_FORECAST_SOURCE: HeatForecastSource = "tmd";
+
+export function getHeatForecastSource(value: unknown): HeatForecastSource {
+  return heatForecastSources.includes(value as HeatForecastSource)
+    ? value as HeatForecastSource
+    : DEFAULT_HEAT_FORECAST_SOURCE;
+}
+
 export const tmdHybridHeatProvider: HeatForecastProviderLike = {
   id: "tmd-nwp-hybrid",
   url: "https://data.tmd.go.th/nwpapi/v1/forecast/location/hourly/at",

@@ -6,6 +6,11 @@ import ProvinceSelector from "../components/province-selector";
 import LocationForecastCard, { type LocationSelection } from "../components/location-forecast-card";
 import { MapForecastHover, useMapForecastInteraction } from "../components/map-forecast-interaction";
 import { buildHeatDayShells, getHeatRisk, type HeatForecastPayload, type HeatPoint } from "../lib/heat-forecast-data";
+import {
+  DEFAULT_HEAT_FORECAST_SOURCE,
+  getHeatForecastSource,
+  type HeatForecastSource,
+} from "../lib/heat-forecast-provider";
 import { getBasemapConfig, getCurrentBasemapTheme, type BasemapKind, type BasemapTheme } from "../lib/basemap";
 import { spatialIdw } from "../lib/forecast/interpolation";
 import { buildFallbackBoundary, getRegion, METRO_REGION_ID, type RegionId } from "../lib/provinces";
@@ -150,7 +155,12 @@ function createHeatSurface(boundary: BoundaryCollection, points: HeatPoint[], da
 
 export default function HeatDashboard() {
   const initialProvince = typeof window === "undefined" ? METRO_REGION_ID : new URLSearchParams(window.location.search).get("province") as RegionId || METRO_REGION_ID;
+  const initialSource = typeof window === "undefined"
+    ? DEFAULT_HEAT_FORECAST_SOURCE
+    : getHeatForecastSource(new URLSearchParams(window.location.search).get("source"));
   const [selectedProvinceId, setSelectedProvinceId] = useState<RegionId>(initialProvince);
+  const [forecastSource, setForecastSource] = useState<HeatForecastSource>(initialSource);
+  const [tmdStatus, setTmdStatus] = useState<"loading" | "live" | "unavailable" | "not-configured">(initialSource === "tmd" ? "loading" : "not-configured");
   const [payload, setPayload] = useState<HeatForecastPayload | null>(null);
   const [dataState, setDataState] = useState<"loading" | HeatForecastPayload["status"]>("loading");
   const [selectedDay, setSelectedDay] = useState(0);
@@ -193,26 +203,46 @@ export default function HeatDashboard() {
     setSelectedWindowIndex(0);
     setSelectedLocation(null);
     setDataState("loading");
+    setTmdStatus(forecastSource === "tmd" ? "loading" : "not-configured");
     setBoundaryState("loading");
-    window.history.replaceState(null, "", `/heat?province=${value}`);
-  }, []);
+    const url = new URL(window.location.href);
+    url.searchParams.set("province", value);
+    window.history.replaceState({}, "", url);
+  }, [forecastSource]);
+
+  const selectForecastSource = (source: HeatForecastSource) => {
+    if (source === forecastSource) return;
+    setForecastSource(source);
+    setDataState("loading");
+    setTmdStatus(source === "tmd" ? "loading" : "not-configured");
+    setPayload(null);
+    setSelectedDay(0);
+    setSelectedWindowIndex(0);
+    const url = new URL(window.location.href);
+    if (source === DEFAULT_HEAT_FORECAST_SOURCE) url.searchParams.delete("source");
+    else url.searchParams.set("source", source);
+    window.history.replaceState({}, "", url);
+  };
 
   useEffect(() => {
     let active = true;
-    fetch(`/api/heat-forecast?province=${selectedProvinceId}`)
+    const query = new URLSearchParams({ province: selectedProvinceId, source: forecastSource });
+    fetch(`/api/heat-forecast?${query}`)
       .then(async (response) => {
         const data = await response.json() as HeatForecastPayload;
         if (!active) return;
         setPayload(data);
+        setTmdStatus(data.dataQuality.tmdStatus ?? "not-configured");
         setDataState(data.status);
       })
       .catch(() => {
         if (!active) return;
         setPayload(null);
+        setTmdStatus(forecastSource === "tmd" ? "unavailable" : "not-configured");
         setDataState("unavailable");
       });
     return () => { active = false; };
-  }, [reloadKey, selectedProvinceId]);
+  }, [forecastSource, reloadKey, selectedProvinceId]);
 
   useEffect(() => {
     let active = true;
@@ -379,6 +409,15 @@ export default function HeatDashboard() {
     onSelect: setSelectedLocation,
   });
   const chartMax = Math.max(42, ...days.map((item) => item.maxHeatIndexC ?? 0));
+  const sourceStatusLabel = forecastSource === "open-meteo"
+    ? "Best Match / GFS · ครบ 7 วัน"
+    : tmdStatus === "live"
+      ? "TMD NWP ช่วง 0–48 ชม. · Open-Meteo วันที่ 3–7"
+      : tmdStatus === "loading"
+        ? "กำลังเชื่อมต่อ TMD NWP"
+        : tmdStatus === "unavailable"
+          ? "TMD NWP ไม่พร้อม · ใช้ Open-Meteo สำรอง"
+          : "ยังไม่ตั้งค่า TMD NWP · ใช้ Open-Meteo สำรอง";
 
   return (
     <main className="app-shell heat-shell">
@@ -404,6 +443,25 @@ export default function HeatDashboard() {
               <span aria-hidden="true">℃</span>
               <span><b>อุณหภูมิสูงสุด</b><small>ค่าสูงสุดในช่วง 3 ชั่วโมง</small></span>
             </button>
+          </div>
+          <div className="panel-section heat-source-section">
+            <div className="panel-title">
+              <span>🌡️ แหล่งพยากรณ์ 7 วัน</span>
+              <small>เลือกชุดข้อมูล</small>
+            </div>
+            <div className="heat-source-mode" role="group" aria-label="เลือกแหล่งข้อมูลพยากรณ์ความร้อน 7 วัน">
+              <button type="button" aria-pressed={forecastSource === "tmd"} onClick={() => selectForecastSource("tmd")}>
+                <span className="heat-source-mark" aria-hidden="true">TMD</span>
+                <span><b>กรมอุตุฯ (TMD)</b><small>ข้อมูลหลัก 0–48 ชม.</small></span>
+              </button>
+              <button type="button" aria-pressed={forecastSource === "open-meteo"} onClick={() => selectForecastSource("open-meteo")}>
+                <span className="heat-source-mark" aria-hidden="true">OM</span>
+                <span><b>Open-Meteo</b><small>Best Match / GFS 7 วัน</small></span>
+              </button>
+            </div>
+            <p className={`heat-source-status ${forecastSource === "tmd" ? tmdStatus : "live"}`} aria-live="polite">
+              {sourceStatusLabel}
+            </p>
           </div>
           <div className="panel-section">
             <div className="panel-title"><span>📅 เลือกวันพยากรณ์</span><small>7 วันล่วงหน้า</small></div>
@@ -456,7 +514,7 @@ export default function HeatDashboard() {
           <div className="map-wrap">
             <div ref={mapElementRef} className="map" data-basemap={basemap} data-map-theme={mapTheme} role="application" aria-label={`แผนที่พยากรณ์ความร้อน ${selectedRegion.nameTh} ${day?.weekday ?? ""} ${day?.date ?? ""} ${selectedWindow?.label ?? ""}`} />
             <MapForecastHover hover={mapHover} />
-            {dataState === "unavailable" && <div className="forecast-unavailable" role="alert"><b>ยังโหลดข้อมูลความร้อนไม่ได้</b><span>ระบบปิดค่าบนแผนที่เพื่อป้องกันความเข้าใจผิด</span><button onClick={() => { setDataState("loading"); setReloadKey((value) => value + 1); }}>ลองใหม่</button></div>}
+            {dataState === "unavailable" && <div className="forecast-unavailable" role="alert"><b>ยังโหลดข้อมูลความร้อนไม่ได้</b><span>ระบบปิดค่าบนแผนที่เพื่อป้องกันความเข้าใจผิด</span><button onClick={() => { setDataState("loading"); setTmdStatus(forecastSource === "tmd" ? "loading" : "not-configured"); setReloadKey((value) => value + 1); }}>ลองใหม่</button></div>}
             <div className="layer-menu">
               <button className="layer-menu-trigger" onClick={() => setLayerMenuOpen((open) => !open)} aria-expanded={layerMenuOpen} aria-label="ตั้งค่าแผนที่"><span className="layer-symbol"><i /><i /><i /></span></button>
               <div className="layer-menu-panel heat-layer-panel" hidden={!layerMenuOpen}>
@@ -468,7 +526,7 @@ export default function HeatDashboard() {
               </div>
             </div>
             <div className="map-metric heat-map-metric"><span>{metric === "heat-index" ? "Heat Index เฉลี่ยช่วงนี้" : "อุณหภูมิเฉลี่ยช่วงนี้"}</span><strong>{focusValue ?? "—"}<small>°C</small></strong><b style={{ color: metric === "heat-index" ? risk.color : "#ea580c" }}>{metric === "heat-index" ? `จุดสูงสุด ${selectedWindow?.pointMaxHeatIndexC ?? "—"}°C · ${risk.label}` : `บางจุด ${selectedWindow?.pointMaxTemperatureC ?? "—"}°C`}</b><em>{day?.weekday} {day?.date} · {selectedWindow?.label ?? "เลือกช่วงเวลา"}</em></div>
-            <div className={`surface-status heat-surface-status ${boundaryState}`}><b>{dataState === "live" ? "ข้อมูลพร้อมใช้งาน" : dataState === "degraded" ? "ข้อมูลบางส่วน" : "กำลังตรวจข้อมูล"}</b><span>พื้นผิว IDW · {points.length} จุด · {selectedWindow?.label ?? "รอข้อมูลช่วงเวลา"}</span><em>{payload?.dataQuality.tmdStatus === "live" ? "ใช้ TMD NWP ประกอบช่วง 48 ชม.แรก" : payload?.dataQuality.tmdStatus === "unavailable" ? "TMD ไม่พร้อม ใช้ Open-Meteo สำรอง" : "ยังไม่ได้เชื่อม TMD ในสภาพแวดล้อมนี้"}</em></div>
+            <div className={`surface-status heat-surface-status ${boundaryState}`}><b>{dataState === "live" ? "ข้อมูลพร้อมใช้งาน" : dataState === "degraded" ? "ข้อมูลบางส่วน" : "กำลังตรวจข้อมูล"}</b><span>พื้นผิว IDW · {points.length} จุด · {selectedWindow?.label ?? "รอข้อมูลช่วงเวลา"}</span><em>{sourceStatusLabel}</em></div>
             {metric === "heat-index" ? <div className="legend heat-legend" aria-label="ระดับ Heat Index"><span><i style={{ background: "#22c55e" }} />27–32.9 เฝ้าระวัง</span><span><i style={{ background: "#eab308" }} />33–41.9 เตือนภัย</span><span><i style={{ background: "#f97316" }} />42–51.9 อันตราย</span><span><i style={{ background: "#dc2626" }} />≥52 อันตรายมาก</span><small>Heat Index · °C</small></div> : <div className="legend heat-legend" aria-label="ระดับอุณหภูมิสูงสุด"><span><i style={{ background: "#38bdf8" }} />ต่ำกว่า 30°C</span><span><i style={{ background: "#facc15" }} />30–33.9°C</span><span><i style={{ background: "#f97316" }} />34–37.9°C</span><span><i style={{ background: "#dc2626" }} />≥38°C</span><small>อุณหภูมิสูงสุด · °C</small></div>}
           </div>
         </div>

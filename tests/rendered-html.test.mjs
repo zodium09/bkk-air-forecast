@@ -144,7 +144,7 @@ test("server-renders the Bangkok rain forecast page", async () => {
   assert.match(html, /เลือกวันพยากรณ์ฝน/);
   assert.match(html, /day-peak-time/);
   assert.match(html, /7 วันล่วงหน้า/);
-  assert.match(html, /แนวโน้ม 7 วัน/);
+  assert.match(html, /โอกาสฝนเฉลี่ยรายวัน/);
   assert.match(html, /จุดประมาณการ/);
   assert.match(html, /ที่มาข้อมูล/);
   assert.match(html, /href="\/"/);
@@ -202,8 +202,8 @@ test("rain day changes preserve the selected three-hour window and use a compact
   assert.match(selectDayHandler, /setSelectedDay\(index\)/);
   assert.doesNotMatch(selectDayHandler, /setSelectedWindowIndex/);
   assert.doesNotMatch(dashboard, /rain-day-mobile-select/);
-  assert.match(dashboard, /day-peak-window/);
-  assert.match(dashboard, /forecastDay\.peakWindow/);
+  assert.match(dashboard, /dailyAreaMeanProbability/);
+  assert.match(dashboard, /`เฉลี่ย \$\{prob\}%`/);
   assert.match(styles, /@media \(max-width: 780px\)[\s\S]*?\.rain-sidebar-days \{[\s\S]*?scroll-snap-type: x proximity;/);
   assert.match(styles, /\.rain-sidebar-day-btn \{[\s\S]*?min-width: 128px;[\s\S]*?min-height: 44px;/);
   assert.doesNotMatch(styles, /\.rain-sidebar-days \{ display: none; \}/);
@@ -282,10 +282,10 @@ test("rain page provides a query-persisted 24-hour accumulation watch mode", asy
   assert.match(dashboard, /type RainViewMode = "forecast" \| "watch"/);
   assert.match(dashboard, /requestedMode === "watch"/);
   assert.match(dashboard, /searchParams\.set\("mode", "watch"\)/);
-  assert.match(dashboard, /เฝ้าระวังฝนสะสม/);
+  assert.match(dashboard, /ปริมาณฝนสะสม/);
   assert.match(dashboard, /effectiveMetricMode: MetricMode = viewMode === "watch" \? "daily-rain"/);
   assert.match(dashboard, /setRadarEnabled\(false\)/);
-  assert.match(dashboard, /ไม่ใช่ประกาศเตือนภัยจากหน่วยงานรัฐ/);
+  assert.match(dashboard, /ไม่ใช่ประกาศเตือนภัย/);
   assert.match(communication, /value <= 10/);
   assert.match(communication, /value <= 35/);
   assert.match(communication, /value <= 90/);
@@ -297,12 +297,35 @@ test("rain page lets users switch the seven-day forecast between TMD and Open-Me
   const dashboard = await readFile(new URL("../app/rain/rain-dashboard.tsx", import.meta.url), "utf8");
   const route = await readFile(new URL("../app/api/rain-forecast/route.ts", import.meta.url), "utf8");
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
-  assert.match(dashboard, /แหล่งพยากรณ์ 7 วัน/);
+  assert.match(dashboard, /แหล่งข้อมูล/);
   assert.match(dashboard, /selectForecastSource\("tmd"\)/);
   assert.match(dashboard, /selectForecastSource\("open-meteo"\)/);
   assert.match(dashboard, /source: forecastSource/);
+  assert.match(dashboard, /mode: viewMode === "watch" \? "accumulation" : "chance"/);
+  assert.match(dashboard, /โอกาสฝนตก/);
+  assert.match(dashboard, /ปริมาณฝนสะสม/);
+  assert.match(dashboard, /ค่าเฉลี่ยทุกชั่วโมงและทุกจุดแบบจำลอง/);
   assert.match(route, /getRainForecastSource\(searchParams\.get\("source"\)\)/);
+  assert.match(route, /buildTmdDailyPointForecastUrls/);
+  assert.match(route, /mergeTmdDailyRainForecast/);
   assert.match(styles, /\.rain-source-mode/);
+});
+
+test("heat page lets users switch between 48-hour TMD data and seven-day Open-Meteo", async () => {
+  const dashboard = await readFile(new URL("../app/heat/heat-dashboard.tsx", import.meta.url), "utf8");
+  const route = await readFile(new URL("../app/api/heat-forecast/route.ts", import.meta.url), "utf8");
+  const provider = await readFile(new URL("../app/lib/heat-forecast-provider.ts", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(dashboard, /แหล่งพยากรณ์ 7 วัน/);
+  assert.match(dashboard, /selectForecastSource\("tmd"\)/);
+  assert.match(dashboard, /ข้อมูลหลัก 0–48 ชม\./);
+  assert.match(dashboard, /selectForecastSource\("open-meteo"\)/);
+  assert.match(dashboard, /source: forecastSource/);
+  assert.match(provider, /DEFAULT_HEAT_FORECAST_SOURCE/);
+  assert.match(route, /getHeatForecastSource\(searchParams\.get\("source"\)\)/);
+  assert.match(route, /forecastSource === "tmd" && tmdToken/);
+  assert.match(route, /"tc,rh", 48/);
+  assert.match(styles, /\.heat-source-mode/);
 });
 
 test("rain insight cards flow below the seven-day chart without shrinking", async () => {
