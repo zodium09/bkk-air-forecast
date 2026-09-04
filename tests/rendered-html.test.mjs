@@ -139,13 +139,13 @@ test("server-renders the Bangkok rain forecast page", async () => {
 
   const html = await response.text();
   assert.match(html, /BKK AIR FORECAST · RAIN/);
-  assert.match(html, /ฝน(?:<!-- -->)? · (?:<!-- -->)?กรุงเทพฯ/);
+  assert.match(html, /ฝน(?:<!-- -->)? · (?:<!-- -->)?กรุงเทพฯ–ปริมณฑล/);
   assert.match(html, /กำลังโหลดพยากรณ์ฝน/);
   assert.match(html, /เลือกวันพยากรณ์ฝน/);
   assert.match(html, /day-peak-time/);
   assert.match(html, /7 วันล่วงหน้า/);
-  assert.match(html, /โอกาสฝนเฉลี่ยรายวัน/);
-  assert.match(html, /จุดประมาณการ/);
+  assert.match(html, /โอกาสเกิดฝนช่วงใดช่วงหนึ่งของวัน/);
+  assert.match(html, /จุดแบบจำลอง/);
   assert.match(html, /ที่มาข้อมูล/);
   assert.match(html, /href="\/"/);
   assert.doesNotMatch(html, /จุดตรวจวัดฝน|สถานีฝน/);
@@ -222,12 +222,13 @@ test("rain map uses three interactive in-boundary weather labels per province", 
   assert.doesNotMatch(dashboard, /class=\\"map-val-badge/);
 });
 
-test("rain defaults to Bangkok with radar and weather emoji opt-in", async () => {
+test("rain defaults to the metropolitan view with sample points visible and radar opt-in", async () => {
   const dashboard = await readFile(new URL("../app/rain/rain-dashboard.tsx", import.meta.url), "utf8");
   const homeDashboard = await readFile(new URL("../app/home-dashboard.tsx", import.meta.url), "utf8");
-  assert.match(dashboard, /useState<RegionId>\("bangkok"\)/);
-  assert.match(dashboard, /requestedProvince \? getRegion\(requestedProvince\)\.id : "bangkok"/);
+  assert.match(dashboard, /useState<RegionId>\(METRO_REGION_ID\)/);
+  assert.match(dashboard, /requestedProvince \? getRegion\(requestedProvince\)\.id : METRO_REGION_ID/);
   assert.match(dashboard, /const \[showLabels, setShowLabels\] = useState\(false\)/);
+  assert.match(dashboard, /const \[showSamplePoints, setShowSamplePoints\] = useState\(true\)/);
   assert.match(dashboard, /const \[radarEnabled, setRadarEnabled\] = useState\(false\)/);
   assert.match(dashboard, /const \[radarLoadState, setRadarLoadState\] = useState<[^>]+>\("idle"\)/);
   assert.match(homeDashboard, /href="\/rain\?province=metro"/);
@@ -304,7 +305,8 @@ test("rain page lets users switch the seven-day forecast between TMD and Open-Me
   assert.match(dashboard, /mode: viewMode === "watch" \? "accumulation" : "chance"/);
   assert.match(dashboard, /โอกาสฝนตก/);
   assert.match(dashboard, /ปริมาณฝนสะสม/);
-  assert.match(dashboard, /ค่าเฉลี่ยทุกชั่วโมงและทุกจุดแบบจำลอง/);
+  assert.match(dashboard, /ค่าสูงสุดตามเวลาของแต่ละจุด แล้วเฉลี่ยจาก/);
+  assert.match(dashboard, /จุดข้อมูลแบบจำลอง/);
   assert.match(route, /getRainForecastSource\(searchParams\.get\("source"\)\)/);
   assert.match(route, /buildTmdDailyPointForecastUrls/);
   assert.match(route, /mergeTmdDailyRainForecast/);

@@ -2,6 +2,7 @@ import {
   aggregateMetroRain,
   buildRainDayShells,
   formatRainDate,
+  getCorroboratedRainMm,
   type RainDay,
   type RainPoint,
   type RainPointDay,
@@ -147,7 +148,7 @@ function aggregatePoint(raw: OpenMeteoLocation, index: number, forecastPoints: R
   return { ...point, daily, windows };
 }
 
-function aggregateCity(points: RainPoint[], dateKeys: string[]) {
+function aggregateCity(points: RainPoint[], dateKeys: string[], requestedMode: RainForecastMode) {
   const windows: RainWindow[] = [];
   const days: RainDay[] = dateKeys.map((dateKey, dayIndex) => {
     const pointDays = points.map((point) => point.daily[dayIndex]).filter(Boolean);
@@ -178,19 +179,26 @@ function aggregateCity(points: RainPoint[], dateKeys: string[]) {
     });
     windows.push(...dayWindows);
     const peak = [...dayWindows]
-      .filter((window) => window.rainMeanMm !== null)
-      .sort((a, b) => (b.rainMeanMm ?? 0) - (a.rainMeanMm ?? 0) || (b.areaMeanProbabilityPeak ?? 0) - (a.areaMeanProbabilityPeak ?? 0))[0];
+      .filter((window) => window.rainMeanMm !== null || window.areaMeanProbabilityPeak !== null)
+      .sort((a, b) => requestedMode === "chance"
+        ? (b.areaMeanProbabilityPeak ?? -1) - (a.areaMeanProbabilityPeak ?? -1) || (b.rainMeanMm ?? -1) - (a.rainMeanMm ?? -1)
+        : (b.rainMeanMm ?? -1) - (a.rainMeanMm ?? -1) || (b.areaMeanProbabilityPeak ?? -1) - (a.areaMeanProbabilityPeak ?? -1))[0];
     const formatted = formatRainDate(dateKey);
+    const dailyProbabilities = pointDays
+      .map((pointDay) => pointDay.pointProbabilityMax)
+      .filter((value): value is number => value !== null);
+    const rainMeanMm = rain.length ? rounded(mean(rain) ?? 0) : null;
+    const corroboratedRainMm = getCorroboratedRainMm(points, dayIndex);
     return {
       lead: dayIndex + 1,
       dateKey,
       ...formatted,
-      // Daily summaries use the mean probability across all available hours
-      // and sample points. Peak values remain confined to the 3-hour timeline.
-      dailyAreaMeanProbability: meanProbability(pointDays
-        .map((pointDay) => pointDay.pointProbabilityMean)
-        .filter((value): value is number => value !== null)),
-      rainMeanMm: rain.length ? rounded(mean(rain) ?? 0) : null,
+      // A daily chance answers whether rain may occur at some time during the day:
+      // take each point's provider-supplied daily maximum, then summarize space.
+      dailyAreaMeanProbability: meanProbability(dailyProbabilities),
+      dailyAreaMaxProbability: dailyProbabilities.length ? Math.max(...dailyProbabilities) : null,
+      rainMeanMm,
+      rainWatchMm: rain.length ? rounded(Math.max(rainMeanMm ?? 0, corroboratedRainMm ?? 0)) : null,
       rainMaxMm: rain.length ? rounded(Math.max(...rain)) : null,
       wetHours: wetHours.length ? rounded(mean(wetHours) ?? 0) : null,
       peakWindow: peak?.label ?? null,
@@ -269,7 +277,7 @@ function normalizedResponse(
 
   const dateKeys = locations.find((location) => location.daily)?.daily?.time.slice(0, FORECAST_DAYS);
   if (!dateKeys || dateKeys.length !== FORECAST_DAYS) throw new Error("missing seven-day forecast dates");
-  const { days, windows } = aggregateCity(points, dateKeys);
+  const { days, windows } = aggregateCity(points, dateKeys, requestedMode);
   const horizonDays = requestedMode === "chance" && requestedSource === "tmd" ? 2 : FORECAST_DAYS;
   const coverageHours = Math.min(horizonDays * 24, ...points.map((point) => point.windows.filter((window) => window.dayIndex < horizonDays && window.rainMm !== null).length * 3));
   const status = points.length === forecastPoints.length ? "live" : "degraded";
@@ -284,7 +292,7 @@ function normalizedResponse(
     model: `${model} · 9 boundary-aware ${province.nameEn} samples`,
     disclaimer: requestedMode === "accumulation"
       ? "ปริมาณฝนสะสมเป็นค่ารวม 24 ชั่วโมงจากแบบจำลองรายวัน แต่ละพื้นที่อาจได้รับฝนต่างกัน และไม่ใช่ค่าตรวจวัดหรือประกาศเตือนภัย"
-      : "เปอร์เซ็นต์สรุปรายวันเป็นค่าเฉลี่ยของโอกาสฝนจากทุกชั่วโมงและจุดแบบจำลอง ส่วนไทม์ไลน์ 3 ชั่วโมงแสดงสัญญาณเด่นของช่วงนั้น และไม่ยืนยันว่าจะตกทุกแห่ง",
+      : "โอกาสฝนรายวันใช้ค่าสูงสุดตามเวลาของแต่ละจุด แล้วเฉลี่ยจากจุดแบบจำลอง ส่วนไทม์ไลน์ 3 ชั่วโมงแสดงค่าเฉลี่ยจากจุดแบบจำลองของสัญญาณสูงสุดในช่วงนั้น และไม่ยืนยันว่าจะตกทุกแห่ง",
     sources: [provider.source, ...(provider.id.startsWith("tmd-nwp-") ? ["Open-Meteo Weather Forecast"] : []), province.id === "bangkok" ? "BMA GIS district boundary" : "DMR province boundary", "OpenStreetMap"],
     dataQuality: {
       expectedPoints: forecastPoints.length,

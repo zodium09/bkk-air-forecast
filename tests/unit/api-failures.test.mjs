@@ -334,9 +334,11 @@ test("an isolated 100% rain point does not become a 100% province-wide summary",
   assert.equal(payload.points[0].windows[0].pointProbabilityPeak, 100);
   assert.equal(payload.windows[0].areaMeanProbabilityPeak, 11);
   assert.equal(payload.days[0].dailyAreaMeanProbability, 11);
+  assert.equal(payload.days[0].dailyAreaMaxProbability, 100);
+  assert.ok(payload.days[0].rainWatchMm < payload.days[0].rainMaxMm);
 });
 
-test("daily rain chance is the all-hour mean rather than the daily maximum", async () => {
+test("daily rain chance uses each point's daily maximum rather than an all-hour mean", async () => {
   const raw = rainRaw(9).map((location) => ({
     ...location,
     hourly: {
@@ -346,8 +348,8 @@ test("daily rain chance is the all-hour mean rather than the daily maximum", asy
     daily: { ...location.daily, precipitation_probability_max: location.daily.time.map(() => 100) },
   }));
   const payload = await (await createRainForecastResponse({ forecastSource: "open-meteo", fetchImpl: async () => json(raw) })).json();
-  assert.equal(payload.days[0].dailyAreaMeanProbability, 4);
-  assert.notEqual(payload.days[0].dailyAreaMeanProbability, 100);
+  assert.equal(payload.days[0].dailyAreaMeanProbability, 100);
+  assert.equal(payload.days[0].dailyAreaMaxProbability, 100);
 });
 
 test("rain forecast uses coordinates and metadata for the selected metro province", async () => {

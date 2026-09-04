@@ -2073,6 +2073,79 @@ html[data-theme="dark"] .theme-toggle-sun { display: inline; }
   }
 }
 
+/* Rain forecast: readable evidence hierarchy and mobile answer-first flow */
+.rain-mobile-quick-summary { display: none; }
+.rain-shell .banner-kicker { font-size: 11px; letter-spacing: .12em; }
+.rain-shell .banner-copy p { font-size: 11.5px; }
+.rain-shell .banner-status span { font-size: 10.5px; }
+.rain-shell .banner-status b { font-size: 11.5px; }
+.rain-control-panel .rain-view-mode small { font-size: 10.5px; }
+.rain-control-panel .rain-watch-level small,
+.rain-control-panel .rain-watch-metrics dt,
+.rain-control-panel .rain-watch-disclaimer { font-size: 10.5px; }
+.rain-control-panel .rain-watch-metrics dd small,
+.rain-control-panel .rain-watch-scale small { font-size: 10px; }
+.rain-control-panel .rain-watch-summary > p,
+.rain-control-panel .rain-watch-scale > span { font-size: 11.5px; }
+.rain-map-metric .rain-probability-note { font-size: 10px; line-height: 1.35; }
+.rain-insights .average-card p,
+.rain-insights .average-card em,
+.rain-insights .trend-heading span,
+.rain-insights .advisory-desc,
+.rain-insights .watch-card > small,
+.rain-insights .forecast-note p { font-size: 11.5px; }
+.rain-insights .rain-summary-note,
+.rain-insights .forecast-note small { font-size: 10.5px; }
+.rain-insights .rain-advisory-dimensions small { font-size: 10px; }
+.rain-insights .rain-advisory-dimensions b,
+.rain-insights .rain-trend-card .trend-chart button span { font-size: 11px; }
+
+@media (max-width: 780px) {
+  .rain-mobile-quick-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid #bfdbfe;
+    border-radius: 12px;
+    background: #eff6ff;
+    color: #0f172a;
+  }
+  .rain-mobile-quick-summary > div { min-width: 0; display: grid; gap: 2px; }
+  .rain-mobile-quick-summary small { color: #475569; font-size: 11px; font-weight: 700; }
+  .rain-mobile-quick-summary strong { color: #1d4ed8; font: 800 28px/1 Manrope, sans-serif; }
+  .rain-mobile-quick-summary span { color: #334155; font-size: 12px; line-height: 1.35; }
+  .rain-mobile-quick-summary > b { flex: 0 0 auto; padding: 5px 9px; border-radius: 999px; background: #dbeafe; color: #1e40af; font-size: 11px; }
+  .rain-workspace .rain-map-card { order: 1; }
+  .rain-workspace .rain-control-panel { order: 2; }
+  .rain-workspace .rain-insights { order: 3; }
+  .rain-control-panel .rain-view-mode { order: 1; }
+  .rain-control-panel .rain-day-section { order: 2; }
+  .rain-control-panel .rain-timeline-section,
+  .rain-control-panel .rain-watch-summary { order: 3; }
+  .rain-control-panel .rain-source-section { order: 4; }
+  .rain-control-panel .rain-highlights-section { order: 5; }
+  .rain-shell .banner-copy p { font-size: 11.5px; white-space: normal; }
+  .rain-sidebar-day-btn .day-btn-left .day-date,
+  .rain-sidebar-day-btn .day-peak-time,
+  .window-prob-secondary,
+  .badge-now,
+  .badge-peak { font-size: 10px; }
+  .rain-map-metric .rain-probability-note { font-size: 10px !important; }
+  .rain-legend { font-size: 10px; }
+}
+
+html[data-theme="dark"] .rain-mobile-quick-summary {
+  border-color: #334155;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+html[data-theme="dark"] .rain-mobile-quick-summary small,
+html[data-theme="dark"] .rain-mobile-quick-summary span { color: #cbd5e1; }
+html[data-theme="dark"] .rain-mobile-quick-summary strong { color: #7dd3fc; }
+html[data-theme="dark"] .rain-mobile-quick-summary > b { background: #1e3a8a; color: #dbeafe; }
+
 @media (max-width: 480px) {
   .home-brand b { font-size: 15px; }
   .banner-copy h1 { font-size: 17px; }
@@ -2084,7 +2157,7 @@ html[data-theme="dark"] .theme-toggle-sun { display: inline; }
     padding: 4px 8px;
   }
   .rain-map-metric { max-width: 176px; }
-  .rain-probability-note { font-size: 6.5px; }
+  .rain-probability-note { font-size: 10px; }
   .radar-now-cta { max-width: 160px; }
   .map-metric strong, .rain-map-metric strong {
     font-size: 16px;

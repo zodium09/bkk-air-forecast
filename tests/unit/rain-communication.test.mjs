@@ -14,7 +14,9 @@ function rainDay(overrides = {}) {
     weekday: "ศุกร์",
     date: "28 ส.ค.",
     dailyAreaMeanProbability: 100,
+    dailyAreaMaxProbability: 100,
     rainMeanMm: 0.5,
+    rainWatchMm: 2,
     rainMaxMm: 2,
     wetHours: 1,
     peakWindow: "15:00–18:00 น.",
@@ -36,6 +38,7 @@ test("waterlogging watch is driven by accumulated rain, not probability alone", 
   const lowProbabilityHeavyRain = rainDay({
     dailyAreaMeanProbability: 35,
     rainMeanMm: 38,
+    rainWatchMm: 78,
     rainMaxMm: 78,
     wetHours: 8,
   });
@@ -44,9 +47,9 @@ test("waterlogging watch is driven by accumulated rain, not probability alone", 
   assert.equal(advisory.impact, "อาจมีน้ำท่วมขัง");
 });
 
-test("medium-range probability is communicated as a band", () => {
-  assert.equal(formatProbabilityContext(87, 0), "ค่าสูงสุดของแบบจำลอง 87%");
-  assert.equal(formatProbabilityContext(87, 3), "ช่วงแบบจำลอง 80–100%");
+test("probability context states its time and spatial aggregation", () => {
+  assert.equal(formatProbabilityContext(87, "daily"), "โอกาสเกิดฝนช่วงใดช่วงหนึ่ง เฉลี่ยจากจุดแบบจำลอง 87%");
+  assert.equal(formatProbabilityContext(87, "window"), "เฉลี่ยจากจุดแบบจำลองของค่าสูงสุดในช่วง 87%");
   assert.equal(getRainLikelihood(87).label, "สูงมาก");
 });
 

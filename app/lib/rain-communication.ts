@@ -26,12 +26,12 @@ export type RainWatchLevel = {
 };
 
 /**
- * Planning tier derived from the highest daily model-grid accumulation.
+ * Planning tier derived from a spatial mean plus a locally corroborated high value.
  * Thresholds follow TMD's 24-hour rain-amount classes, while the labels remain
  * explicitly planning-oriented and are not an official warning product.
  */
-export function getRainWatchLevel(meanMm: number | null | undefined, maxMm: number | null | undefined): RainWatchLevel {
-  const value = maxMm ?? meanMm;
+export function getRainWatchLevel(meanMm: number | null | undefined, corroboratedMm: number | null | undefined): RainWatchLevel {
+  const value = corroboratedMm ?? meanMm;
   if (value === null || value === undefined || !Number.isFinite(value)) {
     return { key: "unavailable", label: "รอข้อมูล", rainClass: "ไม่มีข้อมูล", color: "#64748b", rank: -1, guidance: "ยังประเมินระดับเฝ้าระวังไม่ได้" };
   }
@@ -59,15 +59,12 @@ export function getRainLikelihood(probability: number | null | undefined): RainL
   return { label: "สูงมาก", color: "#6d28d9" };
 }
 
-export function formatProbabilityContext(probability: number | null | undefined, leadDay: number) {
+export function formatProbabilityContext(probability: number | null | undefined, scope: "daily" | "window" = "window") {
   if (probability === null || probability === undefined) return "รอข้อมูลแบบจำลอง";
   const rounded = Math.round(probability);
-  if (leadDay >= 2) {
-    const lower = Math.min(80, Math.floor(rounded / 20) * 20);
-    const upper = lower === 80 ? 100 : lower + 19;
-    return `ช่วงแบบจำลอง ${lower}–${upper}%`;
-  }
-  return `ค่าสูงสุดของแบบจำลอง ${rounded}%`;
+  return scope === "daily"
+    ? `โอกาสเกิดฝนช่วงใดช่วงหนึ่ง เฉลี่ยจากจุดแบบจำลอง ${rounded}%`
+    : `เฉลี่ยจากจุดแบบจำลองของค่าสูงสุดในช่วง ${rounded}%`;
 }
 
 export function getRainIntensity(meanMm: number | null | undefined, maxMm: number | null | undefined) {
@@ -116,12 +113,12 @@ export function getRainAdvisory(
   }
 
   const meanMm = day.rainMeanMm ?? 0;
-  const maxMm = day.rainMaxMm ?? meanMm;
+  const watchMm = day.rainWatchMm ?? meanMm;
   const wetHours = day.wetHours ?? 0;
   const likelihood = getRainLikelihood(day.dailyAreaMeanProbability).label;
   const intensity = getRainIntensity(day.rainMeanMm, day.rainMaxMm);
-  const floodWatch = meanMm >= 35 || maxMm >= 70 || (maxMm >= 50 && wetHours >= 6);
-  const heavyLocalized = meanMm >= 10 || maxMm >= 35 || (peakWindowMeanRainMm ?? 0) >= 10;
+  const floodWatch = meanMm >= 35 || watchMm >= 70 || (watchMm >= 50 && wetHours >= 6);
+  const heavyLocalized = meanMm >= 10 || watchMm >= 35 || (peakWindowMeanRainMm ?? 0) >= 10;
   const prolonged = meanMm >= 5 && wetHours >= 6;
   const coverage = sampleWetCoveragePct === null || sampleWetCoveragePct === undefined
     ? "บางพื้นที่"

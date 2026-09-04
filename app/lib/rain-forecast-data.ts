@@ -11,7 +11,9 @@ export type RainDay = {
   weekday: string;
   year: number;
   dailyAreaMeanProbability: number | null;
+  dailyAreaMaxProbability: number | null;
   rainMeanMm: number | null;
+  rainWatchMm: number | null;
   rainMaxMm: number | null;
   wetHours: number | null;
   peakWindow: string | null;
@@ -113,7 +115,9 @@ export function buildRainDayShells(startDateKey?: string): RainDay[] {
       dateKey,
       ...formatted,
       dailyAreaMeanProbability: null,
+      dailyAreaMaxProbability: null,
       rainMeanMm: null,
+      rainWatchMm: null,
       rainMaxMm: null,
       wetHours: null,
       peakWindow: null,
@@ -132,39 +136,96 @@ function maxNullable(values: Array<number | null | undefined>) {
   return valid.length ? Math.max(...valid) : null;
 }
 
+function mostCommonNullable(values: Array<number | null | undefined>) {
+  const counts = new Map<number, number>();
+  values.forEach((value) => {
+    if (typeof value === "number" && Number.isFinite(value)) counts.set(value, (counts.get(value) ?? 0) + 1);
+  });
+  return [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+}
+
+function distanceKm(a: Pick<RainPoint, "lat" | "lng">, b: Pick<RainPoint, "lat" | "lng">) {
+  const toRadians = (value: number) => value * Math.PI / 180;
+  const lat1 = toRadians(a.lat);
+  const lat2 = toRadians(b.lat);
+  const deltaLat = lat2 - lat1;
+  const deltaLng = toRadians(b.lng - a.lng);
+  const sinLat = Math.sin(deltaLat / 2);
+  const sinLng = Math.sin(deltaLng / 2);
+  const haversine = sinLat ** 2 + Math.cos(lat1) * Math.cos(lat2) * sinLng ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+}
+
+/**
+ * Highest daily accumulation supported by at least two nearby model points.
+ * This prevents one isolated grid-point maximum from defining a regional watch tier.
+ */
+export function getCorroboratedRainMm(points: RainPoint[], dayIndex: number, maxDistanceKm = 30) {
+  const values = points
+    .map((point) => ({ point, value: point.daily[dayIndex]?.rainMm }))
+    .filter((entry): entry is { point: RainPoint; value: number } => typeof entry.value === "number" && Number.isFinite(entry.value));
+  let corroborated: number | null = null;
+  for (let first = 0; first < values.length; first += 1) {
+    for (let second = first + 1; second < values.length; second += 1) {
+      if (distanceKm(values[first].point, values[second].point) > maxDistanceKm) continue;
+      const pairValue = Math.min(values[first].value, values[second].value);
+      corroborated = corroborated === null ? pairValue : Math.max(corroborated, pairValue);
+    }
+  }
+  return corroborated === null ? null : Math.round(corroborated * 10) / 10;
+}
+
 export function aggregateMetroRain(payloads: RainForecastPayload[]): RainForecastPayload {
   const usable = payloads.filter((payload) => payload.status !== "unavailable");
   const primary = usable[0] ?? payloads[0];
   if (!primary) throw new Error("metropolitan rain forecast unavailable");
   if (!usable.length) return { ...primary, province: metroRegion, points: [], windows: [] };
 
+  const requestedSource = primary.dataQuality.requestedSource ?? "tmd";
+  const requestedMode = primary.dataQuality.requestedMode ?? "chance";
+  const allPoints = usable.flatMap((payload) => payload.points.map((point) => ({
+    ...point,
+    id: `${payload.province.id}-${point.id}`,
+    label: `${payload.province.shortNameTh} · ${point.label}`,
+  })));
   const windows = primary.windows.map((baseWindow) => {
-    const matches = usable.map((payload) => payload.windows.find((window) =>
-      window.dayIndex === baseWindow.dayIndex && window.windowIndex === baseWindow.windowIndex,
-    )).filter(Boolean);
+    const matches = allPoints
+      .map((point) => point.windows.find((window) =>
+        window.dayIndex === baseWindow.dayIndex && window.windowIndex === baseWindow.windowIndex,
+      ))
+      .filter((window): window is RainPointWindow => Boolean(window));
+    const probabilityMean = meanNullable(matches.map((window) => window.pointProbabilityPeak));
     return {
       ...baseWindow,
-      areaMeanProbabilityPeak: meanNullable(matches.map((window) => window?.areaMeanProbabilityPeak)),
-      rainMeanMm: meanNullable(matches.map((window) => window?.rainMeanMm)),
-      rainMaxMm: maxNullable(matches.map((window) => window?.rainMaxMm)),
+      areaMeanProbabilityPeak: probabilityMean === null ? null : Math.round(probabilityMean),
+      rainMeanMm: meanNullable(matches.map((window) => window.rainMm)),
+      rainMaxMm: maxNullable(matches.map((window) => window.rainMm)),
     };
   });
   const days = primary.days.map((baseDay, dayIndex) => {
-    const matches = usable.map((payload) => payload.days[dayIndex]).filter(Boolean);
+    const pointDays = allPoints.map((point) => point.daily[dayIndex]).filter(Boolean);
+    const dailyProbabilities = pointDays.map((day) => day.pointProbabilityMax);
+    const dailyProbabilityMean = meanNullable(dailyProbabilities);
+    const rainValues = pointDays.map((day) => day.rainMm);
+    const rainMeanMm = meanNullable(rainValues);
+    const corroboratedRainMm = getCorroboratedRainMm(allPoints, dayIndex);
     const peak = windows
       .filter((window) => window.dayIndex === dayIndex)
-      .sort((a, b) => (b.rainMeanMm ?? -1) - (a.rainMeanMm ?? -1) || (b.areaMeanProbabilityPeak ?? -1) - (a.areaMeanProbabilityPeak ?? -1))[0];
+      .sort((a, b) => requestedMode === "chance"
+        ? (b.areaMeanProbabilityPeak ?? -1) - (a.areaMeanProbabilityPeak ?? -1) || (b.rainMeanMm ?? -1) - (a.rainMeanMm ?? -1)
+        : (b.rainMeanMm ?? -1) - (a.rainMeanMm ?? -1) || (b.areaMeanProbabilityPeak ?? -1) - (a.areaMeanProbabilityPeak ?? -1))[0];
     return {
       ...baseDay,
-      dailyAreaMeanProbability: meanNullable(matches.map((day) => day?.dailyAreaMeanProbability)),
-      rainMeanMm: meanNullable(matches.map((day) => day?.rainMeanMm)),
-      rainMaxMm: maxNullable(matches.map((day) => day?.rainMaxMm)),
-      wetHours: meanNullable(matches.map((day) => day?.wetHours)),
+      dailyAreaMeanProbability: dailyProbabilityMean === null ? null : Math.round(dailyProbabilityMean),
+      dailyAreaMaxProbability: maxNullable(dailyProbabilities),
+      rainMeanMm,
+      rainWatchMm: maxNullable([rainMeanMm, corroboratedRainMm]),
+      rainMaxMm: maxNullable(rainValues),
+      wetHours: meanNullable(pointDays.map((day) => day.wetHours)),
       peakWindow: peak?.label ?? null,
+      weatherCode: mostCommonNullable(pointDays.map((day) => day.weatherCode)),
     };
   });
-  const requestedSource = primary.dataQuality.requestedSource ?? "tmd";
-  const requestedMode = primary.dataQuality.requestedMode ?? "chance";
   const liveTmdPayloads = usable.filter((payload) => payload.dataQuality.tmdStatus === "live");
   const tmdStatus = requestedSource === "open-meteo"
     ? "not-configured"
@@ -186,7 +247,7 @@ export function aggregateMetroRain(payloads: RainForecastPayload[]): RainForecas
     status: payloads.length === provinces.length && payloads.every((payload) => payload.status === "live") ? "live" : "degraded",
     fetchedAt: usable.map((payload) => payload.fetchedAt).sort().at(-1) ?? primary.fetchedAt,
     model,
-    disclaimer: "ภาพรวมใช้ค่าเฉลี่ยเชิงพื้นที่ของจุดตัวอย่างในแต่ละช่วง 3 ชั่วโมง รวม 54 จุดจาก 6 จังหวัด จึงไม่ใช้ค่าสูงสุดของจุดเดียวแทนทั้งพื้นที่ และไม่ใช่เรดาร์ฝนหรือประกาศเตือนภัย",
+    disclaimer: "โอกาสฝนรายวันใช้ค่าสูงสุดตามเวลาของแต่ละจุด แล้วหาค่าเฉลี่ยจาก 54 จุดใน 6 จังหวัด ส่วนระดับเฝ้าระวังต้องมีจุดใกล้กันสนับสนุน ไม่ใช้ค่าสูงสุดโดดเดี่ยวแทนทั้งพื้นที่",
     sources: [...new Set(usable.flatMap((payload) => payload.sources))],
     dataQuality: {
       ...primary.dataQuality,
@@ -210,11 +271,7 @@ export function aggregateMetroRain(payloads: RainForecastPayload[]): RainForecas
     },
     days,
     windows,
-    points: usable.flatMap((payload) => payload.points.map((point) => ({
-      ...point,
-      id: `${payload.province.id}-${point.id}`,
-      label: `${payload.province.shortNameTh} · ${point.label}`,
-    }))),
+    points: allPoints,
   };
 }
 
