@@ -37,12 +37,15 @@ test("home launches three geographic workspaces with measured versus forecast co
 });
 
 for (const route of ["air", "rain", "heat"]) {
-  test(`${route} workspace server-renders geographic controls, time, trust, and mobile disclosure`, async () => {
+  test(`${route} workspace server-renders map-first story order, keyboard help, time and trust`, async () => {
     const worker = await loadWorker();
     const response = await worker.fetch(new Request(`http://localhost/${route}`, { headers: { accept: "text/html" } }), environment, executionContext);
     assert.equal(response.status, 200);
     const html = await response.text();
-    for (const label of ["พื้นที่สำรวจแผนที่", "เลือกชั้นข้อมูลสิ่งแวดล้อม", "เส้นเวลาพยากรณ์", "เลื่อนเวลาพยากรณ์", "ข้อมูลตำแหน่ง", "ที่มาและความน่าเชื่อถือ", "ขยายหรือย่อข้อมูลตำแหน่ง", "เปรียบเทียบเวลา", "กำลังโหลดข้อมูลแผนที่"]) assert.ok(html.includes(label), label);
+    for (const label of ["พื้นที่สำรวจแผนที่", "เลือกชั้นข้อมูลสิ่งแวดล้อม", "เส้นเวลาพยากรณ์", "เลื่อนเวลาพยากรณ์", "ข้อมูลตำแหน่ง", "ที่มาและความน่าเชื่อถือ", "ใช้คีย์บอร์ดสำรวจ", "เปรียบเทียบเวลา", "กำลังโหลดข้อมูลแผนที่"]) assert.ok(html.includes(label), label);
+    assert.ok(html.indexOf('id="map-story"') < html.indexOf('id="forecast-story"'));
+    assert.ok(html.indexOf('id="forecast-story"') < html.indexOf('id="location-story"'));
+    assert.doesNotMatch(html, /mi-sheet-handle/);
     assert.match(html, /ยังไม่มี % ความมั่นใจที่ยืนยันได้/);
     assert.match(html, /เวลาเริ่มรันแบบจำลอง/);
     assert.match(html, /ประมาณเชิงพื้นที่ IDW/);

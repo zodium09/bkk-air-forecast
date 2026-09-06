@@ -81,6 +81,28 @@ export default function EnvironmentMap(props: Props) {
     };
   }, []);
   useEffect(() => {
+    if (!ready || !map.current) return;
+    const media = matchMedia(
+      "(max-width: 780px), (max-width: 1024px) and (pointer: coarse)",
+    );
+    const syncInteraction = () => {
+      const instance = map.current;
+      if (!instance) return;
+      const storyTouch =
+        media.matches &&
+        matchMedia("(pointer: coarse)").matches &&
+        !props.exploring;
+      if (storyTouch) instance.dragging.disable();
+      else instance.dragging.enable();
+      // Scrolling the story must not zoom the map under the pointer.
+      if (!props.exploring && media.matches) instance.scrollWheelZoom.disable();
+      else instance.scrollWheelZoom.enable();
+    };
+    syncInteraction();
+    media.addEventListener("change", syncInteraction);
+    return () => media.removeEventListener("change", syncInteraction);
+  }, [ready, props.exploring]);
+  useEffect(() => {
     const sync = () =>
       setTheme(
         document.documentElement.dataset.theme === "light" ? "light" : "dark",

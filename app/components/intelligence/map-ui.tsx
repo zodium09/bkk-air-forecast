@@ -1,8 +1,7 @@
 "use client";
 import {
-  useEffect,
-  useRef,
   useState,
+  type KeyboardEvent,
   type CSSProperties,
   type ReactNode,
 } from "react";
@@ -14,12 +13,62 @@ import {
   metricName,
   modeLabels,
   relativeDay,
+  interpretation,
+  valueColor,
   type DataMode,
   type EnvironmentLayer,
   type MapDataset,
   type MapStep,
   type Metric,
 } from "../../lib/map-intelligence";
+
+/** Arrow navigation stays within the focused forecast group. */
+function navigateForecast(
+  event: KeyboardEvent<HTMLButtonElement>,
+  onChange: (index: number) => void,
+) {
+  if (
+    ![
+      "ArrowLeft",
+      "ArrowRight",
+      "ArrowUp",
+      "ArrowDown",
+      "Home",
+      "End",
+    ].includes(event.key)
+  )
+    return;
+  const buttons = Array.from(
+    event.currentTarget.parentElement!.querySelectorAll<HTMLButtonElement>(
+      "button[data-time-index]:not(:disabled)",
+    ),
+  );
+  const current = buttons.indexOf(event.target as HTMLButtonElement);
+  if (current < 0) return;
+  event.preventDefault();
+  const next =
+    event.key === "Home"
+      ? 0
+      : event.key === "End"
+        ? buttons.length - 1
+        : (current +
+            (["ArrowRight", "ArrowDown"].includes(event.key) ? 1 : -1) +
+            buttons.length) %
+          buttons.length;
+  buttons[next].focus();
+  onChange(Number(buttons[next].dataset.timeIndex));
+}
+
+export function goToStory(id: string) {
+  const section = document.getElementById(id);
+  section?.focus({ preventScroll: true });
+  section?.scrollIntoView({
+    behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
+      ? "instant"
+      : "smooth",
+    block: "start",
+  });
+}
 
 export function MapIcon({ name, size = 20 }: { name: string; size?: number }) {
   const paths: Record<string, ReactNode> = {
@@ -255,6 +304,7 @@ export function ForecastTimeline({
   mode,
   values,
   metric,
+  scope,
 }: {
   data: MapDataset | null;
   index: number;
@@ -265,6 +315,7 @@ export function ForecastTimeline({
   mode: DataMode;
   values: (number | null)[];
   metric: Metric;
+  scope: string;
 }) {
   const steps = data?.steps ?? [];
   const current = steps[index];
@@ -303,7 +354,11 @@ export function ForecastTimeline({
   );
   if (mode === "observation")
     return (
-      <section className="mi-timeline mi-observation-time">
+      <section
+        id="forecast-story"
+        tabIndex={-1}
+        className="mi-timeline mi-observation-time"
+      >
         <MapIcon name="info" />
         <div>
           <b>ตรวจวัดล่าสุดที่มีข้อมูล</b>
@@ -312,7 +367,17 @@ export function ForecastTimeline({
       </section>
     );
   return (
-    <section className="mi-timeline" aria-label="เส้นเวลาพยากรณ์">
+    <section
+      id="forecast-story"
+      tabIndex={-1}
+      className="mi-timeline"
+      aria-label="เส้นเวลาพยากรณ์"
+    >
+      <div className="mi-story-section-title">
+        <span>02 / วางแผนล่วงหน้า</span>
+        <h2>วันไหนเหมาะกับแผนของคุณ</h2>
+        <p>เลือกวันเพื่อเปลี่ยนข้อมูลบนแผนที่ สีแสดงระดับของแต่ละวัน</p>
+      </div>
       <div className="mi-timeline-top">
         <div>
           <b>{current ? relativeDay(current.date) : "แนวโน้ม 7 วัน"}</b>
@@ -332,14 +397,35 @@ export function ForecastTimeline({
           <span>{playing ? "หยุด" : "เล่น"}</span>
         </button>
       </div>
-      <div className="mi-days">
+      <p id="forecast-scope" className="mi-forecast-scope">
+        {scope}
+        {data
+          ? ` · ${metricName(data.layer, metric)} (${metric === "primary" ? layerInfo[data.layer].unit : layerInfo[data.layer].secondaryUnit})`
+          : ""}
+      </p>
+      <div
+        className="mi-days"
+        role="group"
+        aria-label="เลือกวันพยากรณ์"
+        aria-describedby="forecast-scope"
+      >
         {daily.length ? (
           daily.map(({ step, i }) => (
             <button
               key={step.key}
+              data-time-index={i}
+              onKeyDown={(event) => navigateForecast(event, onChange)}
               onClick={() => onChange(i)}
+              aria-label={`${relativeDay(step.date)} ${formatValue(values[i] ?? null)} ${data ? (metric === "primary" ? layerInfo[data.layer].unit : layerInfo[data.layer].secondaryUnit) : ""} ${data ? interpretation(data.layer, metric, values[i] ?? null) : ""}`}
               aria-pressed={step.day === current?.day}
               className={step.day === current?.day ? "active" : ""}
+              style={
+                {
+                  "--day-color": data
+                    ? valueColor(data.layer, metric, values[i] ?? null)
+                    : "var(--mi-muted)",
+                } as CSSProperties
+              }
             >
               <span className="mi-day-full">{relativeDay(step.date)}</span>
               <span className="mi-day-short">
@@ -353,10 +439,17 @@ export function ForecastTimeline({
                   style={{
                     height: `${Math.max(4, ((values[i] ?? 0) / max) * 100)}%`,
                     opacity: values[i] === null ? 0.2 : 1,
+                    background: "var(--day-color)",
                   }}
                 />
               </div>
               <b>{formatValue(values[i] ?? null)}</b>
+              <span className="mi-day-risk">
+                <i />
+                {data
+                  ? interpretation(data.layer, metric, values[i] ?? null)
+                  : "รอข้อมูล"}
+              </span>
               <small>
                 {peak?.i === i
                   ? "สูงสุดที่คาด"
@@ -373,7 +466,7 @@ export function ForecastTimeline({
         )}
       </div>
       {windows.length > 1 && (
-        <div className="mi-windows" aria-label="เลือกช่วงเวลา">
+        <div className="mi-windows" role="group" aria-label="เลือกช่วงเวลา">
           {nowIndex >= 0 && (
             <button
               onClick={() => onChange(nowIndex)}
@@ -388,6 +481,8 @@ export function ForecastTimeline({
           {windows.map(({ step, i }) => (
             <button
               key={step.key}
+              data-time-index={i}
+              onKeyDown={(event) => navigateForecast(event, onChange)}
               aria-pressed={i === index}
               onClick={() => onChange(i)}
             >
@@ -418,84 +513,48 @@ export function ForecastTimeline({
             : " · ตามช่วงเวลาที่แหล่งข้อมูลให้"}
         </span>
       </div>
+      <div className="mi-story-time-action">
+        <p role="status" aria-live={playing ? "off" : "polite"}>
+          {current
+            ? `${relativeDay(current.date)} · ${current.label} · ${formatValue(values[index] ?? null)}`
+            : "กำลังตรวจสอบข้อมูลพยากรณ์"}
+        </p>
+        <button onClick={() => goToStory("map-story")}>
+          <MapIcon name="map" size={18} />
+          ดูช่วงที่เลือกบนแผนที่
+        </button>
+      </div>
+      <details className="mi-keyboard-help">
+        <summary>ใช้คีย์บอร์ดสำรวจ</summary>
+        <p>
+          Tab ไปยังวันหรือช่วงเวลา · ลูกศรเลือกช่วงก่อนหน้า / ถัดไป · Home / End
+          ไปช่วงแรก / สุดท้าย · Enter หรือ Space เลือกปุ่ม ·
+          บนแผนที่ใช้ลูกศรเลื่อนและ + / − ซูม · Esc ออกจากเต็มจอ
+        </p>
+      </details>
     </section>
   );
 }
-export function MobileBottomSheet({
-  children,
-  title,
-  summary,
-}: {
-  children: ReactNode;
-  title: string;
-  summary: ReactNode;
-}) {
-  const [level, setLevel] = useState(0);
-  const dragStart = useRef<number | null>(null);
-  const dragged = useRef(false);
-  const scroll = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => {
-      const container = scroll.current;
-      if (!container) return;
-      const trust = container.querySelector<HTMLElement>(".mi-trust");
-      container.scrollTop =
-        level === 2 && trust
-          ? trust.getBoundingClientRect().top -
-            container.getBoundingClientRect().top +
-            container.scrollTop
-          : 0;
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [level]);
+export function LocationPanel({ children }: { children: ReactNode }) {
   return (
     <aside
-      className={`mi-insight mi-sheet-level-${level}`}
+      id="location-story"
+      tabIndex={-1}
+      className="mi-insight"
       aria-label="ข้อมูลตำแหน่ง"
     >
+      <div className="mi-story-section-title">
+        <span>03 / รู้จักพื้นที่</span>
+        <h2>เจาะรายละเอียดตำแหน่ง</h2>
+      </div>
+      <div className="mi-insight-scroll">{children}</div>
       <button
-        className="mi-sheet-handle"
-        aria-label="ขยายหรือย่อข้อมูลตำแหน่ง"
-        aria-expanded={level > 0}
-        onClick={() => {
-          if (!dragged.current) setLevel((level + 1) % 3);
-          dragged.current = false;
-        }}
-        onPointerDown={(e) => {
-          dragStart.current = e.clientY;
-          dragged.current = false;
-          e.currentTarget.setPointerCapture(e.pointerId);
-        }}
-        onPointerUp={(e) => {
-          if (dragStart.current === null) return;
-          const diff = dragStart.current - e.clientY;
-          if (Math.abs(diff) > 30) {
-            dragged.current = true;
-            setLevel((l) => Math.min(2, Math.max(0, l + (diff > 0 ? 1 : -1))));
-            e.preventDefault();
-          }
-          dragStart.current = null;
-        }}
+        className="mi-story-return"
+        onClick={() => goToStory("map-story")}
       >
-        <i />
-        <span>{title}</span>
-        <MapIcon name="chevron" size={18} />
+        <MapIcon name="map" size={18} />
+        กลับไปเลือกพื้นที่บนแผนที่
       </button>
-      <div className="mi-sheet-summary">{summary}</div>
-      <div className="mi-insight-scroll" ref={scroll}>
-        {children}
-      </div>
-      <div className="mi-sheet-levels" aria-label="ระดับรายละเอียด">
-        {["สรุป", "แนวโน้ม", "รายละเอียด"].map((label, i) => (
-          <button
-            key={label}
-            aria-pressed={level === i}
-            onClick={() => setLevel(i)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
     </aside>
   );
 }

@@ -1,0 +1,676 @@
+/* Mobile is a document: map, forecast, then location. Desktop keeps its workspace. */
+.mi-map-stage {
+  position: absolute;
+  inset: 0;
+}
+.mi-forecast-scope {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.mi-story-nav,
+.mi-story-section-title,
+.mi-story-map-reading,
+.mi-story-map-guide,
+.mi-story-time-action,
+.mi-story-return,
+.mi-keyboard-help,
+.mi-days .mi-day-risk,
+.mi-story-controls-toggle {
+  display: none;
+}
+.mi-shell.mi-exploring {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+body:has(.mi-shell.mi-exploring) {
+  overflow: hidden;
+}
+
+@media (max-width: 780px), (max-width: 1024px) and (pointer: coarse) {
+  .mi-shell:not(.mi-exploring) :is(.mi-rail, .mi-header-context) {
+    display: none;
+  }
+  .mi-shell:not(.mi-exploring) .mi-map-tools {
+    display: grid;
+  }
+  .mi-shell:not(.mi-exploring) .mi-forecast-scope {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+    margin: 0;
+    font-size: 13px;
+    color: var(--mi-muted);
+  }
+  body:has(.mi-shell:not(.mi-exploring)) {
+    height: auto;
+    overflow: auto;
+    background: var(--mi-soft, #07111d);
+  }
+  .mi-shell:not(.mi-exploring) {
+    height: auto;
+    min-height: 100svh;
+    overflow: visible;
+    font-size: 16px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-workspace {
+    width: 100%;
+  }
+  .mi-shell:not(.mi-exploring) .mi-header {
+    height: 64px;
+    flex-basis: 64px;
+    padding: 0 16px;
+  }
+  .mi-shell .mi-header-actions .theme-toggle {
+    width: 44px;
+    height: 44px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-story-nav {
+    display: flex;
+    position: sticky;
+    top: 0;
+    z-index: var(--mi-popover-z);
+    background: var(--mi-surface);
+    border-block: 1px solid var(--mi-line);
+    padding: 4px 12px;
+    gap: 4px;
+  }
+  .mi-story-nav button {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 44px;
+    font-size: 14px;
+    border-radius: 6px;
+  }
+  .mi-shell .mi-story-nav button[aria-current] {
+    color: var(--mi-ink);
+    background: color-mix(in srgb, var(--mi-accent) 14%, var(--mi-surface));
+  }
+  .mi-shell:not(.mi-exploring) .mi-work-area {
+    display: flex;
+    flex-direction: column;
+    flex: none;
+    gap: 0;
+  }
+  .mi-shell:not(.mi-exploring) :is(.mi-geography, .mi-timeline, .mi-insight) {
+    scroll-margin-top: 64px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-geography {
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+    background: var(--mi-soft);
+  }
+  .mi-shell:not(.mi-exploring) .mi-story-section-title {
+    display: block;
+    padding: 30px 20px 18px;
+  }
+  .mi-story-section-title > span {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--mi-muted);
+  }
+  .mi-story-section-title :is(h1, h2) {
+    margin: 6px 0 0;
+    font-size: 23px;
+    line-height: 1.45;
+    letter-spacing: -0.025em;
+    font-weight: 600;
+  }
+  .mi-story-section-title p {
+    margin: 8px 0 0;
+    font-size: 14px;
+    color: var(--mi-muted);
+    line-height: 1.7;
+  }
+  .mi-map-story-title {
+    order: 0;
+  }
+  .mi-shell:not(.mi-exploring) .mi-map-story-title {
+    padding: 18px 16px 12px;
+  }
+  .mi-map-story-title h1 {
+    font-size: 19px;
+    margin: 0;
+  }
+  .mi-shell:not(.mi-exploring) .mi-map-top {
+    order: 1;
+    position: relative;
+    top: auto;
+    left: auto;
+    width: auto;
+    margin: 0 16px 12px;
+    pointer-events: auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+  .mi-shell:not(.mi-exploring)
+    .mi-map-top
+    > :is(.mi-layer-switch, .mi-search-row, .mi-mode-row) {
+    grid-column: 1 / -1;
+  }
+  .mi-shell:not(.mi-exploring) .mi-story-controls-toggle {
+    display: flex;
+    grid-column: 2;
+    grid-row: 2;
+    gap: 6px;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 6px 8px;
+    border: 1px solid var(--mi-line);
+    border-radius: 8px;
+    font-size: 12px;
+  }
+  .mi-shell:not(.mi-exploring)
+    .mi-map-top:not(.mi-mobile-controls-open)
+    > :is(.mi-search-row, .mi-mode-row) {
+    display: none;
+  }
+  .mi-shell:not(.mi-exploring) .mi-layer-switch {
+    box-shadow: none;
+    border: 1px solid var(--mi-line);
+  }
+  .mi-shell:not(.mi-exploring) .mi-layer-switch button {
+    min-height: 44px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-search-row {
+    position: relative;
+    top: auto;
+    right: auto;
+    width: 100%;
+    margin: 0;
+    display: flex;
+    gap: 8px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-search {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+    padding: 0 10px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-search > svg {
+    display: block;
+  }
+  .mi-shell:not(.mi-exploring) .mi-search input {
+    display: block;
+    height: 46px;
+    font-size: 16px;
+    min-width: 0;
+  }
+  .mi-shell:not(.mi-exploring) .mi-search .mi-mobile-search-trigger {
+    display: none !important;
+  }
+  .mi-shell:not(.mi-exploring) .mi-options-button {
+    width: 46px;
+    height: 46px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-mode-row {
+    max-width: none;
+    width: 100%;
+    min-height: 44px;
+    margin: 0;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-data-modes {
+    flex: 1;
+    display: flex;
+  }
+  .mi-shell:not(.mi-exploring) .mi-data-modes button {
+    flex: 1;
+    min-height: 40px;
+    font-size: 14px;
+    padding: 5px 8px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-mode-row select {
+    min-width: 130px;
+    width: auto;
+    min-height: 44px;
+    flex: 1;
+    font-size: 14px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-map-caption {
+    grid-column: 1;
+    grid-row: 2;
+    display: flex;
+    margin: 0;
+    width: 100%;
+    max-width: none;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    gap: 8px;
+    justify-content: space-between;
+  }
+  .mi-shell:not(.mi-exploring) .mi-map-caption > span:first-child {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .mi-shell:not(.mi-exploring) .mi-map-caption small {
+    font-size: 13px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-place-chip {
+    display: none;
+  }
+  .mi-shell:not(.mi-exploring) .mi-options {
+    position: absolute;
+    top: 106px;
+    width: 100%;
+    max-height: min(560px, 70svh);
+    overflow-y: auto;
+    z-index: var(--mi-popover-z);
+    padding: 18px;
+  }
+  .mi-shell .mi-options :is(select, button, .mi-check) {
+    min-height: 44px;
+  }
+  .mi-shell .mi-options input[type="range"] {
+    min-height: 44px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-search-results {
+    top: 50px;
+    max-height: 300px;
+  }
+  .mi-shell .mi-search-results button {
+    min-height: 48px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-map-stage {
+    order: 2;
+    position: relative;
+    inset: auto;
+    width: 100%;
+    height: clamp(440px, 70svh, 680px);
+    flex: none;
+    overflow: hidden;
+    isolation: isolate;
+    border-block: 1px solid var(--mi-line);
+  }
+  .mi-shell:not(.mi-exploring) .mi-map-tools {
+    top: 14px;
+    right: 12px;
+    grid-template-columns: 44px 44px;
+  }
+  .mi-shell .mi-map-tools button {
+    width: 44px;
+    height: 44px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-map-canvas .leaflet-bottom {
+    bottom: 0;
+  }
+  .mi-shell:not(.mi-exploring) .mi-map-canvas .leaflet-control-scale {
+    display: block;
+  }
+  .mi-shell:not(.mi-exploring) .mi-map-canvas .leaflet-control-attribution {
+    font-size: 10px;
+    max-width: 270px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-map-notice {
+    top: 156px;
+    left: 12px;
+    right: 12px;
+    max-width: none;
+    font-size: 13px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-surface-notice {
+    top: auto;
+    bottom: 34px;
+    left: 12px;
+    right: 12px;
+    max-width: none;
+    font-size: 12px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-map-bottom {
+    order: 3;
+    position: static;
+    padding: 20px 16px 28px;
+    width: 100%;
+    max-width: none;
+    gap: 16px;
+    background: var(--mi-surface);
+    align-items: stretch;
+  }
+  .mi-shell:not(.mi-exploring) .mi-story-map-reading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .mi-story-map-reading > div > span {
+    font-size: 13px;
+    color: var(--mi-muted);
+  }
+  .mi-story-map-reading b {
+    display: block;
+    font:
+      600 34px/1.4 Manrope,
+      sans-serif;
+  }
+  .mi-story-map-reading b small {
+    font-size: 14px;
+    color: var(--mi-muted);
+  }
+  .mi-story-map-reading p {
+    margin: 3px 0 0;
+    font-size: 14px;
+  }
+  .mi-story-map-reading button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 8px;
+    font-size: 14px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-story-map-guide {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: space-between;
+    border-block: 1px solid var(--mi-line);
+    padding: 8px 0;
+  }
+  .mi-story-map-guide > span {
+    font-size: 12px;
+    color: var(--mi-muted);
+  }
+  .mi-story-map-guide button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+  .mi-shell:not(.mi-exploring) .mi-map-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-map-actions button {
+    min-height: 44px;
+    font-size: 13px;
+    padding: 8px 12px;
+    border: 1px solid var(--mi-line);
+  }
+  .mi-shell:not(.mi-exploring) .mi-legend {
+    width: 100%;
+    max-width: none;
+    padding: 0;
+    box-shadow: none;
+    border: 0;
+    background: transparent;
+  }
+  .mi-shell:not(.mi-exploring) .mi-legend-heading {
+    min-height: 44px;
+    font-size: 14px !important;
+  }
+  .mi-shell:not(.mi-exploring) .mi-legend-bands {
+    pointer-events: auto;
+  }
+  .mi-shell:not(.mi-exploring) .mi-legend .mi-legend-bands button {
+    min-height: 48px;
+    padding: 6px 2px;
+    font-size: 11px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-legend-bands button span {
+    display: block;
+    white-space: normal;
+  }
+  .mi-shell:not(.mi-exploring) .mi-legend-bands i {
+    height: 8px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-legend-detail {
+    font-size: 13px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-timeline {
+    position: static;
+    height: auto;
+    min-height: 0;
+    padding: 0 16px 28px;
+    gap: 16px;
+    border-block: 1px solid var(--mi-line);
+    overflow: visible;
+    background: var(--mi-soft);
+  }
+  .mi-shell:not(.mi-exploring) .mi-timeline > .mi-story-section-title {
+    padding: 30px 4px 0;
+  }
+  .mi-shell:not(.mi-exploring) .mi-timeline-top > div {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-timeline-top b {
+    font-size: 16px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-timeline-top span {
+    font-size: 13px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-timeline-top .mi-play {
+    min-height: 44px;
+    min-width: 68px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-days {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow: visible;
+  }
+  .mi-shell:not(.mi-exploring) .mi-days > button {
+    display: grid;
+    grid-template-columns: 86px minmax(0, 1fr) 56px;
+    grid-template-rows: auto auto;
+    align-items: center;
+    text-align: left;
+    gap: 4px 10px;
+    min-height: 86px;
+    padding: 12px;
+    border: 1px solid var(--mi-line);
+    border-radius: 10px;
+    background: var(--mi-surface);
+  }
+  .mi-shell:not(.mi-exploring) .mi-days > button.active {
+    border-color: var(--mi-accent);
+    outline: 1px solid var(--mi-accent);
+    background: color-mix(in srgb, var(--mi-accent) 9%, var(--mi-surface));
+  }
+  .mi-shell:not(.mi-exploring) .mi-days .mi-day-full {
+    display: block;
+    font-size: 14px;
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .mi-shell:not(.mi-exploring) .mi-days .mi-day-short {
+    display: none;
+  }
+  .mi-shell:not(.mi-exploring) .mi-day-bar {
+    width: 100%;
+    height: 24px;
+    min-height: 24px;
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .mi-shell:not(.mi-exploring) .mi-day-bar i {
+    opacity: 1;
+    border-radius: 3px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-days b {
+    grid-column: 3;
+    grid-row: 1;
+    font-size: 22px;
+    text-align: right;
+  }
+  .mi-shell:not(.mi-exploring) .mi-days .mi-day-risk {
+    grid-column: 2 / 4;
+    grid-row: 2;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    font-size: 12px;
+    white-space: normal;
+    color: var(--mi-ink);
+    font-weight: 400;
+  }
+  .mi-day-risk i {
+    width: 7px;
+    height: 7px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--day-color);
+  }
+  .mi-shell:not(.mi-exploring) .mi-days small {
+    display: block;
+    grid-column: 1;
+    grid-row: 2;
+    font-size: 11px;
+    white-space: normal;
+  }
+  .mi-shell:not(.mi-exploring) .mi-windows {
+    flex-wrap: wrap;
+    overflow: visible;
+    gap: 8px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-windows button {
+    min-height: 44px;
+    padding: 8px 12px;
+    flex: 1 0 25%;
+    font-size: 13px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-scrubber input {
+    height: 44px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-scrubber span {
+    font-size: 13px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-story-time-action {
+    display: block;
+  }
+  .mi-story-time-action p {
+    margin: 0 0 8px;
+    font-size: 14px;
+    color: var(--mi-muted);
+  }
+  .mi-shell .mi-story-time-action button,
+  .mi-shell .mi-story-return {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 48px;
+    gap: 8px;
+    border: 1px solid var(--mi-line);
+    border-radius: 8px;
+    background: var(--mi-surface);
+    font-size: 14px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-keyboard-help {
+    display: block;
+    font-size: 13px;
+    color: var(--mi-muted);
+  }
+  .mi-keyboard-help summary {
+    cursor: pointer;
+    min-height: 44px;
+    padding: 12px 0;
+  }
+  .mi-keyboard-help p {
+    margin: 0;
+    line-height: 1.8;
+  }
+  .mi-shell:not(.mi-exploring) .mi-insight {
+    position: static;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    width: 100%;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    overflow: visible;
+    background: var(--mi-surface);
+  }
+  .mi-shell:not(.mi-exploring) .mi-insight-scroll {
+    display: block;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    padding: 4px 20px 24px;
+    scrollbar-gutter: auto;
+  }
+  .mi-shell:not(.mi-exploring) .mi-insight-heading h2 {
+    font-size: 23px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-insight-heading p,
+  .mi-shell:not(.mi-exploring) .mi-condition p {
+    font-size: 14px;
+    line-height: 1.8;
+  }
+  .mi-shell:not(.mi-exploring) .mi-condition strong {
+    font-size: 52px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-local-trend {
+    display: none;
+  }
+  .mi-shell:not(.mi-exploring) .mi-insight button {
+    min-height: 44px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-trust {
+    display: block;
+    font-size: 14px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-story-return {
+    width: calc(100% - 40px);
+    margin: 0 20px 28px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-footer {
+    height: auto;
+    min-height: 0;
+    flex: none;
+    padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .mi-shell:not(.mi-exploring) .mi-footer > span {
+    display: block;
+    font-size: 12px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-data-status {
+    align-items: flex-start;
+  }
+  .mi-shell:not(.mi-exploring) .mi-data-status > div {
+    gap: 5px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-data-status :is(strong, span) {
+    white-space: normal;
+    font-size: 12px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-observation-time {
+    padding: 28px 20px;
+  }
+  .mi-shell.mi-exploring
+    :is(
+      .mi-story-nav,
+      .mi-story-section-title,
+      .mi-story-map-reading,
+      .mi-story-map-guide
+    ) {
+    display: none;
+  }
+  .mi-shell.mi-exploring .mi-map-tools {
+    display: grid;
+    grid-template-columns: 44px 44px;
+  }
+}

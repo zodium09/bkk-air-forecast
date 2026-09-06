@@ -1,6 +1,6 @@
 "use client";
 /* eslint-disable @next/next/no-html-link-for-pages */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import EnvironmentMap from "./environment-map";
 import LocationInsight from "./location-insight";
 import ThemeToggle from "../theme-toggle";
@@ -18,7 +18,8 @@ import {
   MapLegend,
   MapLoadingState,
   MapShell,
-  MobileBottomSheet,
+  LocationPanel,
+  goToStory,
 } from "./map-ui";
 import { useEnvironmentData } from "./use-environment-data";
 import {
@@ -39,6 +40,7 @@ import {
 import { getRegion, provinces, type RegionId } from "../../lib/provinces";
 import "./map-workspace.css";
 import "./night-theme.css";
+import "./mobile-story.css";
 
 const emptyPoints: MapPoint[] = [];
 export default function MapWorkspace({
@@ -60,10 +62,25 @@ export default function MapWorkspace({
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const [mobileControlsOpen, setMobileControlsOpen] = useState(false);
+  const [storySection, setStorySection] = useState("map-story");
   const [satellite, setSatellite] = useState(false);
   const [showValues, setShowValues] = useState(false);
   const [showPlaceNames, setShowPlaceNames] = useState(true);
   const [exploring, setExploring] = useState(false);
+  const exploreReturn = useRef<{ y: number; element: HTMLElement | null }>({
+    y: 0,
+    element: null,
+  });
+  const enterExplore = () => {
+    exploreReturn.current = {
+      y: window.scrollY,
+      element: document.activeElement as HTMLElement | null,
+    };
+    setSearchOpen(false);
+    setOptionsOpen(false);
+    setExploring(true);
+  };
   const [weatherMotion, setWeatherMotion] = useState(true);
   const [surfaceOpacity, setSurfaceOpacity] = useState(0.72);
   const [boundary, setBoundary] = useState<{
@@ -132,11 +149,53 @@ export default function MapWorkspace({
   useEffect(() => {
     if (!exploring) return;
     const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setExploring(false);
+      if (
+        event.key === "Escape" &&
+        !(event.target as HTMLElement)?.closest(".mi-options, .mi-search")
+      )
+        setExploring(false);
+    };
+    window.addEventListener("keydown", escape);
+    document
+      .querySelector<HTMLElement>(".mi-map-canvas")
+      ?.focus({ preventScroll: true });
+    return () => {
+      window.removeEventListener("keydown", escape);
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: exploreReturn.current.y, behavior: "instant" });
+        exploreReturn.current.element?.focus({ preventScroll: true });
+      });
+    };
+  }, [exploring]);
+  useEffect(() => {
+    if (!optionsOpen) return;
+    document
+      .querySelector<HTMLElement>(".mi-options select")
+      ?.focus({ preventScroll: true });
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setOptionsOpen(false);
+      document
+        .querySelector<HTMLButtonElement>(".mi-options-button")
+        ?.focus({ preventScroll: true });
     };
     window.addEventListener("keydown", escape);
     return () => window.removeEventListener("keydown", escape);
-  }, [exploring]);
+  }, [optionsOpen]);
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries.find((item) => item.isIntersecting);
+        if (entry) setStorySection(entry.target.id);
+      },
+      { rootMargin: "-20% 0px -70% 0px" },
+    );
+    ["map-story", "forecast-story", "location-story"].forEach((id) => {
+      const section = document.getElementById(id);
+      if (section) observer.observe(section);
+    });
+    return () => observer.disconnect();
+  }, []);
   useEffect(() => {
     const media = matchMedia("(prefers-reduced-motion: reduce)");
     const sync = () => {
@@ -382,36 +441,111 @@ export default function MapWorkspace({
             </a>
           </div>
         </header>
+        <nav className="mi-story-nav" aria-label="ข้ามไปยังส่วนของหน้า">
+          <button
+            aria-current={storySection === "map-story" ? "location" : undefined}
+            onClick={() => goToStory("map-story")}
+          >
+            <MapIcon name="map" size={17} />
+            แผนที่
+          </button>
+          <button
+            aria-current={
+              storySection === "forecast-story" ? "location" : undefined
+            }
+            onClick={() => goToStory("forecast-story")}
+          >
+            พยากรณ์ 7 วัน
+          </button>
+          <button
+            aria-current={
+              storySection === "location-story" ? "location" : undefined
+            }
+            onClick={() => goToStory("location-story")}
+          >
+            รายละเอียด
+          </button>
+        </nav>
         <div className="mi-work-area">
-          <section className="mi-geography" aria-label="พื้นที่สำรวจแผนที่">
-            <EnvironmentMap
-              layer={layer}
-              mode={mode}
-              points={points}
-              index={index}
-              metric={metric}
-              province={province}
-              selected={selected}
-              onSelect={setSelected}
-              legend={legend}
-              degraded={!!data && data.status !== "live"}
-              satellite={satellite}
-              showValues={showValues}
-              showPlaceNames={showPlaceNames}
-              exploring={exploring}
-              onToggleExplore={() => setExploring(!exploring)}
-              focus={focus}
-              weatherAnimation={
-                weatherMotion && !reducedMotion && mode !== "observation"
-              }
-              onToggleWeather={() => setWeatherMotion((value) => !value)}
-              surfaceOpacity={surfaceOpacity}
-              onBoundary={setBoundary}
-              motionDisabled={reducedMotion}
-            />
-            <div className="mi-map-top">
+          <section
+            id="map-story"
+            tabIndex={-1}
+            className="mi-geography"
+            aria-label="พื้นที่สำรวจแผนที่"
+          >
+            <div className="mi-story-section-title mi-map-story-title">
+              <h1>สำรวจแผนที่สิ่งแวดล้อม</h1>
+            </div>
+            <div className="mi-map-stage">
+              <EnvironmentMap
+                layer={layer}
+                mode={mode}
+                points={points}
+                index={index}
+                metric={metric}
+                province={province}
+                selected={selected}
+                onSelect={setSelected}
+                legend={legend}
+                degraded={!!data && data.status !== "live"}
+                satellite={satellite}
+                showValues={showValues}
+                showPlaceNames={showPlaceNames}
+                exploring={exploring}
+                onToggleExplore={() =>
+                  exploring ? setExploring(false) : enterExplore()
+                }
+                focus={focus}
+                weatherAnimation={
+                  weatherMotion && !reducedMotion && mode !== "observation"
+                }
+                onToggleWeather={() => setWeatherMotion((value) => !value)}
+                surfaceOpacity={surfaceOpacity}
+                onBoundary={setBoundary}
+                motionDisabled={reducedMotion}
+              />
+              {loading && <MapLoadingState />}
+              {!loading &&
+                (error ||
+                  !data ||
+                  data.status === "unavailable" ||
+                  !points.length) && (
+                  <MapErrorState
+                    message={
+                      error ||
+                      (mode === "observation"
+                        ? "ไม่มีค่าตรวจวัดที่ผ่านเกณฑ์ในพื้นที่นี้"
+                        : "ไม่มีข้อมูลที่ใช้ได้ในพื้นที่นี้")
+                    }
+                    retry={() => setRefresh((n) => n + 1)}
+                  />
+                )}
+            </div>
+            <div
+              className={`mi-map-top ${mobileControlsOpen ? "mi-mobile-controls-open" : ""}`}
+            >
               <LayerSwitcher layer={layer} onChange={changeLayer} />
+              <button
+                className="mi-story-controls-toggle"
+                aria-label="ค้นหาและตั้งค่าแผนที่"
+                aria-expanded={mobileControlsOpen}
+                aria-controls="map-search-controls map-data-controls"
+                onClick={() => {
+                  setMobileControlsOpen(!mobileControlsOpen);
+                  setOptionsOpen(false);
+                  setSearchOpen(false);
+                }}
+              >
+                <MapIcon
+                  name={mobileControlsOpen ? "close" : "search"}
+                  size={18}
+                />
+                <span>
+                  {mobileControlsOpen ? "ปิดเครื่องมือ" : "ค้นหา / ตั้งค่า"}
+                </span>
+              </button>
               <div
+                id="map-search-controls"
                 className={`mi-search-row ${searchOpen ? "search-open" : ""}`}
               >
                 <div className="mi-search">
@@ -434,6 +568,14 @@ export default function MapWorkspace({
                     onFocus={() => setSearchOpen(true)}
                     onKeyDown={(e) => {
                       if (e.key === "Escape") setSearchOpen(false);
+                      if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        document
+                          .querySelector<HTMLButtonElement>(
+                            ".mi-search-results button",
+                          )
+                          ?.focus();
+                      }
                       if (e.key === "Enter" && results[0])
                         selectFromList(results[0]);
                     }}
@@ -453,7 +595,40 @@ export default function MapWorkspace({
                       </b>
                       {results.length ? (
                         results.map((p) => (
-                          <button key={p.id} onClick={() => selectFromList(p)}>
+                          <button
+                            key={p.id}
+                            onClick={() => selectFromList(p)}
+                            onKeyDown={(event) => {
+                              const buttons = Array.from(
+                                event.currentTarget.parentElement!.querySelectorAll<HTMLButtonElement>(
+                                  "button",
+                                ),
+                              );
+                              const current = buttons.indexOf(
+                                event.currentTarget,
+                              );
+                              if (
+                                event.key === "ArrowDown" ||
+                                event.key === "ArrowUp"
+                              ) {
+                                event.preventDefault();
+                                buttons[
+                                  (current +
+                                    (event.key === "ArrowDown" ? 1 : -1) +
+                                    buttons.length) %
+                                    buttons.length
+                                ]?.focus();
+                              }
+                              if (event.key === "Escape") {
+                                document
+                                  .querySelector<HTMLInputElement>(
+                                    ".mi-search input",
+                                  )
+                                  ?.focus();
+                                setSearchOpen(false);
+                              }
+                            }}
+                          >
                             <MapIcon name="location" size={15} />
                             <span>{p.label}</span>
                             <b>{formatValue(pointValue(p, index, metric))}</b>
@@ -479,7 +654,12 @@ export default function MapWorkspace({
                 </button>
               </div>
               {optionsOpen && (
-                <div className="mi-options">
+                <div
+                  className="mi-options"
+                  role="dialog"
+                  aria-label="ตัวเลือกแผนที่"
+                  tabIndex={-1}
+                >
                   <div>
                     <h2>ตัวเลือกแผนที่</h2>
                     <button
@@ -583,7 +763,7 @@ export default function MapWorkspace({
                   </button>
                 </div>
               )}
-              <div className="mi-mode-row">
+              <div id="map-data-controls" className="mi-mode-row">
                 <div className="mi-data-modes" aria-label="ชนิดข้อมูล">
                   {(layer === "air"
                     ? (["observation", "forecast", "estimate"] as DataMode[])
@@ -639,23 +819,31 @@ export default function MapWorkspace({
                 </span>
               </div>
             </div>
-            {loading && <MapLoadingState />}
-            {!loading &&
-              (error ||
-                !data ||
-                data.status === "unavailable" ||
-                !points.length) && (
-                <MapErrorState
-                  message={
-                    error ||
-                    (mode === "observation"
-                      ? "ไม่มีค่าตรวจวัดที่ผ่านเกณฑ์ในพื้นที่นี้"
-                      : "ไม่มีข้อมูลที่ใช้ได้ในพื้นที่นี้")
-                  }
-                  retry={() => setRefresh((n) => n + 1)}
-                />
-              )}
             <div className="mi-map-bottom">
+              <div className="mi-story-map-reading">
+                <div>
+                  <span>{selected ? "ตำแหน่งที่เลือก" : "ภาพรวมพื้นที่"}</span>
+                  <b>
+                    {formatValue(currentValue)}{" "}
+                    <small>
+                      {metric === "primary"
+                        ? layerInfo[layer].unit
+                        : layerInfo[layer].secondaryUnit}
+                    </small>
+                  </b>
+                  <p>{interpretation(layer, metric, currentValue)}</p>
+                </div>
+                <button onClick={() => goToStory("location-story")}>
+                  ดูรายละเอียด <MapIcon name="arrow" size={18} />
+                </button>
+              </div>
+              <div className="mi-story-map-guide">
+                <span>แตะดูค่า · เปิดเต็มจอเพื่อลากแผนที่</span>
+                <button onClick={enterExplore}>
+                  <MapIcon name="expand" size={17} />
+                  เปิดเต็มจอ
+                </button>
+              </div>
               {mode === "estimate" && (
                 <div className="mi-surface-label">
                   <span />
@@ -707,26 +895,27 @@ export default function MapWorkspace({
               />
             </div>
           </section>
-          <MobileBottomSheet
-            title={
-              spatialSelection
-                ? "ตำแหน่งบนพื้นผิว IDW"
-                : (selected?.label ?? point?.label ?? "ข้อมูลพื้นที่")
+          <ForecastTimeline
+            scope={
+              selected
+                ? spatialSelection
+                  ? "ตำแหน่งบนพื้นผิว IDW"
+                  : (selected.label ?? point?.label ?? "ตำแหน่งที่เลือก")
+                : `ภาพรวม${getRegion(province).shortNameTh}`
             }
-            summary={
-              <>
-                <span>{interpretation(layer, metric, currentValue)}</span>
-                <b>
-                  {formatValue(currentValue)}{" "}
-                  <small>
-                    {metric === "primary"
-                      ? layerInfo[layer].unit
-                      : layerInfo[layer].secondaryUnit}
-                  </small>
-                </b>
-              </>
-            }
-          >
+            data={data}
+            index={index}
+            onChange={changeTime}
+            playing={playing}
+            animationAllowed={!reducedMotion}
+            onPlay={() => {
+              if (!reducedMotion) setPlaying((p) => !p);
+            }}
+            mode={mode}
+            values={values}
+            metric={metric}
+          />
+          <LocationPanel>
             <LocationInsight
               layer={layer}
               values={values}
@@ -742,20 +931,7 @@ export default function MapWorkspace({
               compare={compare < 0 ? null : compare}
               onClear={() => setSelected(null)}
             />
-          </MobileBottomSheet>
-          <ForecastTimeline
-            data={data}
-            index={index}
-            onChange={changeTime}
-            playing={playing}
-            animationAllowed={!reducedMotion}
-            onPlay={() => {
-              if (!reducedMotion) setPlaying((p) => !p);
-            }}
-            mode={mode}
-            values={values}
-            metric={metric}
-          />
+          </LocationPanel>
         </div>
         <footer className="mi-footer">
           <DataStatus data={data} mode={mode} loading={loading} step={step} />
