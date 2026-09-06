@@ -6,7 +6,7 @@ export default function ThemeToggle() {
   const toggleTheme = () => {
     const nextTheme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
     document.documentElement.dataset.theme = nextTheme;
-    window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+    try { window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme); } catch { /* Theme remains usable when storage is blocked. */ }
   };
 
   return (

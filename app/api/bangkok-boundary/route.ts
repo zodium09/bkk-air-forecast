@@ -9,6 +9,8 @@ export async function GET() {
   try {
     const response = await fetch(DISTRICT_GEOJSON_URL, {
       headers: { Accept: "application/geo+json, application/json" },
+      signal: AbortSignal.timeout(20_000),
+      next: { revalidate: 60 * 60 * 24 * 7 },
     });
 
     if (!response.ok) {

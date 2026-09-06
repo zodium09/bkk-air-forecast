@@ -1,0 +1,631 @@
+/* Night observatory: imagery frames the workspace; geographic data stays on the map. */
+.mi-geographic-root {
+  background: none;
+  border: 0;
+  pointer-events: none !important;
+}
+.mi-geographic-label {
+  display: block;
+  color: #14323b;
+  font:
+    500 12px/22px "IBM Plex Sans Thai",
+    sans-serif;
+  text-align: center;
+  white-space: nowrap;
+  text-shadow:
+    0 1px 2px #fff,
+    1px 0 2px #fff,
+    -1px 0 2px #fff,
+    0 -1px 2px #fff;
+}
+.mi-geographic-province {
+  font-weight: 600;
+  font-size: 13px;
+}
+html[data-theme="dark"] .mi-geographic-label {
+  color: #edf8fe;
+  text-shadow:
+    0 1px 3px #07111d,
+    1px 0 3px #07111d,
+    -1px 0 3px #07111d,
+    0 -1px 3px #07111d;
+}
+.mi-shell.mi-exploring
+  :is(.mi-rail, .mi-header, .mi-insight, .mi-timeline, .mi-footer) {
+  display: none;
+}
+.mi-shell.mi-exploring .mi-work-area {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+.mi-shell.mi-exploring .mi-map-bottom {
+  bottom: 28px;
+}
+.mi-shell.mi-exploring .mi-map-canvas .leaflet-bottom {
+  bottom: 0;
+}
+.mi-shell.mi-exploring .mi-map-caption {
+  display: flex;
+}
+@media (max-width: 780px) {
+  .mi-shell.mi-exploring .mi-map-caption {
+    margin-top: 8px;
+    max-width: calc(100% - 52px);
+  }
+  .mi-shell.mi-exploring .mi-map-caption > span:first-child {
+    flex-direction: column;
+  }
+  .mi-shell:not(.mi-exploring) .mi-map-bottom > .mi-surface-label {
+    display: none;
+  }
+}
+.mi-header-actions,
+.mi-home-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.mi-home-header-actions {
+  font-size: 13px;
+}
+.mi-header-actions .theme-toggle,
+.mi-home-header-actions .theme-toggle {
+  position: static;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--mi-line, #a4b8bd);
+  border-radius: 50%;
+  font-size: 21px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+.mi-weather-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 450;
+  pointer-events: none;
+}
+.mi-options input[type="range"] {
+  width: 100%;
+  height: 24px;
+}
+.mi-surface-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  margin-bottom: 8px;
+  width: fit-content;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 12px;
+}
+.mi-surface-label > span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--mi-accent);
+}
+.mi-surface-label small {
+  color: var(--mi-muted);
+  font-size: 11px;
+  border-left: 1px solid var(--mi-line);
+  padding-left: 7px;
+}
+.mi-map-tools button[aria-pressed="true"] {
+  color: var(--mi-accent);
+  background: #e6efee;
+}
+.mi-home {
+  position: relative;
+  isolation: isolate;
+}
+.mi-home::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0 0 auto;
+  height: 620px;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(248, 250, 249, 0.97), rgba(248, 250, 249, 0.3)),
+    linear-gradient(0deg, #f8faf9, transparent 75%),
+    url("/bangkok-night-v2.webp") center 55% / cover no-repeat;
+  opacity: 0.28;
+}
+.mi-home-intro {
+  min-height: 200px;
+  align-items: center;
+}
+.mi-home h1 {
+  font-size: clamp(32px, 3.4vw, 48px);
+  line-height: 1.35;
+  letter-spacing: -0.035em;
+}
+.mi-home-main {
+  gap: 24px;
+  border: 0;
+}
+.mi-home-topics {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.mi-home-topic {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 22px 24px;
+  border: 1px solid #d9e3e4;
+  border-radius: 12px;
+  flex: 1;
+  transition:
+    border-color 0.2s,
+    transform 0.2s;
+}
+.mi-home-topic:last-child {
+  border-bottom: 1px solid #d9e3e4;
+}
+.mi-home-topic::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background-position: right center;
+  background-size: cover;
+  opacity: 0.12;
+  transition: transform 0.5s;
+}
+.mi-home-topic-air::before {
+  background-image: url("/home-air.png");
+}
+.mi-home-topic-rain::before {
+  background-image: url("/home-rain.png");
+}
+.mi-home-topic-heat::before {
+  background-image: url("/home-heat.png");
+}
+.mi-home-topic:hover::before {
+  transform: scale(1.035);
+}
+.mi-home-topic:hover {
+  transform: translateY(-2px);
+  border-color: #749eaa;
+}
+.mi-home-topic-head h2 {
+  font-size: 20px;
+}
+.mi-home-reading b {
+  font-size: 32px;
+  font-variant-numeric: tabular-nums;
+}
+.mi-home-map {
+  border: 1px solid #d9e3e4;
+  border-radius: 14px;
+  min-height: 600px;
+}
+.mi-home-map-heading {
+  border-left: 3px solid #42a7b1;
+  border-radius: 3px;
+}
+.mi-home-footer {
+  padding-top: 6px;
+}
+html[data-theme="dark"] .mi-shell,
+html[data-theme="dark"] .mi-home {
+  color-scheme: dark;
+  --mi-ink: #e7f0f5;
+  --mi-muted: #9fb4c3;
+  --mi-line: #263846;
+  --mi-surface: #10202e;
+  --mi-soft: #0a1622;
+  background: #07111d;
+  color: var(--mi-ink);
+}
+html[data-theme="dark"] .mi-layer-air {
+  --mi-accent: #49bdb5 !important;
+}
+html[data-theme="dark"] .mi-layer-rain {
+  --mi-accent: #57a9ef !important;
+}
+html[data-theme="dark"] .mi-layer-heat {
+  --mi-accent: #e9ab66 !important;
+}
+html[data-theme="dark"] .mi-rail {
+  background: #080f1a;
+  border-right: 1px solid #20323f;
+}
+html[data-theme="dark"] .mi-brand-mark {
+  border-color: #3d656d;
+  background: #133039;
+  color: #8be0d5 !important;
+}
+html[data-theme="dark"] .mi-rail-main button[aria-pressed="true"] {
+  background: #183440;
+  color: #a3eee2;
+  box-shadow: inset 3px 0 #71d5c5;
+}
+html[data-theme="dark"] .mi-header {
+  background:
+    linear-gradient(90deg, #0c1927 36%, #0c1927b3),
+    url("/bangkok-night-v2.webp") 75% 68% / cover;
+}
+html[data-theme="dark"] .mi-brand b {
+  color: #f2f7fa;
+}
+html[data-theme="dark"] .mi-brand b span {
+  color: #83c7c9;
+}
+html[data-theme="dark"] .mi-geography,
+html[data-theme="dark"] .mi-map-canvas,
+html[data-theme="dark"] .mi-home-map {
+  background: #16202a;
+}
+html[data-theme="dark"] .mi-map-canvas .leaflet-tile-pane {
+  opacity: 1;
+}
+html[data-theme="dark"] .mi-map-canvas.mi-street-map .leaflet-tile-pane {
+  filter: brightness(0.77) sepia(0.22) saturate(1.4) hue-rotate(150deg);
+}
+html[data-theme="dark"]
+  .mi-shell
+  :is(
+    .mi-layer-switch,
+    .mi-search,
+    .mi-search-results,
+    .mi-options,
+    .mi-data-modes,
+    .mi-mode-row select,
+    .mi-map-caption,
+    .mi-map-tools,
+    .mi-map-actions button,
+    .mi-legend,
+    .mi-map-message,
+    .mi-compare-hint,
+    .mi-surface-label
+  ) {
+  background: var(--mi-surface);
+  color: var(--mi-ink);
+  box-shadow: 0 3px 16px #0004;
+}
+html[data-theme="dark"] .mi-shell .mi-options-button {
+  background: var(--mi-surface) !important;
+  box-shadow: 0 3px 16px #0004;
+}
+html[data-theme="dark"] .mi-layer-switch {
+  border: 1px solid #304653;
+}
+html[data-theme="dark"]
+  .mi-shell
+  button:hover:not(:disabled):not([aria-pressed="true"]):not(.active) {
+  background-color: #253b4b;
+}
+html[data-theme="dark"] .mi-layer-switch button[aria-pressed="true"] {
+  color: #071b28;
+  background: var(--mi-accent);
+  box-shadow: 0 2px 9px #0003;
+}
+html[data-theme="dark"] .mi-search input::placeholder {
+  color: #9db2c1;
+}
+html[data-theme="dark"] .mi-options select {
+  background: #0b1825;
+}
+html[data-theme="dark"] .mi-data-modes button[aria-pressed="true"],
+html[data-theme="dark"] .mi-map-tools button[aria-pressed="true"] {
+  background: #27424c;
+  color: #a8e6df;
+}
+html[data-theme="dark"] .mi-insight {
+  background: linear-gradient(160deg, #152838, #0d1b29 45%);
+}
+html[data-theme="dark"] .mi-insight-heading h2 {
+  color: #edf4fa;
+}
+html[data-theme="dark"] .mi-condition strong {
+  color: #f5fbff;
+}
+html[data-theme="dark"] .mi-shell .mi-trend-bars button[aria-pressed="true"],
+html[data-theme="dark"] .mi-shell .mi-days > button.active {
+  background: #233b49;
+  box-shadow: inset 0 -2px var(--mi-accent);
+}
+html[data-theme="dark"] .mi-trend-bars button[aria-pressed="true"] span,
+html[data-theme="dark"] .mi-days > button.active > span {
+  color: #c1f1e8;
+}
+html[data-theme="dark"] .mi-timeline {
+  background: #101e2b;
+}
+html[data-theme="dark"] .mi-windows button {
+  background: #1d3040;
+}
+html[data-theme="dark"] .mi-windows button[aria-pressed="true"] {
+  background: #77c5cf;
+  color: #092233;
+}
+html[data-theme="dark"] .mi-day-bar i {
+  opacity: 0.6;
+}
+html[data-theme="dark"] .mi-days > button.active i {
+  opacity: 1;
+}
+html[data-theme="dark"] .mi-footer {
+  background: #0b1622;
+}
+html[data-theme="dark"] .mi-source-line {
+  color: #9dbdc9 !important;
+}
+html[data-theme="dark"] .mi-status-dot.ready {
+  background: #64cab1;
+  box-shadow: 0 0 0 3px #64cab11a;
+}
+html[data-theme="dark"] .mi-marker {
+  border-color: #cfe4e8;
+  box-shadow: 0 1px 6px #0007;
+}
+html[data-theme="dark"] .mi-marker.compact {
+  border-width: 1px;
+  box-shadow: 0 0 0 3px #07172555;
+}
+html[data-theme="dark"] .mi-marker-rain {
+  color: #eaf6ff;
+  background: #102b42;
+  border-color: var(--marker-color);
+}
+html[data-theme="dark"] .mi-marker-rain.compact {
+  background: var(--marker-color);
+  border-color: #cfe4e8;
+}
+html[data-theme="dark"] .mi-marker.selected {
+  outline-color: #f1fcff;
+}
+html[data-theme="dark"] .mi-legend-bands button.active {
+  outline-color: #d7f7f4;
+}
+html[data-theme="dark"] .mi-map-canvas .leaflet-control-attribution {
+  background: #0b1828e8;
+  color: #a9bdcc;
+}
+html[data-theme="dark"] .mi-map-canvas .leaflet-control-attribution a {
+  color: #bddfe8;
+}
+html[data-theme="dark"] .mi-map-canvas .leaflet-control-scale-line {
+  color: #d3e0e7;
+  background: #0e2030bc;
+  border-color: #9eb2c0;
+  text-shadow: none;
+}
+html[data-theme="dark"] .mi-map-canvas .leaflet-tooltip {
+  background: #132b3b;
+  border-color: #55707e;
+  color: #edf8ff;
+  box-shadow: 0 3px 9px #0005;
+}
+html[data-theme="dark"] .mi-shell :is(.mi-map-notice, .mi-surface-notice) {
+  color: #f4d2a1;
+  background: #382b1d;
+  border: 1px solid #705637;
+}
+html[data-theme="dark"] .mi-shell .mi-comparison {
+  background: #192d3c;
+}
+html[data-theme="dark"]
+  .mi-shell
+  :is(button, a, select, summary, input):focus-visible,
+html[data-theme="dark"] .mi-home :is(a, button):focus-visible {
+  outline-color: #97e1e0;
+}
+html[data-theme="dark"] .mi-home::before {
+  opacity: 1;
+  height: 680px;
+  background:
+    linear-gradient(90deg, #07111de8 12%, #07111d28 75%),
+    linear-gradient(0deg, #07111d 4%, transparent 78%),
+    url("/bangkok-night-v2.webp") center 48% / cover no-repeat;
+}
+html[data-theme="dark"] .mi-home-header {
+  border-color: #8bacbc33;
+}
+html[data-theme="dark"] .mi-home-brand > span {
+  background: #1b3948;
+  border: 1px solid #659da477;
+  color: #a1e0d5;
+}
+html[data-theme="dark"]
+  .mi-home
+  :is(
+    .mi-home-brand small,
+    .mi-home-header-actions,
+    .mi-home-dateline,
+    .mi-home-intro p,
+    .mi-home-topic-head > span,
+    .mi-home-reading small,
+    .mi-home-topic > p,
+    .mi-home-topic-bottom small,
+    .mi-home-map-heading span,
+    .mi-home-footer
+  ) {
+  color: #aec4d2;
+}
+html[data-theme="dark"] .mi-home h1 {
+  color: #f1f6fa;
+  text-shadow: 0 2px 24px #07111d;
+}
+html[data-theme="dark"] .mi-home h1 span {
+  color: #94d3d5;
+}
+html[data-theme="dark"] .mi-home-topic {
+  background: #102130;
+  border-color: #39536188;
+}
+html[data-theme="dark"] .mi-home-topic::before {
+  opacity: 0.48;
+  mask-image: linear-gradient(90deg, transparent, #000 95%);
+}
+html[data-theme="dark"] .mi-home-topic:hover {
+  border-color: #7aafba;
+  background: #142c3d;
+}
+html[data-theme="dark"] .mi-home-topic-air svg {
+  color: #7ad8c5;
+}
+html[data-theme="dark"] .mi-home-topic-rain svg {
+  color: #86bff3;
+}
+html[data-theme="dark"] .mi-home-topic-heat svg {
+  color: #f4b477;
+}
+html[data-theme="dark"] .mi-home-reading b {
+  color: #f4f9fe;
+}
+html[data-theme="dark"] .mi-home-map {
+  border-color: #395361;
+  box-shadow: 0 15px 50px #0003;
+}
+html[data-theme="dark"]
+  .mi-home
+  :is(.mi-home-map-heading, .mi-home-preview-layers, .mi-home-map-state) {
+  background: #102332;
+  color: #e4f1f7;
+  box-shadow: 0 4px 16px #0004;
+}
+html[data-theme="dark"] .mi-home-preview-layers button[aria-pressed="true"] {
+  background: #2b5263;
+  color: #d1f6f3;
+}
+html[data-theme="dark"] .mi-home-preview-layers button:hover {
+  background: #284250;
+}
+html[data-theme="dark"] .mi-home-explore {
+  background: #89d5d1;
+  color: #0b2837 !important;
+  font-weight: 600;
+}
+html[data-theme="dark"] body:has(.mi-home) {
+  background: #07111d;
+}
+@media (min-width: 1600px) {
+  .mi-home-intro {
+    min-height: 240px;
+  }
+  .mi-home-map {
+    min-height: 660px;
+  }
+}
+@media (max-width: 1100px) {
+  .mi-home-main {
+    gap: 18px;
+  }
+  .mi-home-topic {
+    padding: 20px 18px;
+  }
+  .mi-home-intro {
+    min-height: 180px;
+  }
+}
+@media (max-height: 820px) and (min-width: 781px) {
+  .mi-map-caption {
+    display: none;
+  }
+}
+@media (max-width: 780px) {
+  .mi-header-actions {
+    gap: 12px;
+  }
+  .mi-header-actions .theme-toggle {
+    height: 32px;
+    width: 32px;
+    font-size: 19px;
+  }
+  .mi-home-header-actions > span {
+    display: none;
+  }
+  .mi-home-brand b {
+    font-size: 14px;
+  }
+  .mi-home-brand small {
+    font-size: 11px;
+  }
+  .mi-home-intro {
+    padding-top: 12px;
+    min-height: 190px;
+  }
+  .mi-home h1 {
+    font-size: 33px;
+  }
+  .mi-home-intro p {
+    max-width: 300px;
+  }
+  .mi-home-main {
+    gap: 18px;
+  }
+  .mi-home-topics {
+    gap: 10px;
+  }
+  .mi-home-topic {
+    padding: 18px;
+  }
+  .mi-home-topic-head h2 {
+    font-size: 18px;
+  }
+  .mi-home-map {
+    min-height: 390px;
+  }
+  html[data-theme="dark"] .mi-home::before {
+    height: 470px;
+    background-position: 62% 50%;
+  }
+  .mi-surface-label {
+    font-size: 11px;
+    padding: 4px 7px;
+    margin: 0;
+    gap: 5px;
+    flex-wrap: wrap;
+    max-width: calc(100% - 48px);
+  }
+  .mi-surface-label small {
+    display: none;
+  }
+  .mi-map-bottom {
+    gap: 4px;
+  }
+  .mi-map-tools {
+    top: 105px;
+    display: grid;
+    grid-template-columns: 40px 40px;
+    gap: 0;
+  }
+  .mi-map-tools button {
+    height: 40px;
+    width: 40px;
+  }
+  .mi-map-tools button:nth-child(odd) {
+    border-right: 1px solid var(--mi-line);
+  }
+  .mi-map-tools button:nth-last-child(-n + 2) {
+    border-bottom: 0;
+  }
+  .mi-legend:not(.expanded) .mi-legend-bands {
+    pointer-events: auto;
+  }
+  .mi-shell .mi-legend:not(.expanded) .mi-legend-bands button {
+    padding-block: 3px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mi-home-topic,
+  .mi-home-topic::before {
+    transition: none;
+    transform: none !important;
+  }
+  .mi-weather-canvas {
+    display: none;
+  }
+  .mi-home-preview-layers .mi-home-motion {
+    display: none;
+  }
+}

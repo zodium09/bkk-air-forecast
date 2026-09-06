@@ -20,68 +20,37 @@ const executionContext = {
   passThroughOnException() {},
 };
 
-test("server-renders the three-topic BKK Air Forecast homepage", async () => {
+test("home launches three geographic workspaces with measured versus forecast context", async () => {
   const worker = await loadWorker();
-  const response = await worker.fetch(
-    new Request("http://localhost/", { headers: { accept: "text/html" } }),
-    environment,
-    executionContext,
-  );
-
+  const response = await worker.fetch(new Request("http://localhost/", { headers: { accept: "text/html" } }), environment, executionContext);
   assert.equal(response.status, 200);
-  assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
-
   const html = await response.text();
-  assert.match(html, /<html lang="th">/i);
+  for (const route of ["air", "rain", "heat"]) assert.ok(html.includes(`href="/${route}"`));
   assert.match(html, /BKK AIR FORECAST/);
-  assert.match(html, /มองกรุงเทพฯ และปริมณฑล/);
-  assert.match(html, /พยากรณ์ฝุ่น/);
-  assert.match(html, /พยากรณ์ฝน/);
+  assert.match(html, /data-theme="dark"/);
+  assert.match(html, /สลับโหมดสว่างและโหมดมืด/);
+  assert.match(html, /ตรวจวัดล่าสุด/);
+  assert.match(html, /พยากรณ์วันนี้/);
+  assert.match(html, /แผนที่ภาพรวมพื้นที่/);
   assert.match(html, /Heat Index/);
-  assert.match(html, /href="\/air"/);
-  assert.match(html, /href="\/rain"/);
-  assert.match(html, /href="\/heat"/);
-  assert.match(html, /เปิดแผนที่พยากรณ์ฝุ่น PM2\.5 กรุงเทพฯ/);
-  assert.match(html, /เปิดแผนที่พยากรณ์ฝนกรุงเทพฯ/);
-  assert.match(html, /home-topic-air/);
-  assert.match(html, /home-topic-rain/);
-  assert.match(html, /home-topic-heat/);
-  assert.match(html, /LIVE OUTLOOK/);
-  assert.match(html, /ภาพรวมกรุงเทพฯ–ปริมณฑล/);
-  assert.match(html, /แนวโน้ม PM2\.5 7 วัน/);
-  assert.match(html, /แนวโน้มฝน 7 วัน/);
-  assert.match(html, /แนวโน้ม Heat Index 7 วัน/);
-  assert.match(html, /เปิดภาพรวมแนวโน้ม 7 วัน/);
-  assert.doesNotMatch(html, /TMD RadarGIS/);
-  assert.doesNotMatch(html, /กำลังโหลดข้อมูล|กำลังโหลดพยากรณ์ฝน/);
+  assert.doesNotMatch(html, /home-topic-number|home-glow|LIVE OUTLOOK/);
 });
 
-test("topic cards and product navigation use resilient document links", async () => {
-  const homepage = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
-  const productNav = await readFile(new URL("../app/components/outlook-nav.tsx", import.meta.url), "utf8");
-  assert.doesNotMatch(homepage, /from ["']next\/link["']/);
-  assert.doesNotMatch(productNav, /from ["']next\/link["']/);
-  assert.match(homepage, /<a className="home-topic home-topic-air" href="\/air"/);
-  assert.match(homepage, /<a className="home-topic home-topic-rain" href="\/rain"/);
-  assert.match(homepage, /<a className="home-topic home-topic-heat" href="\/heat"/);
-  assert.match(productNav, /<a href={`\/air\${query}`}/);
-  assert.match(productNav, /<a href={`\/rain\${query}`}/);
-  assert.match(productNav, /<a href={`\/heat\${query}`}/);
-});
-
-test("homepage uses three seven-day summaries and a collapsed mobile outlook without radar", async () => {
-  const dashboard = await readFile(new URL("../app/home-dashboard.tsx", import.meta.url), "utf8");
-  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
-  assert.match(dashboard, /แนวโน้ม PM2\.5 7 วัน/);
-  assert.match(dashboard, /แนวโน้มฝน 7 วัน/);
-  assert.match(dashboard, /แนวโน้ม Heat Index 7 วัน/);
-  assert.match(dashboard, /<details className="home-mobile-outlook">/);
-  assert.doesNotMatch(dashboard, /TmdRadarPayload|\/api\/tmd-radar|home-radar-pulse/);
-  assert.match(styles, /\.home-dashboard-grid \{[^}]*grid-template-columns: repeat\(3,/);
-  assert.match(styles, /@media \(max-width: 780px\)[\s\S]*?\.home-dashboard \{ display: none; \}/);
-  assert.match(styles, /@media \(max-width: 780px\)[\s\S]*?\.home-mobile-outlook \{[^}]*display: block;/);
-});
-
+for (const route of ["air", "rain", "heat"]) {
+  test(`${route} workspace server-renders geographic controls, time, trust, and mobile disclosure`, async () => {
+    const worker = await loadWorker();
+    const response = await worker.fetch(new Request(`http://localhost/${route}`, { headers: { accept: "text/html" } }), environment, executionContext);
+    assert.equal(response.status, 200);
+    const html = await response.text();
+    for (const label of ["พื้นที่สำรวจแผนที่", "เลือกชั้นข้อมูลสิ่งแวดล้อม", "เส้นเวลาพยากรณ์", "เลื่อนเวลาพยากรณ์", "ข้อมูลตำแหน่ง", "ที่มาและความน่าเชื่อถือ", "ขยายหรือย่อข้อมูลตำแหน่ง", "เปรียบเทียบเวลา", "กำลังโหลดข้อมูลแผนที่"]) assert.ok(html.includes(label), label);
+    assert.match(html, /ยังไม่มี % ความมั่นใจที่ยืนยันได้/);
+    assert.match(html, /เวลาเริ่มรันแบบจำลอง/);
+    assert.match(html, /ประมาณเชิงพื้นที่ IDW/);
+    assert.match(html, /ปิดอนิเมชันสภาพอากาศ/);
+    assert.match(html, /สำรวจแผนที่เต็มจอ/);
+    assert.doesNotMatch(html, /home-glow|forecast-shell/);
+  });
+}
 test("air and rain sidebars use a readable desktop type scale", async () => {
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(styles, /grid-template-columns: 272px minmax\(0, 1fr\) 310px/);
@@ -93,7 +62,7 @@ test("air and rain sidebars use a readable desktop type scale", async () => {
 test("server-renders the BKK Air forecast product", async () => {
   const worker = await loadWorker();
   const response = await worker.fetch(
-    new Request("http://localhost/air", { headers: { accept: "text/html" } }),
+    new Request("http://localhost/air/advanced", { headers: { accept: "text/html" } }),
     environment,
     executionContext,
   );
@@ -129,7 +98,7 @@ test("server-renders the BKK Air forecast product", async () => {
 test("server-renders the Bangkok rain forecast page", async () => {
   const worker = await loadWorker();
   const response = await worker.fetch(
-    new Request("http://localhost/rain", { headers: { accept: "text/html" } }),
+    new Request("http://localhost/rain/advanced", { headers: { accept: "text/html" } }),
     environment,
     executionContext,
   );
@@ -237,7 +206,7 @@ test("rain defaults to the metropolitan view with sample points visible and rada
 test("server-renders the metropolitan heat forecast page", async () => {
   const worker = await loadWorker();
   const response = await worker.fetch(
-    new Request("http://localhost/heat", { headers: { accept: "text/html" } }),
+    new Request("http://localhost/heat/advanced", { headers: { accept: "text/html" } }),
     environment,
     executionContext,
   );

@@ -11,6 +11,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const description = "ศูนย์รวมพยากรณ์ฝุ่น PM2.5 ฝน อุณหภูมิสูงสุด และ Heat Index กรุงเทพฯ กับ 5 จังหวัดปริมณฑล ล่วงหน้า 1–7 วัน";
 
   return {
+    metadataBase: new URL(origin),
     title,
     description,
     icons: {
@@ -38,11 +39,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="th" suppressHydrationWarning>
+    <html lang="th" data-theme="dark" suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(() => { try { const saved = localStorage.getItem("bkk-air-theme"); const theme = saved === "dark" || saved === "light" ? saved : (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"); document.documentElement.dataset.theme = theme; } catch { document.documentElement.dataset.theme = "light"; } })();`,
+            __html: `(() => { try { const saved = localStorage.getItem("bkk-air-theme"); document.documentElement.dataset.theme = saved === "light" ? "light" : "dark"; } catch { document.documentElement.dataset.theme = "dark"; } })();`,
           }}
         />
       </head>
