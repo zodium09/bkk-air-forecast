@@ -205,4 +205,50 @@ html[data-theme="dark"] .db-fallback-label { color: #f5bd75; }
   .mi-shell .mi-map-stage { bottom: 88px; }
   .mi-shell .mi-map-bottom, .mi-shell.mi-exploring .mi-map-bottom { bottom: 105px; }
   .mi-shell .db-map-reading { display: none; }
+
+  /* Give the map the first desktop viewport; analytics follow in page flow. */
+  body:has(.mi-shell:not(.mi-exploring)) {
+    height: auto;
+    overflow: auto;
+  }
+  .mi-shell:not(.mi-exploring) {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+  .mi-shell:not(.mi-exploring) .mi-rail {
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    align-self: flex-start;
+  }
+  .mi-shell:not(.mi-exploring) .mi-workspace {
+    overflow: visible;
+  }
+  .mi-shell:not(.mi-exploring) .mi-work-area {
+    flex: none;
+    grid-template-rows: max(480px, calc(100dvh - 138px)) auto;
+  }
+  .mi-shell:not(.mi-exploring) .mi-geography {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    height: auto;
+  }
+  .mi-shell:not(.mi-exploring) .db-chart-panel {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: start;
+    min-height: 264px;
+  }
+  .mi-shell:not(.mi-exploring) .mi-insight {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .mi-shell:not(.mi-exploring) .mi-insight-scroll {
+    height: auto;
+    overflow: visible;
+  }
+  .mi-shell:not(.mi-exploring) .db-map-reading {
+    display: flex;
+  }
 }

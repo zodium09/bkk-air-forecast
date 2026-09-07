@@ -94,8 +94,8 @@ export default function EnvironmentMap(props: Props) {
         !props.exploring;
       if (storyTouch) instance.dragging.disable();
       else instance.dragging.enable();
-      // Scrolling the story must not zoom the map under the pointer.
-      if (!props.exploring && media.matches) instance.scrollWheelZoom.disable();
+      // The wheel scrolls to analytics below; full-map mode enables wheel zoom.
+      if (!props.exploring) instance.scrollWheelZoom.disable();
       else instance.scrollWheelZoom.enable();
     };
     syncInteraction();

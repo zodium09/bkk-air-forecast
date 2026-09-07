@@ -4,6 +4,7 @@ The home page opens the interactive map dashboard immediately. Air, rain and hea
 
 ## Interaction and data
 
+- On desktop, the map and time controls fill the first viewport below the header and filters. Charts and location details follow below in normal page flow. The mouse wheel scrolls the page over the embedded map; full-map mode enables wheel zoom. Mobile retains its existing layout.
 - `/air`, `/rain`, and `/heat` share a persistent Leaflet map. Changing a layer preserves the selected location and matching forecast day. Existing specialist tools remain at each route's `/advanced` page.
 - IDW is the default forecast display for all three layers. Point forecasts and measured air observations remain separate modes. IDW uses at least three neighbors within 50 km, at most twelve neighbors, power 1.55 and 3.5 km smoothing. Only verified province/district polygons are filled; missing support remains transparent. Smooth display does not imply higher source resolution.
 - Clicking an arbitrary supported position reads IDW at that coordinate. Clicking a source marker reads that source point. The inspector, timeline and time comparison use the same selected values. Probability differences are percentage points.
