@@ -4,6 +4,8 @@ BKK Air Forecast is a Bangkok-metropolitan web application for viewing seven-day
 
 ## Features
 
+- Map-first interactive dashboard at `/`, with visible province/provider filters, date/time selectors, keyboard playback controls, and linked daily/three-hour trend charts; mobile places map and time controls before analytics
+
 - Seven-day PM2.5 outlook with Bangkok station observations, province model grids, and spatial IDW surfaces
 - Rain outlook split into a chance mode (TMD-assisted 0–48 hours or Open-Meteo 7 days) and a 24-hour accumulation mode (TMD Daily or Open-Meteo 7 days)
 - Seven-day heat outlook with 3-hour windows and a user-selectable TMD/Open-Meteo source mode

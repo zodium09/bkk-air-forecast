@@ -20,20 +20,15 @@ const executionContext = {
   passThroughOnException() {},
 };
 
-test("home launches three geographic workspaces with measured versus forecast context", async () => {
+test("home opens the working dashboard with visible province, provider and time filters", async () => {
   const worker = await loadWorker();
   const response = await worker.fetch(new Request("http://localhost/", { headers: { accept: "text/html" } }), environment, executionContext);
   assert.equal(response.status, 200);
   const html = await response.text();
-  for (const route of ["air", "rain", "heat"]) assert.ok(html.includes(`href="/${route}"`));
-  assert.match(html, /BKK AIR FORECAST/);
+  for (const label of ["Environmental dashboard", "กรองจังหวัด", "กรองแหล่งข้อมูล", "กรองวันที่", "กรองเวลา", "เลื่อนเวลาพยากรณ์", "เลือกช่วงเวลาจากกราฟ"]) assert.ok(html.includes(label), label);
   assert.match(html, /data-theme="dark"/);
-  assert.match(html, /สลับโหมดสว่างและโหมดมืด/);
-  assert.match(html, /ตรวจวัดล่าสุด/);
-  assert.match(html, /พยากรณ์วันนี้/);
-  assert.match(html, /แผนที่ภาพรวมพื้นที่/);
-  assert.match(html, /Heat Index/);
-  assert.doesNotMatch(html, /home-topic-number|home-glow|LIVE OUTLOOK/);
+  assert.doesNotMatch(html, /mi-home-intro|mi-home-topics/);
+  assert.ok(html.indexOf('aria-label="ควบคุมวันและเวลาบนแผนที่"') < html.indexOf('id="forecast-story"'));
 });
 
 for (const route of ["air", "rain", "heat"]) {

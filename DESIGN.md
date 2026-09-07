@@ -1,6 +1,6 @@
 # Bangkok environmental map workspace
 
-The home page introduces current air observations and today's rain and heat forecasts. Each topic opens a full-screen map with a shared location inspector and forecast timeline. The default appearance is midnight navy, with teal for air, blue for rain, and amber for heat. A saved light-theme preference is respected across pages.
+The home page opens the interactive map dashboard immediately. Air, rain and heat share a location inspector, visible province/provider filters, date/time controls and an interactive trend chart. The default appearance is midnight navy, with teal for air, blue for rain, and amber for heat. A saved light-theme preference is respected across pages.
 
 ## Interaction and data
 
@@ -10,10 +10,17 @@ The home page introduces current air observations and today's rain and heat fore
 - Rain switches between probability and accumulated millimeters. Heat switches between heat index and air temperature. PM2.5 retains the source's daily cadence; rain and heat expose only their supplied daily and three-hour periods.
 - The legend highlights both surface cells and points. The display menu controls point labels, satellite imagery, IDW opacity and weather motion.
 - Weather motion is illustrative: ambient particles for air, falling strokes for rain, rising wisps for heat. It is clipped to geographic/data coverage, is not radar or an observed wind field, and does not animate missing values. Rain uses accumulated rainfall to avoid showing falling rain for a zero-rain cell. Motion stops during map movement, is throttled to about 30 fps, and respects reduced-motion settings and the user's toggle.
-- At widths up to 780 px (1024 px for touch devices, including landscape phones), the workspace becomes a vertically scrolling story: a map stage (440–680 px), seven daily forecast rows, then location details and provenance. No detail panel overlays the map. A sticky section navigator tracks the reading position. Search and map settings expand on demand. Daily rows show the metric, value, risk color and risk text for the selected location or regional average.
+- At widths up to 780 px (1024 px for touch devices), the first viewport prioritizes province/source filters, layer selection, map, date/time selectors and the keyboard time slider. The trend chart and location details follow below. Map height responds to the small viewport height; search and display settings expand on demand. Landscape phones use a compact, horizontal time-control row.
 - On touch phones, one finger scrolls the story over the embedded map; tapping still selects a coordinate or marker, and zoom controls remain available. Full-map exploration enables map dragging and hides surrounding sections without replacing the map. The expand control or Escape restores the previous scroll position and keyboard focus.
 - Keyboard users can select daily or three-hour periods with arrow keys, Home and End, operate the native time slider, and navigate search results with arrows and Enter. All controls retain visible focus. Section links move reading focus to their destination. Reduced-motion preferences stop forecast playback and use instant section navigation.
 - Geographic labels use verified BMA/DMR feature names, with district names disclosed at closer zoom levels and collision avoidance. Display preferences are remembered locally; precise location is not stored in preference storage.
+
+## Dashboard revision — September 7, 2026
+
+- Daily aggregates and three-hour samples have separate chart/slider sequences. Hover inspects a chart value; click, touch or keyboard selection updates the same map time. Missing values break the line instead of drawing a continuous forecast across gaps.
+- Province and weather source are first-class filters and persist in the URL. Provider and rain metric are included in request/cache identities. TMD chance uses the supplied two-day horizon; accumulation requests TMD Daily. Live TMD daily products do not expose fabricated three-hour periods. PM2.5 retains its observation/model source contract.
+- Source provenance identifies the actual provider and explicitly labels TMD fallback. The local live-data check returned Open-Meteo seven-day rain and TMD-requested fallback (TMD not configured).
+- Validation for this revision: 71 unit tests, 26 rendered-page tests, TypeScript, lint, Next.js production build and Cloudflare build. Responsive CSS was reviewed; browser/device interaction testing was not run in this revision.
 
 ## Artwork
 

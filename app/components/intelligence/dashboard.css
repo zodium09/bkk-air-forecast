@@ -1,0 +1,192 @@
+/* Compact, map-first dashboard. Shared palette is defined in globals.css. */
+.mi-shell {
+  --mi-ink: var(--dashboard-text); --mi-muted: var(--dashboard-muted);
+  --mi-line: var(--dashboard-border); --mi-surface: var(--dashboard-surface); --mi-soft: var(--dashboard-canvas);
+}
+html[data-theme="dark"] .mi-shell {
+  --mi-ink: var(--dashboard-text); --mi-muted: var(--dashboard-muted);
+  --mi-line: var(--dashboard-border); --mi-surface: var(--dashboard-surface); --mi-soft: var(--dashboard-canvas);
+}
+.mi-shell .mi-header { height: 58px; flex-basis: 58px; background: var(--mi-surface); border-bottom: 1px solid var(--mi-line); }
+.mi-shell .mi-header::before, .mi-shell .mi-header::after { display: none; }
+.mi-shell .mi-brand b { color: var(--mi-ink); font-size: 17px; }
+.mi-shell .mi-rail { width: 64px; flex-basis: 64px; background: #0d1c2d; gap: 30px; }
+.mi-shell .mi-rail-main button { border-radius: 8px; }
+.mi-shell .mi-work-area { gap: 1px; background: var(--mi-line); grid-template-columns: minmax(0, 1fr) 320px; grid-template-rows: minmax(300px, 1fr) 264px; }
+.mi-shell .mi-workspace { min-height: 0; overflow: auto; }
+.mi-shell .mi-insight { border: 0; background: var(--mi-surface); }
+.mi-shell .mi-insight-scroll { padding: 20px; }
+.mi-shell .mi-footer { background: var(--mi-surface); flex-shrink: 0; }
+.db-toolbar { display: flex; align-items: center; gap: 18px; min-height: 80px; padding: 10px 20px; background: var(--mi-surface); border-bottom: 1px solid var(--mi-line); flex-shrink: 0; }
+.db-toolbar-title { display: flex; align-items: center; gap: 9px; margin-right: auto; }
+.db-toolbar h1 { font: 700 16px/1.3 Manrope, sans-serif; margin: 0; }
+.db-live-mark { width: 8px; height: 8px; border-radius: 2px; background: var(--mi-accent); }
+.db-toolbar label, .db-time-fields label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--mi-muted); min-width: 0; }
+.mi-shell .db-toolbar select, .mi-shell .db-time-fields select { height: 38px; border: 1px solid var(--mi-line); border-radius: 6px; padding: 4px 28px 4px 10px; background: var(--mi-soft); color: var(--mi-ink); min-width: 0; max-width: 100%; font-size: 14px; }
+.db-toolbar select { width: 200px; }
+.mi-shell .db-refresh { display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--mi-line); height: 40px; padding: 0 12px; margin-top: 17px; border-radius: 6px; }
+.mi-shell .mi-map-top { top: 12px; left: 12px; width: calc(100% - 82px); display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; }
+.mi-shell .mi-layer-switch { flex: 0 1 280px; border: 1px solid var(--mi-line); box-shadow: 0 3px 12px #0002; padding: 3px; border-radius: 7px; }
+.mi-shell .mi-layer-switch button { min-height: 38px; padding: 4px 9px; gap: 7px; }
+.mi-shell .mi-layer-switch small { display: none; }
+.mi-shell .mi-search-row { margin: 0; flex: 1 1 190px; }
+.mi-shell .mi-mode-row { margin: 0; flex-wrap: wrap; gap: 6px; }
+.mi-shell .mi-map-caption { display: none; }
+.mi-shell .mi-map-bottom { bottom: 145px; left: 12px; right: 70px; }
+.mi-shell .mi-surface-label { display: none; }
+.mi-shell .mi-options { top: 54px; max-height: min(540px, 65svh); overflow: auto; width: min(350px, 100%); }
+.mi-shell .mi-legend { box-shadow: 0 2px 12px #0002; }
+.db-time-control { position: absolute; bottom: 0; left: 0; right: 0; z-index: 12; padding: 10px 16px 8px; border-top: 1px solid var(--mi-line); background: var(--mi-surface); min-height: 128px; }
+.db-time-fields { display: flex; align-items: flex-end; gap: 10px; }
+.db-time-fields label { flex: 1; }
+.db-timezone { align-self: center; font: 600 12px/1.2 Manrope, sans-serif; color: var(--mi-muted); text-align: right; }
+.db-timezone small { font-size: 12px; font-weight: 400; }
+.db-time-scrubber { display: flex; align-items: center; gap: 4px; margin-top: 5px; }
+.mi-shell .db-play { display: grid; place-items: center; height: 40px; width: 40px; flex: none; border: 1px solid var(--mi-line); border-radius: 6px; color: var(--mi-accent); background: var(--mi-soft); }
+.mi-shell .db-step { font-size: 25px; height: 40px; width: 28px; flex: none; }
+.db-range-wrap { flex: 1; min-width: 0; }
+.db-range-wrap input { accent-color: var(--mi-accent); width: 100%; height: 24px; margin: 0; cursor: pointer; display: block; }
+.db-range-wrap > div { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--mi-muted); white-space: nowrap; }
+.db-range-wrap output { color: var(--mi-ink); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; }
+.db-source-note { border-bottom: 1px solid var(--mi-line); margin-bottom: 20px; padding-bottom: 16px; }
+.db-source-note > span { display: block; font-size: 12px; color: var(--mi-muted); margin-bottom: 6px; }
+.db-source-note b { font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
+.db-source-note p { color: var(--mi-muted); font-size: 13px; line-height: 1.6; margin: 8px 0 0; }
+.mi-shell .db-chart-panel { padding: 14px 20px 10px; background: var(--mi-surface); overflow: visible; border: 0; }
+.db-chart-heading { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
+.db-eyebrow { font-size: 12px; color: var(--mi-muted); }
+.db-chart-heading h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.db-chart-heading h2 small { color: var(--mi-muted); font-size: 12px; font-weight: 400; }
+.db-chart-cadence { display: flex; border: 1px solid var(--mi-line); border-radius: 6px; padding: 2px; flex-shrink: 0; }
+.mi-shell .db-chart-cadence button { padding: 4px 10px; min-height: 32px; font-size: 14px; border-radius: 4px; }
+.mi-shell .db-chart-cadence button[aria-pressed="true"] { color: var(--mi-accent); background: color-mix(in srgb, var(--mi-accent) 14%, var(--mi-surface)); }
+.db-chart-value { text-align: right; min-width: 140px; font-variant-numeric: tabular-nums; }
+.db-chart-value b { font: 700 25px/1.1 Manrope, sans-serif; }
+.db-chart-value span { display: block; font-size: 12px; color: var(--mi-muted); }
+.db-chart-scope { font-size: 12px; margin: 5px 0 0; color: var(--mi-muted); display: flex; justify-content: space-between; gap: 10px; }
+.db-chart-plot { height: 136px; position: relative; margin-top: 5px; }
+.db-chart-plot > svg { width: 100%; height: 100%; overflow: visible; }
+.db-chart-targets { position: absolute; inset: 0; }
+.mi-shell .db-chart-targets button { position: absolute; top: 0; bottom: 16px; transform: translateX(-50%); background: transparent; border-radius: 3px; padding: 0; }
+.mi-shell .db-chart-targets button:hover { background: color-mix(in srgb, var(--mi-accent) 7%, transparent); }
+.db-chart-footer { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; color: var(--mi-muted); }
+.mi-shell .db-chart-footer .mi-keyboard-help { display: block; margin: 0; padding: 0; position: relative; }
+.db-chart-footer summary { cursor: pointer; }
+.db-chart-footer details[open] p { position: absolute; right: 0; bottom: 20px; background: var(--mi-surface); border: 1px solid var(--mi-line); padding: 12px; width: 280px; z-index: 30; box-shadow: 0 5px 20px #0003; }
+.db-chart-empty { margin: 0; padding: 24px; font-size: 14px; color: var(--mi-muted); }
+.db-chart-plot > .db-chart-empty { position: absolute; inset: 30px 0 auto; text-align: center; pointer-events: none; }
+.mi-shell.mi-exploring .db-toolbar { display: none; }
+.mi-shell.mi-exploring .mi-map-bottom { bottom: 145px; }
+.mi-shell.mi-exploring .mi-work-area { grid-template-rows: minmax(0, 1fr); }
+@media (min-width: 781px) and (max-width: 1200px) {
+  .db-toolbar-title { display: none; }
+  .mi-shell .mi-work-area { grid-template-columns: minmax(0, 1fr) 290px; }
+  .db-toolbar { gap: 12px; }
+}
+@media (max-width: 780px), (max-width: 1024px) and (pointer: coarse) {
+  .mi-shell:not(.mi-exploring) { height: auto; min-height: 100svh; overflow: visible; }
+  .mi-shell:not(.mi-exploring) .mi-workspace { overflow: visible; }
+  .mi-shell:not(.mi-exploring) .mi-header { height: 48px; flex-basis: 48px; padding: 0 12px; }
+  .mi-shell .mi-brand b { font-size: 15px; }
+  .mi-shell .mi-brand small, .mi-shell .mi-overview-link, .db-toolbar-title { display: none; }
+  .mi-shell:not(.mi-exploring) .mi-story-nav { display: none; }
+  .db-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 36px; min-height: 84px; height: 84px; padding: 7px 10px 9px; gap: 8px; }
+  .db-toolbar label { font-size: 12px; }
+  .mi-shell .db-toolbar select { width: 100%; font-size: 14px; height: 40px; padding: 4px 20px 4px 7px; }
+  .mi-shell .db-refresh { padding: 0; width: 36px; }
+  .db-refresh span { display: none; }
+  .mi-shell:not(.mi-exploring) .mi-work-area { display: flex; gap: 0; }
+  .mi-shell:not(.mi-exploring) .mi-geography { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: 52px minmax(180px, 1fr) 132px; height: max(364px, calc(100svh - 132px)); min-height: 364px; flex: none; overflow: visible; }
+  .mi-shell:not(.mi-exploring) .mi-map-story-title { display: none; }
+  .mi-shell:not(.mi-exploring) .mi-map-top { grid-row: 1; order: 0; width: 100%; margin: 0; padding: 4px 10px; display: grid; grid-template-columns: minmax(0, 1fr) 44px; gap: 8px; z-index: 25; background: var(--mi-surface); }
+  .mi-shell:not(.mi-exploring) .mi-map-top > .mi-layer-switch { grid-column: 1; grid-row: 1; width: 100%; min-width: 0; }
+  .mi-shell:not(.mi-exploring) .mi-layer-switch button { min-height: 34px; padding: 3px 6px; gap: 6px; }
+  .mi-shell:not(.mi-exploring) .mi-layer-switch button span { font-size: 14px; }
+  .mi-shell:not(.mi-exploring) .mi-layer-switch svg { width: 17px; }
+  .mi-shell:not(.mi-exploring) .mi-story-controls-toggle { grid-row: 1; grid-column: 2; min-height: 42px; height: 42px; padding: 4px; }
+  .mi-story-controls-toggle > span { display: none; }
+  .mi-shell:not(.mi-exploring) .mi-map-top > .mi-map-caption { display: none; }
+  .mi-shell:not(.mi-exploring) .mi-map-top.mi-mobile-controls-open > .mi-search-row { display: flex; position: absolute; top: 52px; left: 10px; width: calc(100% - 20px); z-index: 30; }
+  .mi-shell:not(.mi-exploring) .mi-map-top.mi-mobile-controls-open > .mi-mode-row { display: flex; position: absolute; top: 106px; left: 10px; width: calc(100% - 20px); z-index: 29; background: var(--mi-surface); padding: 7px; border: 1px solid var(--mi-line); border-radius: 6px; }
+  .mi-shell:not(.mi-exploring) .mi-options { top: 106px; left: 10px; width: calc(100% - 20px); max-height: min(480px, 60svh); z-index: 35; }
+  .mi-shell:not(.mi-exploring) .mi-map-stage { grid-row: 2; order: 0; height: auto; min-height: 180px; width: 100%; position: relative; }
+  .mi-shell:not(.mi-exploring) .db-time-control { grid-row: 3; position: relative; order: 0; min-height: 132px; padding: 8px 10px 6px; z-index: 20; }
+  .mi-shell .db-time-fields select { font-size: 14px; height: 38px; }
+  .db-time-fields { gap: 8px; }
+  .db-timezone { font-size: 12px; }
+  .db-range-wrap > div { font-size: 12px; gap: 3px; }
+  .db-range-wrap > div > span { display: none; }
+  .mi-shell .db-play { height: 44px; width: 44px; }
+  .mi-shell .db-step { height: 44px; width: 30px; }
+  .mi-shell:not(.mi-exploring) .mi-map-bottom { position: absolute; bottom: 156px; left: 10px; right: 10px; padding: 0; background: none; z-index: 10; pointer-events: none; }
+  .mi-shell:not(.mi-exploring) .mi-map-bottom > :is(.mi-story-map-reading, .mi-story-map-guide, .mi-surface-label) { display: none; }
+  .mi-shell:not(.mi-exploring) .mi-map-actions { display: flex; margin-bottom: 5px; pointer-events: auto; gap: 5px; }
+  .mi-shell:not(.mi-exploring) .mi-map-actions button { min-height: 34px; padding: 4px 8px; font-size: 12px; }
+  .mi-shell:not(.mi-exploring) .mi-legend { pointer-events: auto; padding: 6px 8px; background: var(--mi-surface); }
+  .mi-shell:not(.mi-exploring) .mi-map-tools { top: 10px; right: 10px; grid-template-columns: 40px; }
+  .mi-shell:not(.mi-exploring) .mi-map-tools button { width: 40px; height: 40px; }
+  .mi-shell:not(.mi-exploring) .mi-map-notice { top: 12px; left: 10px; right: 58px; font-size: 12px; }
+  .mi-shell:not(.mi-exploring) .mi-surface-notice { bottom: 100px; font-size: 12px; }
+  .mi-shell:not(.mi-exploring) .mi-map-message { max-width: calc(100% - 72px); padding: 12px; }
+  .mi-shell:not(.mi-exploring) .mi-timeline.db-chart-panel { padding: 18px 12px; height: auto; min-height: 285px; margin: 0; border-top: 1px solid var(--mi-line); }
+  .db-chart-heading { flex-wrap: wrap; gap: 8px; }
+  .db-chart-heading h2 { font-size: 16px; }
+  .db-chart-value { display: flex; width: 100%; justify-content: space-between; align-items: center; }
+  .db-chart-value b { font-size: 25px; }
+  .db-chart-scope { flex-direction: column; gap: 2px; }
+  .db-chart-plot { height: 155px; }
+  .db-chart-footer { flex-wrap: wrap; font-size: 12px; }
+  .mi-shell:not(.mi-exploring) .mi-insight { position: static; display: flex; width: 100%; height: auto; min-height: 0; border-top: 1px solid var(--mi-line); }
+  .mi-shell:not(.mi-exploring) .mi-insight .mi-story-section-title { padding: 20px 16px 0; }
+  .mi-shell:not(.mi-exploring) .mi-insight .mi-story-section-title > span { display: none; }
+  .mi-shell:not(.mi-exploring) .mi-insight .mi-story-section-title h2 { font-size: 20px; }
+  .mi-shell:not(.mi-exploring) .mi-insight-scroll { overflow: visible; padding: 20px 16px; }
+  .mi-shell:not(.mi-exploring) .mi-footer { padding: 12px; }
+  .mi-shell.mi-exploring .db-time-control { padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+}
+@media (max-height: 550px) and (orientation: landscape) {
+  .mi-shell:not(.mi-exploring) .mi-geography { height: 440px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mi-shell *, .mi-shell *::before, .mi-shell *::after { scroll-behavior: auto; transition: none; }
+}
+.db-map-reading { position: absolute; top: 120px; left: 14px; z-index: 8; display: flex; flex-direction: column; padding: 10px 14px; border: 1px solid var(--mi-line); border-radius: 7px; background: var(--mi-surface); box-shadow: 0 3px 12px #0002; pointer-events: none; }
+.db-map-reading > span { font-size: 12px; color: var(--mi-muted); }
+.db-map-reading b { font: 700 28px/1.35 Manrope, sans-serif; color: var(--mi-ink); font-variant-numeric: tabular-nums; }
+.db-map-reading small { font-size: 12px; font-weight: 500; }
+html[data-theme="dark"] .mi-shell .mi-header { background: var(--mi-surface); }
+.mi-shell .mi-timeline.db-chart-panel { gap: 2px; }
+.mi-shell .mi-map-stage { bottom: 128px; }
+.mi-shell .mi-map-bottom { pointer-events: none; }
+.mi-shell .mi-map-bottom > * { pointer-events: auto; }
+@media (max-width: 780px), (max-width: 1024px) and (pointer: coarse) {
+  .mi-shell:not(.mi-exploring) .mi-map-stage { bottom: auto; }
+  .mi-shell:not(.mi-exploring) .mi-map-bottom { width: auto; gap: 6px; }
+  .mi-shell:not(.mi-exploring) .mi-legend-heading { min-height: 28px; }
+  .mi-shell:not(.mi-exploring) .mi-legend .mi-legend-bands button { min-height: 32px; padding: 2px; }
+  .mi-shell:not(.mi-exploring) .mi-legend-bands button span { display: none; }
+  .db-map-reading { top: 10px; left: 10px; padding: 7px 10px; }
+  .db-map-reading b { font-size: 24px; }
+  .mi-shell:not(.mi-exploring) .mi-map-notice { top: 106px; }
+  .mi-shell:not(.mi-exploring) .mi-geography { scroll-margin-top: 0; }
+}
+@media (min-width: 781px) {
+  .mi-shell .mi-surface-notice { top: auto; bottom: 110px; }
+}
+.db-chart-y-labels { position: absolute; top: 7%; bottom: 16%; left: 0; display: flex; flex-direction: column; justify-content: space-between; font-size: 12px; color: var(--mi-muted); pointer-events: none; }
+.db-chart-x-labels { position: absolute; bottom: -2px; left: 4.8%; right: 5.2%; display: flex; justify-content: space-between; gap: 4px; font-size: 12px; color: var(--mi-muted); pointer-events: none; }
+.db-fallback-label { font-size: 12px; color: #a45913; padding-left: 4px; }
+html[data-theme="dark"] .db-fallback-label { color: #f5bd75; }
+@media (max-height: 550px) and (orientation: landscape) and (max-width: 1024px) {
+  .mi-shell:not(.mi-exploring) .mi-header { display: none; }
+  .mi-shell:not(.mi-exploring) .mi-geography { height: max(272px, calc(100svh - 84px)); min-height: 272px; grid-template-rows: 52px minmax(132px, 1fr) 88px; }
+  .mi-shell:not(.mi-exploring) .db-time-control { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 12px; min-height: 88px; }
+  .mi-shell:not(.mi-exploring) .mi-map-bottom { bottom: 100px; left: auto; width: min(340px, 55%); }
+  .mi-shell:not(.mi-exploring) .mi-map-actions { display: none; }
+}
+@media (min-width: 781px) and (pointer: fine), (min-width: 1025px) {
+  .mi-shell .db-time-control { display: grid; grid-template-columns: minmax(250px, .9fr) minmax(220px, 1.1fr); align-items: center; gap: 18px; min-height: 88px; }
+  .mi-shell .mi-map-stage { bottom: 88px; }
+  .mi-shell .mi-map-bottom, .mi-shell.mi-exploring .mi-map-bottom { bottom: 105px; }
+  .mi-shell .db-map-reading { display: none; }
+}

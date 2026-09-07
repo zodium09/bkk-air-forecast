@@ -2,6 +2,11 @@
 @import "tailwindcss";
 
 :root {
+  --dashboard-surface: #ffffff;
+  --dashboard-canvas: #edf2f7;
+  --dashboard-border: #d8e2ed;
+  --dashboard-text: #182d45;
+  --dashboard-muted: #53677e;
   --ink: #0f172a;
   --muted: #64748b;
   --line: #e2e8f0;
@@ -2670,4 +2675,12 @@ html[data-theme="dark"] .heat-window-btn.active { border-color: #fb923c; backgro
   .heat-legend { display: none; }
   .heat-surface-status { top: auto; right: 12px; bottom: 12px; max-width: 180px; }
   .heat-map-metric { width: 180px; }
+}
+
+html[data-theme="dark"] {
+  --dashboard-surface: #101e30;
+  --dashboard-canvas: #091422;
+  --dashboard-border: #2a3b50;
+  --dashboard-text: #edf4fc;
+  --dashboard-muted: #a3b4c9;
 }

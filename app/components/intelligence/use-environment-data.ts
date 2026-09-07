@@ -13,15 +13,20 @@ import {
   type MapDataset,
 } from "../../lib/map-intelligence";
 
+import { environmentRequest, type WeatherSource } from "../../lib/dashboard-controls";
+
 const cache = new Map<string, { data: MapDataset; at: number }>();
 export function useEnvironmentData(
   layer: EnvironmentLayer,
   province: RegionId,
   mode: DataMode,
   refresh: number,
+  source: WeatherSource = "open-meteo",
+  metric: "primary" | "secondary" = "primary",
 ) {
   const requestMode = mode === "observation" ? "observation" : "forecast";
-  const cacheKey = `${layer}:${province}:${requestMode}`;
+  const request = environmentRequest(layer, province, requestMode, source, metric);
+  const cacheKey = request.key;
   const key = `${cacheKey}:${refresh}`;
   const [result, setResult] = useState<{
     key: string;
@@ -55,9 +60,9 @@ export function useEnvironmentData(
             : await get(`/api/forecast?province=${province}`);
         return normalizeAir(payload, requestMode);
       }
-      const query = layer === "rain" ? "&source=open-meteo&mode=chance" : "";
+
       return normalizeWeather(
-        await get(`/api/${layer}-forecast?province=${province}${query}`),
+        await get(request.url),
         layer,
       );
     }
@@ -83,7 +88,7 @@ export function useEnvironmentData(
       controller.abort();
       window.clearTimeout(timeout);
     };
-  }, [key, cacheKey, layer, province, requestMode, refresh]);
+  }, [key, cacheKey, layer, province, requestMode, refresh, request.url]);
   return result.key === key
     ? result
     : { key, data: null, loading: true, error: "" };

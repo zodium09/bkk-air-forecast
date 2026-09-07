@@ -186,6 +186,7 @@ export function normalizeWeather(
   payload: RainForecastPayload | HeatForecastPayload,
   layer: "rain" | "heat",
 ): MapDataset {
+  const dailyTmd = layer === "rain" && "tmdProduct" in payload.dataQuality && payload.dataQuality.tmdProduct === "daily-7d" && payload.dataQuality.tmdStatus === "live";
   const steps: MapStep[] = payload.days.flatMap((day, dayIndex) => [
     {
       key: `${day.dateKey}:day`,
@@ -195,7 +196,7 @@ export function normalizeWeather(
       window: null,
     },
     ...payload.windows
-      .filter((w) => w.dayIndex === dayIndex)
+      .filter((w) => w.dayIndex === dayIndex && !dailyTmd)
       .map((w) => ({
         key: `${day.dateKey}:${w.windowIndex}`,
         day: dayIndex,

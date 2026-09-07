@@ -11,7 +11,6 @@ import {
 } from "../../lib/map-surface";
 import {
   DataStatus,
-  ForecastTimeline,
   LayerSwitcher,
   MapErrorState,
   MapIcon,
@@ -41,6 +40,9 @@ import { getRegion, provinces, type RegionId } from "../../lib/provinces";
 import "./map-workspace.css";
 import "./night-theme.css";
 import "./mobile-story.css";
+import "./dashboard.css";
+import { DashboardTimeControl, DashboardChart } from "./dashboard-controls";
+import { nextTimelineIndex, type WeatherSource } from "../../lib/dashboard-controls";
 
 const emptyPoints: MapPoint[] = [];
 export default function MapWorkspace({
@@ -51,6 +53,7 @@ export default function MapWorkspace({
   const [layer, setLayer] = useState(initialLayer);
   const [province, setProvince] = useState<RegionId>("metro");
   const [mode, setMode] = useState<DataMode>("estimate");
+  const [source, setSource] = useState<WeatherSource>("open-meteo");
   const [metric, setMetric] = useState<Metric>("primary");
   const [timeKey, setTimeKey] = useState("");
   const [selected, setSelected] = useState<{
@@ -98,6 +101,8 @@ export default function MapWorkspace({
     province,
     mode,
     refresh,
+    source,
+    metric,
   );
   const points = data?.points ?? emptyPoints;
   const index = Math.max(
@@ -227,6 +232,7 @@ export default function MapWorkspace({
         /* Defaults remain usable when browser storage is unavailable. */
       }
       setProvince(getRegion(params.get("province") ?? "metro").id);
+      setSource(params.get("source") === "tmd" ? "tmd" : "open-meteo");
       if (params.get("time")) setTimeKey(params.get("time")!);
       const initialMode = params.get("mode");
       if (
@@ -280,21 +286,21 @@ export default function MapWorkspace({
   ]);
   useEffect(() => {
     if (!initialized) return;
-    const params = new URLSearchParams({ province, mode, metric });
+    const params = new URLSearchParams({ province, mode, metric, source });
     if (timeKey) params.set("time", timeKey);
     if (selected) {
       params.set("lat", String(selected.lat));
       params.set("lng", String(selected.lng));
     }
     history.replaceState(null, "", `/${layer}?${params}`);
-  }, [initialized, province, mode, metric, timeKey, selected, layer]);
+  }, [initialized, province, mode, metric, source, timeKey, selected, layer]);
   useEffect(() => {
     if (!playing || !data?.steps.length || reducedMotion) return;
     const timer = window.setInterval(
       () =>
         setTimeKey((key) => {
-          const next = data.steps.findIndex((s) => s.key === key) + 1;
-          return data.steps[next % data.steps.length].key;
+          const current = Math.max(0, data.steps.findIndex((s) => s.key === key));
+          return data.steps[nextTimelineIndex(data.steps, current)].key;
         }),
       1800,
     );
@@ -316,6 +322,7 @@ export default function MapWorkspace({
           nextMode = params.get("mode");
         setProvince(getRegion(params.get("province") ?? "metro").id);
         setTimeKey(params.get("time") ?? "");
+        setSource(params.get("source") === "tmd" ? "tmd" : "open-meteo");
         setMode(
           nextMode === "forecast" ||
             (nextMode === "observation" && nextLayer === "air")
@@ -357,7 +364,7 @@ export default function MapWorkspace({
     setPlaying(false);
     const date = step?.date;
     setTimeKey(date ? `${date}${next === "air" ? "" : ":day"}` : "");
-    const params = new URLSearchParams({ province });
+    const params = new URLSearchParams({ province, source });
     if (date) params.set("time", `${date}${next === "air" ? "" : ":day"}`);
     if (selected) {
       params.set("lat", String(selected.lat));
@@ -441,6 +448,27 @@ export default function MapWorkspace({
             </a>
           </div>
         </header>
+        <div className="db-toolbar" aria-label="ตัวกรองแดชบอร์ด">
+          <div className="db-toolbar-title"><span className="db-live-mark" /><h1>Environmental dashboard</h1></div>
+          <label>จังหวัด
+            <select aria-label="กรองจังหวัด" value={province} onChange={(e) => {
+              setProvince(e.target.value as RegionId); setSelected(null); setCompareKey(null); setPlaying(false);
+            }}>
+              <option value="metro">กรุงเทพฯ–ปริมณฑล</option>
+              {provinces.map((p) => <option key={p.id} value={p.id}>{p.nameTh}</option>)}
+            </select>
+          </label>
+          <label><span>แหล่งข้อมูล {layer !== "air" && source === "tmd" && data && data.quality.tmdStatus !== "live" && <small className="db-fallback-label" role="status">ใช้แหล่งสำรอง</small>}</span>
+            <select aria-label="กรองแหล่งข้อมูล" value={layer === "air" ? "air" : source} disabled={layer === "air"} onChange={(e) => {
+              setSource(e.target.value as WeatherSource); setPlaying(false); setCompareKey(null); setTimeKey("");
+            }}>
+              {layer === "air" ? <option value="air">{mode === "observation" ? "AirBKK / Air4Thai" : "CAMS + สถานีตรวจวัด"}</option> : <>
+                <option value="open-meteo">Open-Meteo</option><option value="tmd">TMD + Open-Meteo</option>
+              </>}
+            </select>
+          </label>
+          <button className="db-refresh" aria-label="รีเฟรชข้อมูล" disabled={loading} onClick={() => setRefresh((n) => n + 1)}><MapIcon name="refresh" size={18} /><span>อัปเดต</span></button>
+        </div>
         <nav className="mi-story-nav" aria-label="ข้ามไปยังส่วนของหน้า">
           <button
             aria-current={storySection === "map-story" ? "location" : undefined}
@@ -504,6 +532,7 @@ export default function MapWorkspace({
                 onBoundary={setBoundary}
                 motionDisabled={reducedMotion}
               />
+              <div className="db-map-reading"><span>{selected ? "ตำแหน่งที่เลือก" : getRegion(province).shortNameTh}</span><b>{formatValue(currentValue)} <small>{metric === "primary" ? layerInfo[layer].unit : layerInfo[layer].secondaryUnit}</small></b><span>{metricName(layer, metric)}</span></div>
               {loading && <MapLoadingState />}
               {!loading &&
                 (error ||
@@ -521,6 +550,7 @@ export default function MapWorkspace({
                   />
                 )}
             </div>
+            <DashboardTimeControl data={data} index={index} onChange={changeTime} playing={playing} onPlay={() => setPlaying((p) => !p)} animationAllowed={!reducedMotion} mode={mode} />
             <div
               className={`mi-map-top ${mobileControlsOpen ? "mi-mobile-controls-open" : ""}`}
             >
@@ -895,7 +925,7 @@ export default function MapWorkspace({
               />
             </div>
           </section>
-          <ForecastTimeline
+          <DashboardChart
             scope={
               selected
                 ? spatialSelection
@@ -906,16 +936,12 @@ export default function MapWorkspace({
             data={data}
             index={index}
             onChange={changeTime}
-            playing={playing}
-            animationAllowed={!reducedMotion}
-            onPlay={() => {
-              if (!reducedMotion) setPlaying((p) => !p);
-            }}
             mode={mode}
             values={values}
             metric={metric}
           />
           <LocationPanel>
+            <div className="db-source-note" role="status"><span>แหล่งข้อมูลที่ใช้</span><b>{loading ? "กำลังเชื่อมต่อ…" : data?.model ?? "ยังไม่มีข้อมูล"}</b>{layer !== "air" && source === "tmd" && <p>{data?.quality.tmdStatus === "live" ? (layer === "rain" && metric === "secondary" ? "ปริมาณฝน TMD Daily · รายวัน" : "TMD ช่วง 48 ชม. แรก · Open-Meteo สนับสนุนข้อมูล") : loading ? "กำลังตรวจสอบ TMD" : "TMD ยังไม่พร้อม · ตรวจสอบแหล่งสำรองด้านล่าง"}{layer === "rain" && metric === "primary" ? " · ค่าโอกาสฝน (%) จาก Open-Meteo" : ""}</p>}</div>
             <LocationInsight
               layer={layer}
               values={values}
