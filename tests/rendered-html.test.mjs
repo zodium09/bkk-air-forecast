@@ -49,6 +49,15 @@ for (const route of ["air", "rain", "heat"]) {
     assert.doesNotMatch(html, /home-glow|forecast-shell/);
   });
 }
+test("rain workspace exposes the rain mode filter in the primary toolbar", async () => {
+  const worker = await loadWorker();
+  const response = await worker.fetch(new Request("http://localhost/rain", { headers: { accept: "text/html" } }), environment, executionContext);
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /กรองโหมดปริมาณฝน/);
+  assert.match(html, /โอกาสฝน \(%\)/);
+  assert.match(html, /ปริมาณฝนสะสม \(มม\.\)/);
+});
 test("air and rain sidebars use a readable desktop type scale", async () => {
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(styles, /grid-template-columns: 272px minmax\(0, 1fr\) 310px/);

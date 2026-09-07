@@ -82,6 +82,8 @@ html[data-theme="dark"] .mi-shell {
   .db-toolbar-title { display: none; }
   .mi-shell .mi-work-area { grid-template-columns: minmax(0, 1fr) 290px; }
   .db-toolbar { gap: 12px; }
+  .db-toolbar label { flex: 1 1 0; }
+  .mi-shell .db-toolbar select { width: 100%; }
 }
 @media (max-width: 780px), (max-width: 1024px) and (pointer: coarse) {
   .mi-shell:not(.mi-exploring) { height: auto; min-height: 100svh; overflow: visible; }
@@ -90,7 +92,9 @@ html[data-theme="dark"] .mi-shell {
   .mi-shell .mi-brand b { font-size: 15px; }
   .mi-shell .mi-brand small, .mi-shell .mi-overview-link, .db-toolbar-title { display: none; }
   .mi-shell:not(.mi-exploring) .mi-story-nav { display: none; }
-  .db-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 36px; min-height: 84px; height: 84px; padding: 7px 10px 9px; gap: 8px; }
+  .db-toolbar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) 36px; min-height: 84px; height: 84px; padding: 7px 10px 9px; gap: 8px; }
+  .mi-layer-air .db-toolbar,
+  .mi-layer-heat .db-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)) 36px; }
   .db-toolbar label { font-size: 12px; }
   .mi-shell .db-toolbar select { width: 100%; font-size: 14px; height: 40px; padding: 4px 20px 4px 7px; }
   .mi-shell .db-refresh { padding: 0; width: 36px; }
@@ -143,6 +147,18 @@ html[data-theme="dark"] .mi-shell {
   .mi-shell:not(.mi-exploring) .mi-insight-scroll { overflow: visible; padding: 20px 16px; }
   .mi-shell:not(.mi-exploring) .mi-footer { padding: 12px; }
   .mi-shell.mi-exploring .db-time-control { padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+}
+@media (max-width: 430px) {
+  .mi-layer-rain .db-toolbar {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) 34px;
+    gap: 5px;
+    padding-inline: 7px;
+  }
+  .mi-layer-rain .db-toolbar label { font-size: 11px; }
+  .mi-shell.mi-layer-rain .db-toolbar select {
+    padding-inline: 5px 17px;
+    font-size: 12px;
+  }
 }
 @media (max-height: 550px) and (orientation: landscape) {
   .mi-shell:not(.mi-exploring) .mi-geography { height: 440px; }

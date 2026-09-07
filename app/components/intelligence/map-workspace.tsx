@@ -467,6 +467,24 @@ export default function MapWorkspace({
               </>}
             </select>
           </label>
+          {layer === "rain" && (
+            <label>โหมดฝน
+              <select
+                aria-label="กรองโหมดปริมาณฝน"
+                value={metric}
+                onChange={(e) => {
+                  setMetric(e.target.value as Metric);
+                  setLegend(null);
+                  setCompareKey(null);
+                  setPlaying(false);
+                  setTimeKey("");
+                }}
+              >
+                <option value="primary">โอกาสฝน (%)</option>
+                <option value="secondary">ปริมาณฝนสะสม (มม.)</option>
+              </select>
+            </label>
+          )}
           <button className="db-refresh" aria-label="รีเฟรชข้อมูล" disabled={loading} onClick={() => setRefresh((n) => n + 1)}><MapIcon name="refresh" size={18} /><span>อัปเดต</span></button>
         </div>
         <nav className="mi-story-nav" aria-label="ข้ามไปยังส่วนของหน้า">
