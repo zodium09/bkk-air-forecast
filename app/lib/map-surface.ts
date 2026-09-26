@@ -1,4 +1,4 @@
-import { spatialIdw } from "./forecast/interpolation.ts";
+import { prepareSpatialIdw, spatialIdw } from "./forecast/interpolation.ts";
 import {
   getLegend,
   legendIndex,
@@ -82,6 +82,11 @@ export function interpolateMapValue(
     }),
     idwOptions,
   );
+}
+
+export function prepareMapInterpolation(points: MapPoint[], lat: number, lng: number) {
+  const interpolate = prepareSpatialIdw(lat, lng, points, idwOptions);
+  return (index: number, metric: Metric) => interpolate((neighbor) => pointValue(points[neighbor], index, metric));
 }
 
 /** Subtle lightness variation within each legend band preserves its risk classification. */

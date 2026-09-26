@@ -53,6 +53,7 @@ export type RainPoint = {
   lng: number;
   daily: RainPointDay[];
   windows: RainPointWindow[];
+  hourly?: { time: string; probability: number | null; rainMm: number | null }[];
 };
 
 export type RainForecastPayload = {

@@ -64,6 +64,7 @@ export default function LocationInsight({
       (s) =>
         s.step.day === current?.day &&
         s.step.window !== null &&
+        (current?.cadence === "hour" ? s.step.cadence === "hour" : s.step.cadence !== "hour") &&
         s.value !== null,
     )
     .map((s) => s.value!);
@@ -74,7 +75,7 @@ export default function LocationInsight({
     )
     .slice(0, 3);
   const label = spatialSelection
-    ? "ตำแหน่งบนพื้นผิว IDW"
+    ? "ตำแหน่งที่ประมาณด้วย IDW"
     : selected
       ? (selected.label ?? point?.label ?? "ตำแหน่งที่เลือก")
       : "ภาพรวมพื้นที่";
@@ -133,7 +134,9 @@ export default function LocationInsight({
                   ? "ค่าเฉลี่ยของจุดที่มีข้อมูลในพื้นที่ที่เลือก"
                   : mode === "observation"
                     ? "ค่าที่สถานีรายงานตามเวลาตรวจวัด"
-                    : "ค่าจากแบบจำลอง ณ จุดนี้"}
+                    : mode === "estimate"
+                      ? "ค่าประมาณ IDW บริเวณจุดนี้ ไม่ใช่ค่าตรวจวัดจริง"
+                      : "ค่าจากแบบจำลอง ณ จุดนี้"}
         </p>
       </div>
       <div className="mi-interpretation">

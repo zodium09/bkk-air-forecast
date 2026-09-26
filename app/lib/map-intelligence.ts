@@ -3,6 +3,7 @@ import type { RainForecastPayload } from "./rain-forecast-data.ts";
 import type { HeatForecastPayload } from "./heat-forecast-data.ts";
 import { getLevel } from "./forecast-data.ts";
 import { getHeatRisk } from "./heat-forecast-data.ts";
+import type { MapPlace } from "./map-places.ts";
 
 export type EnvironmentLayer = "air" | "rain" | "heat";
 export type DataMode = "forecast" | "observation" | "estimate";
@@ -16,6 +17,8 @@ export type MapPoint = {
   secondary: (number | null)[];
   observedAt?: string;
   source?: string;
+  area?: string;
+  place?: MapPlace;
 };
 export type MapStep = {
   key: string;
@@ -25,6 +28,7 @@ export type MapStep = {
   window: number | null;
   startHour?: number;
   endHour?: number;
+  cadence?: "day" | "hour" | "window";
   sourceMode?: string;
   uncertainty?: number;
   reliability?: number;
@@ -61,7 +65,7 @@ export const layerInfo = {
   heat: {
     name: "Heat",
     thai: "ความร้อน",
-    description: "Heat Index สูงสุด",
+    description: "ดัชนีความร้อน",
     unit: "°C",
     secondaryUnit: "°C",
     accent: "#b54b24",
@@ -173,6 +177,7 @@ export function normalizeAir(
         lng: s.lng,
         observedAt: s.observedAt,
         source: s.sourceType,
+        area: s.district,
         values: observed
           ? [finite(s.observed)]
           : s.values.map((v, i) =>
@@ -187,6 +192,7 @@ export function normalizeWeather(
   layer: "rain" | "heat",
 ): MapDataset {
   const dailyTmd = layer === "rain" && "tmdProduct" in payload.dataQuality && payload.dataQuality.tmdProduct === "daily-7d" && payload.dataQuality.tmdStatus === "live";
+  const hourlySupported = !dailyTmd && !(layer === "rain" && payload.dataQuality.tmdStatus === "live" && "tmdCadenceHours" in payload.dataQuality && (payload.dataQuality.tmdCadenceHours ?? 1) > 1);
   const steps: MapStep[] = payload.days.flatMap((day, dayIndex) => [
     {
       key: `${day.dateKey}:day`,
@@ -205,7 +211,12 @@ export function normalizeWeather(
         window: w.windowIndex,
         startHour: Number(w.start.split(":")[0]),
         endHour: Number(w.end.split(":")[0]) || 24,
+        cadence: "window" as const,
       })),
+    ...(hourlySupported ? [...new Set(payload.points.flatMap((p) => p.hourly?.map((h) => h.time) ?? []))]
+      .filter((time) => time.slice(0, 10) === day.dateKey && /^\d{4}-\d{2}-\d{2}T\d{2}:00$/.test(time))
+      .sort()
+      .map((time) => ({ key: `${day.dateKey}:h${time.slice(11, 13)}`, day: dayIndex, date: day.dateKey, label: `${time.slice(11, 16)} น.`, window: Number(time.slice(11, 13)), startHour: Number(time.slice(11, 13)), endHour: Number(time.slice(11, 13)) + 1, cadence: "hour" as const })) : []),
   ]);
   const points: MapPoint[] = (
     payload.status === "unavailable" ? [] : payload.points
@@ -218,6 +229,7 @@ export function normalizeWeather(
     values: steps.map((step) => {
       if (layer === "rain") {
         const p = point as RainForecastPayload["points"][number];
+        if (step.cadence === "hour") return finite(p.hourly?.find((h) => h.time === `${step.date}T${String(step.startHour).padStart(2, "0")}:00`)?.probability);
         return finite(
           step.window === null
             ? p.daily[step.day]?.pointProbabilityMax
@@ -227,6 +239,7 @@ export function normalizeWeather(
         );
       }
       const p = point as HeatForecastPayload["points"][number];
+      if (step.cadence === "hour") return finite(p.hourly?.find((h) => h.time === `${step.date}T${String(step.startHour).padStart(2, "0")}:00`)?.heatIndexC);
       return finite(
         step.window === null
           ? p.daily[step.day]?.maxHeatIndexC
@@ -238,6 +251,7 @@ export function normalizeWeather(
     secondary: steps.map((step) => {
       if (layer === "rain") {
         const p = point as RainForecastPayload["points"][number];
+        if (step.cadence === "hour") return finite(p.hourly?.find((h) => h.time === `${step.date}T${String(step.startHour).padStart(2, "0")}:00`)?.rainMm);
         return finite(
           step.window === null
             ? p.daily[step.day]?.rainMm
@@ -247,6 +261,7 @@ export function normalizeWeather(
         );
       }
       const p = point as HeatForecastPayload["points"][number];
+      if (step.cadence === "hour") return finite(p.hourly?.find((h) => h.time === `${step.date}T${String(step.startHour).padStart(2, "0")}:00`)?.temperatureC);
       return finite(
         step.window === null
           ? p.daily[step.day]?.maxTemperatureC
@@ -284,7 +299,7 @@ export function metricName(layer: EnvironmentLayer, metric: Metric) {
     ? layerInfo[layer].description
     : layer === "rain"
       ? "ปริมาณฝนสะสม"
-      : "อุณหภูมิสูงสุด";
+      : "อุณหภูมิ";
 }
 export function getLegend(layer: EnvironmentLayer, metric: Metric) {
   if (layer === "air")

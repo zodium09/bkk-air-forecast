@@ -145,7 +145,13 @@ function aggregatePoint(raw: OpenMeteoLocation, index: number, forecastPoints: R
     }
   });
 
-  return { ...point, daily, windows };
+  const hourly = raw.hourly.time.slice(0, hourlyLength)
+    .filter((time) => raw.daily!.time.slice(0, FORECAST_DAYS).includes(time.slice(0, 10)))
+    .map((time) => {
+      const i = raw.hourly!.time.indexOf(time);
+      return { time, probability: finiteOrNull(raw.hourly!.precipitation_probability[i], 0, 100), rainMm: finiteOrNull(raw.hourly!.precipitation[i], 0, 300) };
+    });
+  return { ...point, daily, windows, hourly };
 }
 
 function aggregateCity(points: RainPoint[], dateKeys: string[], requestedMode: RainForecastMode) {
@@ -319,6 +325,9 @@ function normalizedResponse(
       ...point,
       daily: point.daily.slice(0, horizonDays),
       windows: point.windows.filter((window) => window.dayIndex < horizonDays),
+      hourly: tmdIntegration.status === "live" && (tmdIntegration.product === "daily-7d" || (tmdIntegration.cadenceHours ?? 1) > 1)
+        ? undefined
+        : point.hourly?.filter((hour) => dateKeys.slice(0, horizonDays).includes(hour.time.slice(0, 10))),
     })),
   }, {
     headers: deliveryFallback ? {

@@ -20,43 +20,56 @@ const executionContext = {
   passThroughOnException() {},
 };
 
-test("home opens the working dashboard with visible province, provider and time filters", async () => {
+test("home opens a dot map with a continuous readable place list below the map", async () => {
   const worker = await loadWorker();
   const response = await worker.fetch(new Request("http://localhost/", { headers: { accept: "text/html" } }), environment, executionContext);
   assert.equal(response.status, 200);
   const html = await response.text();
-  for (const label of ["Environmental dashboard", "กรองจังหวัด", "กรองแหล่งข้อมูล", "กรองวันที่", "กรองเวลา", "เลื่อนเวลาพยากรณ์", "เลือกช่วงเวลาจากกราฟ"]) assert.ok(html.includes(label), label);
+  for (const label of ["mi-map-first", "กรองจังหวัด", "การนำทางแผนที่", "เลื่อนเวลาพยากรณ์", "เฝ้าระวัง", "ค้นหาสถานที่หรือพื้นที่"]) assert.ok(html.includes(label), label);
   assert.match(html, /data-theme="dark"/);
-  assert.doesNotMatch(html, /mi-home-intro|mi-home-topics/);
-  assert.ok(html.indexOf('aria-label="ควบคุมวันและเวลาบนแผนที่"') < html.indexOf('id="forecast-story"'));
+  assert.doesNotMatch(html, /mi-home-intro|mi-home-topics|db-toolbar|db-map-reading/);
+  assert.ok(html.indexOf('class="mi-map-stage"') < html.indexOf('class="mf-reading"'));
+  assert.ok(html.includes("สรุปรายสถานที่และพื้นที่"));
+  assert.ok(html.includes("รายการสรุปสถานที่"));
+  assert.ok(html.indexOf('id="map-story"') < html.indexOf('id="place-outlook"'));
+  assert.ok(html.includes("จุดสีและรายการใช้ค่าประมาณ IDW เดียวกัน"));
+  assert.ok(html.includes("ค้นหาถนน แขวง/ตำบล เขต/อำเภอ"));
+  assert.doesNotMatch(html, /class="mf-panel"/);
 });
 
+test("public road/locality catalog serves traceable geography without calling an upstream geocoder", async () => {
+  const worker = await loadWorker();
+  const response = await worker.fetch(new Request("http://localhost/api/map-places"), environment, executionContext);
+  assert.equal(response.status, 200);
+  const catalog = await response.json();
+  assert.ok(catalog.places.length > 400);
+  assert.ok(catalog.places.some((place) => place.road === "ถนนสุขุมวิท" && place.subdistrict === "คลองตัน" && place.district === "คลองเตย"));
+  assert.ok(catalog.places.some((place) => place.provinceId === "nonthaburi" && place.subdistrictType === "ตำบล" && place.districtType === "อำเภอ"));
+  assert.match(catalog.license, /odbl/);
+  assert.match(response.headers.get("cache-control"), /public/);
+});
 for (const route of ["air", "rain", "heat"]) {
-  test(`${route} workspace server-renders map-first story order, keyboard help, time and trust`, async () => {
+  test(`${route} map workspace renders direct navigation and source status without covering the map`, async () => {
     const worker = await loadWorker();
     const response = await worker.fetch(new Request(`http://localhost/${route}`, { headers: { accept: "text/html" } }), environment, executionContext);
     assert.equal(response.status, 200);
     const html = await response.text();
-    for (const label of ["พื้นที่สำรวจแผนที่", "เลือกชั้นข้อมูลสิ่งแวดล้อม", "เส้นเวลาพยากรณ์", "เลื่อนเวลาพยากรณ์", "ข้อมูลตำแหน่ง", "ที่มาและความน่าเชื่อถือ", "ใช้คีย์บอร์ดสำรวจ", "เปรียบเทียบเวลา", "กำลังโหลดข้อมูลแผนที่"]) assert.ok(html.includes(label), label);
-    assert.ok(html.indexOf('id="map-story"') < html.indexOf('id="forecast-story"'));
-    assert.ok(html.indexOf('id="forecast-story"') < html.indexOf('id="location-story"'));
-    assert.doesNotMatch(html, /mi-sheet-handle/);
-    assert.match(html, /ยังไม่มี % ความมั่นใจที่ยืนยันได้/);
-    assert.match(html, /เวลาเริ่มรันแบบจำลอง/);
-    assert.match(html, /ประมาณเชิงพื้นที่ IDW/);
-    assert.match(html, /ปิดอนิเมชันสภาพอากาศ/);
-    assert.match(html, /สำรวจแผนที่เต็มจอ/);
-    assert.doesNotMatch(html, /home-glow|forecast-shell/);
+    for (const label of ["พื้นที่สำรวจแผนที่", "เลือกชั้นข้อมูลสิ่งแวดล้อม", "เลื่อนเวลาพยากรณ์", "รายละเอียด", "กำลังโหลดข้อมูลแผนที่", "สำรวจแผนที่เต็มจอ", "mf-status"]) assert.ok(html.includes(label), label);
+    assert.doesNotMatch(html, /mi-sheet-handle|db-map-reading|mi-map-top|mi-map-bottom|class="mf-panel"/);
+    assert.ok(html.indexOf('id="map-story"') < html.indexOf('class="mf-nav"'));
   });
 }
-test("rain workspace exposes the rain mode filter in the primary toolbar", async () => {
-  const worker = await loadWorker();
-  const response = await worker.fetch(new Request("http://localhost/rain", { headers: { accept: "text/html" } }), environment, executionContext);
-  assert.equal(response.status, 200);
-  const html = await response.text();
-  assert.match(html, /กรองโหมดปริมาณฝน/);
-  assert.match(html, /โอกาสฝน \(%\)/);
-  assert.match(html, /ปริมาณฝนสะสม \(มม\.\)/);
+test("dot-only workspace retains both metrics and the verified official warning link", async () => {
+  const workspace = await readFile(new URL("../app/components/intelligence/map-workspace.tsx", import.meta.url), "utf8");
+  const watches = await readFile(new URL("../app/components/intelligence/area-watch-list.tsx", import.meta.url), "utf8");
+  assert.match(workspace, /กรองโหมดปริมาณฝน/);
+  assert.match(workspace, /โอกาสฝน \(%%?\)/);
+  assert.match(workspace, /ปริมาณฝนสะสม/);
+  assert.match(workspace, /display="dots"/);
+  assert.doesNotMatch(workspace, /ความเข้มสีแผนที่|อนิเมชันประกอบพยากรณ์|option value="observation"/);
+  assert.match(watches, /รายการเฝ้าระวังรายพื้นที่/);
+  assert.match(watches, /ไม่ใช่เหตุการณ์ที่ยืนยันหรือประกาศเตือนภัยทางการ/);
+  assert.match(watches, /https:\/\/www\.tmd\.go\.th\/warning-and-events\/warning-storm/);
 });
 test("air and rain sidebars use a readable desktop type scale", async () => {
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");

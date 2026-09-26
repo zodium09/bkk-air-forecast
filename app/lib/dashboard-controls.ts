@@ -12,8 +12,8 @@ export function environmentRequest(layer: EnvironmentLayer, province: RegionId, 
 
 /** Do not interleave daily aggregates with three-hour samples during playback. */
 export function timelineIndices(steps: MapStep[], index: number) {
-  const hourly = steps[index]?.window != null;
-  return steps.flatMap((step, i) => (step.window != null) === hourly ? [i] : []);
+  const cadence = steps[index]?.cadence ?? (steps[index]?.window != null ? "window" : "day");
+  return steps.flatMap((step, i) => (step.cadence ?? (step.window != null ? "window" : "day")) === cadence ? [i] : []);
 }
 export function timelineKeyIndex(key: string, position: number, length: number) {
   if (!length) return null;
@@ -24,7 +24,7 @@ export function timelineKeyIndex(key: string, position: number, length: number) 
 }
 export function indexForDate(steps: MapStep[], index: number, date: string) {
   const window = steps[index]?.window ?? null;
-  const exact = steps.findIndex((s) => s.date === date && s.window === window);
+  const exact = steps.findIndex((s) => s.date === date && s.window === window && s.cadence === steps[index]?.cadence);
   return exact >= 0 ? exact : steps.findIndex((s) => s.date === date);
 }
 

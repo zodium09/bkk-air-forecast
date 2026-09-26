@@ -64,7 +64,8 @@ export function DashboardChart({ data, index, onChange, mode, values, metric, sc
       <div><span className="db-eyebrow">แนวโน้มพื้นที่</span><h2>{data ? metricName(data.layer, metric) : "แนวโน้มพยากรณ์"} <small>{unit}</small></h2></div>
       <div className="db-chart-cadence" aria-label="ความถี่กราฟ">
         <button aria-pressed={steps[index]?.window == null} onClick={() => { const next = steps.findIndex((s) => s.date === steps[index]?.date && s.window === null); if (next >= 0) onChange(next); }}>รายวัน</button>
-        <button disabled={!steps.some((s) => s.window !== null)} aria-pressed={steps[index]?.window != null} onClick={() => { const next = steps.findIndex((s) => s.date === steps[index]?.date && s.window !== null); if (next >= 0) onChange(next); }}>3 ชั่วโมง</button>
+        <button disabled={!steps.some((s) => s.cadence === "hour")} aria-pressed={steps[index]?.cadence === "hour"} onClick={() => { const next = steps.findIndex((s) => s.date === steps[index]?.date && s.cadence === "hour"); if (next >= 0) onChange(next); }}>รายชั่วโมง</button>
+        <button disabled={!steps.some((s) => s.window !== null && s.cadence !== "hour")} aria-pressed={steps[index]?.window != null && steps[index]?.cadence !== "hour"} onClick={() => { const next = steps.findIndex((s) => s.date === steps[index]?.date && s.window !== null && s.cadence !== "hour"); if (next >= 0) onChange(next); }}>3 ชั่วโมง</button>
       </div>
       <div className="db-chart-value" role="status"><b style={{ color: data ? valueColor(data.layer, metric, values[inspected] ?? null) : undefined }}>{formatValue(values[inspected] ?? null)}</b><span>{current?.date ? `${relativeDay(current.date)} · ${current.label}` : "รอข้อมูล"}</span></div>
     </div>

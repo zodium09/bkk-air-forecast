@@ -5,6 +5,7 @@ import type { GeoJsonObject } from "geojson";
 import { getRegion, type RegionId } from "../../lib/provinces";
 import { getBasemapConfig } from "../../lib/basemap";
 import { boundaryLabels } from "../../lib/map-labels";
+import { placeAddress, placeVisible } from "../../lib/map-places";
 import {
   createMapSurface,
   surfaceDisplayUrl,
@@ -48,6 +49,9 @@ type Props = {
   showPlaceNames?: boolean;
   exploring?: boolean;
   onToggleExplore?: () => void;
+  interactive?: boolean;
+  display?: "surface" | "dots";
+  displayPoints?: MapPoint[];
 };
 type Boundary = MapBoundary;
 export default function EnvironmentMap(props: Props) {
@@ -91,7 +95,7 @@ export default function EnvironmentMap(props: Props) {
       const storyTouch =
         media.matches &&
         matchMedia("(pointer: coarse)").matches &&
-        !props.exploring;
+        !props.exploring && !props.interactive;
       if (storyTouch) instance.dragging.disable();
       else instance.dragging.enable();
       // The wheel scrolls to analytics below; full-map mode enables wheel zoom.
@@ -101,7 +105,7 @@ export default function EnvironmentMap(props: Props) {
     syncInteraction();
     media.addEventListener("change", syncInteraction);
     return () => media.removeEventListener("change", syncInteraction);
-  }, [ready, props.exploring]);
+  }, [ready, props.exploring, props.interactive]);
   useEffect(() => {
     const sync = () =>
       setTheme(
@@ -280,6 +284,22 @@ export default function EnvironmentMap(props: Props) {
       zoom = instance.getZoom(),
       size = instance.getSize();
     const occupied: { x: number; y: number; width: number }[] = [];
+    const selectedPlace = props.display === "dots" && props.selected
+      ? closestPoint(props.displayPoints ?? [], props.selected.lat, props.selected.lng)
+      : null;
+    if (selectedPlace?.place && props.selected && Math.hypot(selectedPlace.lat - props.selected.lat, selectedPlace.lng - props.selected.lng) < 0.0001) {
+      const p = instance.latLngToContainerPoint([selectedPlace.lat, selectedPlace.lng]);
+      const width = Math.min(210, size.x - 24);
+      const anchorX = Math.max(12, Math.min(size.x - width - 12, p.x - width / 2));
+      const content = document.createElement("span");
+      content.textContent = selectedPlace.place.road ?? `${selectedPlace.place.subdistrictType}${selectedPlace.place.subdistrict}`;
+      content.className = "mi-geographic-label mi-selected-road";
+      L.marker([selectedPlace.lat, selectedPlace.lng], {
+        pane: "mi-geographic-labels", interactive: false, keyboard: false,
+        icon: L.divIcon({ html: content, className: "mi-geographic-root", iconSize: [width, 32], iconAnchor: [p.x - anchorX, -26] }),
+      }).addTo(labels).getElement()?.setAttribute("aria-hidden", "true");
+      occupied.push({ x: anchorX + width / 2, y: p.y + 36, width });
+    }
     const candidates = boundaryLabels(boundary.data).filter(
       (label) => label.kind === "province" || zoom >= 11,
     );
@@ -333,12 +353,13 @@ export default function EnvironmentMap(props: Props) {
     return () => {
       labels.remove();
     };
-  }, [ready, boundary, props.province, props.showPlaceNames, zoomRevision]);
+  }, [ready, boundary, props.province, props.showPlaceNames, props.selected, props.display, props.displayPoints, zoomRevision]);
   useEffect(() => {
     if (
       !ready ||
       !map.current ||
       !lib.current ||
+      props.display === "dots" ||
       props.mode !== "estimate" ||
       boundary?.region !== props.province ||
       !boundary.official
@@ -376,14 +397,18 @@ export default function EnvironmentMap(props: Props) {
     props.metric,
     props.surfaceOpacity,
     props.legend,
+    props.display,
   ]);
   useEffect(() => {
     const instance = map.current,
       L = lib.current;
     if (!ready || !instance || !L) return;
     const markers = L.layerGroup().addTo(instance);
+    const attribution = 'จุดถนน © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OSM</a> · พื้นที่ BMA/DMR';
+    if (props.display === "dots") instance.attributionControl?.addAttribution(attribution);
+    const visiblePoints = props.displayPoints ?? props.points;
     const nearestSelected = props.selected
-      ? closestPoint(props.points, props.selected.lat, props.selected.lng)
+      ? closestPoint(visiblePoints, props.selected.lat, props.selected.lng)
       : null;
     const selectedPoint =
       props.mode === "estimate" &&
@@ -396,7 +421,7 @@ export default function EnvironmentMap(props: Props) {
         ? null
         : nearestSelected;
     const occupied: Leaflet.Point[] = [];
-    const prioritized = [...props.points].sort((a, b) =>
+    const prioritized = [...visiblePoints].sort((a, b) =>
       a.id === selectedPoint?.id
         ? -1
         : b.id === selectedPoint?.id
@@ -405,24 +430,26 @@ export default function EnvironmentMap(props: Props) {
             (pointValue(a, props.index, props.metric) ?? -1),
     );
     prioritized.forEach((point) => {
+      if (props.display === "dots" && point.place && !placeVisible(point.place, instance.getZoom(), point.id === selectedPoint?.id, props.province)) return;
       const value = pointValue(point, props.index, props.metric);
+      if (props.display === "dots" && value === null) return;
       const color = valueColor(props.layer, props.metric, value);
       const selected = point.id === selectedPoint?.id;
       const screen = instance.latLngToContainerPoint([point.lat, point.lng]);
       const labelFits = !occupied.some(
         (p) => Math.abs(p.x - screen.x) < 45 && Math.abs(p.y - screen.y) < 35,
       );
-      const labeled = selected || (props.showValues && labelFits);
+      const labeled = props.display !== "dots" && (selected || (props.showValues && labelFits));
       if (labeled) occupied.push(screen);
       const muted =
         props.legend !== null &&
         (value === null ||
           legendIndex(props.layer, props.metric, value) !== props.legend);
       const element = document.createElement("div");
-      element.className = `mi-marker mi-marker-${props.layer} ${labeled ? "" : "compact"} ${selected ? "selected" : ""} ${props.degraded ? "degraded" : ""} ${muted ? "muted" : ""}`;
+      element.className = `mi-marker mi-marker-${props.layer} ${props.display === "dots" ? "mi-idw-dot" : ""} ${labeled ? "" : "compact"} ${selected ? "selected" : ""} ${props.degraded ? "degraded" : ""} ${muted ? "muted" : ""}`;
       element.style.setProperty("--marker-color", color);
       element.textContent = labeled ? formatValue(value) : "";
-      const title = `${point.label}: ${formatValue(value)} · ${interpretation(props.layer, props.metric, value)}`;
+      const title = `${point.place ? placeAddress(point.place) : point.label}: ${formatValue(value)} · ${interpretation(props.layer, props.metric, value)}${props.display === "dots" ? " · ค่าประมาณ IDW" : ""}`;
       const marker = L.marker([point.lat, point.lng], {
         icon: L.divIcon({
           html: element,
@@ -457,11 +484,14 @@ export default function EnvironmentMap(props: Props) {
       }).addTo(markers);
     return () => {
       markers.remove();
+      if (props.display === "dots") instance.attributionControl?.removeAttribution(attribution);
     };
   }, [
     ready,
     zoomRevision,
     props.points,
+    props.displayPoints,
+    props.display,
     props.index,
     props.metric,
     props.layer,
@@ -470,12 +500,14 @@ export default function EnvironmentMap(props: Props) {
     props.degraded,
     props.showValues,
     props.mode,
+    props.province,
     theme,
   ]);
   useEffect(() => {
     if (
       !ready ||
       !map.current ||
+      props.display === "dots" ||
       !props.weatherAnimation ||
       props.mode === "observation" ||
       boundary?.region !== props.province ||
@@ -507,13 +539,17 @@ export default function EnvironmentMap(props: Props) {
     props.layer,
     props.mode,
     props.weatherAnimation,
+    props.display,
     reducedMotion,
     theme,
   ]);
   useEffect(() => {
     const selection = latest.current.selected;
-    if (ready && selection && map.current)
-      map.current.panTo([selection.lat, selection.lng], { animate: false });
+    if (ready && selection && map.current) {
+      const target = closestPoint(latest.current.displayPoints ?? latest.current.points, selection.lat, selection.lng);
+      const named = target?.place && Math.hypot(target.lat - selection.lat, target.lng - selection.lng) < 0.0001;
+      map.current.setView([selection.lat, selection.lng], named ? Math.max(13, map.current.getZoom()) : map.current.getZoom(), { animate: false });
+    }
   }, [ready, props.focus]);
   function locate() {
     if (!navigator.geolocation) {
@@ -634,7 +670,7 @@ export default function EnvironmentMap(props: Props) {
       {props.mode === "estimate" &&
         (boundary?.region !== props.province || !boundary?.official) && (
           <div className="mi-surface-notice">
-            ไม่มีขอบเขตที่ยืนยันได้ แสดงเฉพาะจุดข้อมูล
+            {props.display === "dots" ? "รอขอบเขตที่ยืนยันได้ก่อนแสดงจุดประมาณรายพื้นที่" : "ไม่มีขอบเขตที่ยืนยันได้ แสดงเฉพาะจุดข้อมูล"}
           </div>
         )}
     </>

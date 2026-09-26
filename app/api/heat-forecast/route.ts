@@ -94,7 +94,13 @@ function aggregatePoint(raw: OpenMeteoHeatLocation, index: number, forecastPoint
       peakHour: `${hottest.time.slice(11, 16)} น.`,
     };
   });
-  return { ...point, daily, windows };
+  const hourly = raw.hourly.time.slice(0, length).flatMap((time, i) => {
+    if (!dateKeys.includes(time.slice(0, 10))) return [];
+    const temperatureC = finite(raw.hourly!.temperature_2m[i], -20, 60);
+    const humidity = finite(raw.hourly!.relative_humidity_2m[i], 0, 100);
+    return [{ time, temperatureC, heatIndexC: temperatureC !== null && humidity !== null ? calculateHeatIndexC(temperatureC, humidity) : null }];
+  });
+  return { ...point, daily, windows, hourly };
 }
 
 function aggregateRegion(points: HeatPoint[], dateKeys: string[]): { days: HeatDay[]; windows: HeatWindow[] } {

@@ -25,6 +25,7 @@ export type HeatPoint = {
   lng: number;
   daily: HeatPointDay[];
   windows: HeatPointWindow[];
+  hourly?: { time: string; temperatureC: number | null; heatIndexC: number | null }[];
 };
 
 export type HeatDay = {

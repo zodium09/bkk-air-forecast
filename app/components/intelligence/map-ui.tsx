@@ -78,6 +78,9 @@ export function MapIcon({ name, size = 20 }: { name: string; size?: number }) {
         <path d="M9 3v15M15 6v15" />
       </>
     ),
+    warning: <><path d="m12 3 10 18H2Z" /><path d="M12 9v5M12 17v.1" /></>,
+    pin: <><path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z" /><circle cx="12" cy="10" r="2" /></>,
+    chart: <><path d="M3 3v18h18M6 15l5-6 4 3 6-7" /></>,
     air: (
       <>
         <path d="M3 8h12a3 3 0 1 0-3-3M3 12h16a3 3 0 1 1-3 3M3 16h5a3 3 0 1 1-3 3" />
@@ -169,7 +172,7 @@ export function LayerSwitcher({
         >
           <MapIcon name={item} />
           <span>
-            {layerInfo[item].name}
+            {item === "air" ? "PM2.5" : item === "rain" ? "ฝน" : "ร้อน"}
             <small>
               {item === "air" ? "คุณภาพอากาศ" : layerInfo[item].thai}
             </small>
@@ -594,14 +597,16 @@ export function MapShell({
   children,
   layer,
   exploring = false,
+  mapFirst = false,
 }: {
   children: ReactNode;
   layer: EnvironmentLayer;
   exploring?: boolean;
+  mapFirst?: boolean;
 }) {
   return (
     <main
-      className={`mi-shell mi-layer-${layer} ${exploring ? "mi-exploring" : ""}`}
+      className={`mi-shell mi-layer-${layer} ${exploring ? "mi-exploring" : ""} ${mapFirst ? "mi-map-first" : ""}`}
       style={{ "--mi-accent": layerInfo[layer].accent } as CSSProperties}
     >
       {children}

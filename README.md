@@ -4,6 +4,12 @@ BKK Air Forecast is a Bangkok-metropolitan web application for viewing seven-day
 
 ## Features
 
+- Large mobile map with colored IDW dots, immediate touch panning, an unobstructed canvas and optional full-map mode
+- Continuous place list below the map: named Bangkok districts and surrounding sample areas, ordered by forecast signal with plain-language readings and next steps
+- One-tap day/hour selection for provider-supplied rain and heat forecasts; PM2.5 stays explicitly daily
+- Named-area watch lists for PM2.5, rain and heat forecast signals, with actual period, source status and direct map selection
+- On-demand search, settings, trends and location details, shown beside the desktop map or as separate mobile views
+
 - Map-first interactive dashboard at `/`, with visible province/provider filters, date/time selectors, keyboard playback controls, and linked daily/three-hour trend charts; mobile places map and time controls before analytics
 
 - Seven-day PM2.5 outlook with Bangkok station observations, province model grids, and spatial IDW surfaces
@@ -20,7 +26,15 @@ BKK Air Forecast is a Bangkok-metropolitan web application for viewing seven-day
 
 The application uses React 19 and vinext with file-based routes under `app/`. Server routes adapt upstream sources into stable JSON contracts. Pure PM2.5 logic lives under `app/lib/forecast/` so timestamps, quality control, interpolation, CAMS aggregation, bias correction, and reliability scoring can be tested without network access.
 
-The browser renders Leaflet base maps and generates clipped raster IDW surfaces. Generated PM2.5 surfaces are cached by day, station-data version, and boundary version. Rain surfaces use a 24-entry LRU-style cache keyed by day, 3-hour window, metric, data version, and boundary version. Daily rain-chance summaries use each point's maximum probability during the day and then average those point values across the selected area. Three-hour summaries similarly average each point's peak probability within that window.
+The primary workspace renders Leaflet base maps with IDW dots and a continuous readable place list. A public geographic snapshot supplies 487 khwaeng/tambon references across the six provinces: 453 positions on named OpenStreetMap roads, matched spatially to official BMA/DMR subdistrict polygons, and 34 interior locality references where no suitable named road was found. Labels include road, khwaeng/tambon, khet/amphoe and province. At overview scales the map shows one reference per khet/amphoe (79); zoom level 10 reveals all references, while the list remains complete. Selecting a list row zooms to street level. Search matches every part of the address.
+
+The dots, selected-location reading, list and combined area watch share the same bounded IDW values, with at least three anchors within 50 km. Distances/weights are reused across forecast hours while missing neighbors are reconsidered for each reading. Missing values remain distinct from zero, and no colored area overlay or weather motion appears in the primary workspace. Street names identify the position, not street-level forecast accuracy or district-wide measurements.
+
+Selecting an individual surrounding province shows its tambon references immediately, without extra zoom steps. Bangkok and the metropolitan overview retain the district overview at wide scales. The selected road name appears as a small geographic label beside its dot, including in full-map mode.
+
+`/api/map-places` serves the static catalog without runtime geocoding or sending user locations upstream. Road positions are © OpenStreetMap contributors, licensed under [ODbL](https://opendatacommons.org/licenses/odbl/1-0/); administrative labels come from [BMA GIS](https://bmagis.bangkok.go.th/arcgis/rest/services/Hosted/FGDS_BMA_SUBDISTRICT_POLYGON/FeatureServer/0) and [DMR GIS](https://gisportal.dmr.go.th/arcgis/rest/services/Data_Production/WAB_VIEW/MapServer/10). Exact source URLs, the OSM timestamp and attribution accompany the distributable catalog in `app/data/map-places.json`. Run `npm run update:map-places -- --refresh` to refresh public geometry and regenerate it; omit `--refresh` to reuse the ignored `output/geography/` cache. Updates fail before replacing the catalog if upstream data is incomplete.
+
+Specialist pages under `/advanced` retain their raster surfaces and radar tools. Generated PM2.5 surfaces are cached by day, station-data version, and boundary version. Rain surfaces use a 24-entry LRU-style cache keyed by day, 3-hour window, metric, data version, and boundary version. Daily rain-chance summaries use each point's maximum probability during the day and then average those point values across the selected area. Three-hour summaries similarly average each point's peak probability within that window.
 
 The default metropolitan views call one consolidated forecast endpoint and one consolidated boundary endpoint instead of six province endpoints. Successful public-data responses are stored in Cloudflare Cache API with normalized cache keys: PM2.5 for 10 minutes, rain for 30 minutes, radar for 5 minutes, and boundaries for 7 days. Client-generated refresh values are excluded from cache keys, and Air4Thai downloads are deduplicated within each metropolitan refresh. This design requires no D1, KV, R2, or paid add-on.
 

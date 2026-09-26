@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { parseBangkokTimestamp } from "../../app/lib/forecast/timestamps.ts";
 import { deduplicateStations, filterFreshStations, filterOutliers, isValidStation } from "../../app/lib/forecast/quality-control.ts";
-import { spatialIdw } from "../../app/lib/forecast/interpolation.ts";
+import { prepareSpatialIdw, spatialIdw } from "../../app/lib/forecast/interpolation.ts";
 import { buildCamsDailyForecast, calculateReliabilityScore } from "../../app/lib/forecast/forecast-model.ts";
 import { estimateWindAwarePm25, windAwareResidual } from "../../app/lib/forecast/wind-aware-interpolation.ts";
 
@@ -60,6 +60,16 @@ test("bounded IDW uses nearby cross-boundary evidence and leaves unsupported are
   const local = spatialIdw(13.72, 100.52, anchors, { maxDistanceKm: 50, maxNeighbors: 3, minNeighbors: 3 });
   assert.equal(local, 30);
   assert.equal(spatialIdw(15.5, 102.5, anchors, { maxDistanceKm: 50, minNeighbors: 3 }), null);
+});
+
+test("hourly interpolation reuses geography but replaces missing neighbors and respects minimum support", () => {
+  const locations = [0, 1, 2, 3].map((index) => ({ lat: 13.75 + index * 0.01, lng: 100.5 }));
+  const interpolate = prepareSpatialIdw(13.75, 100.5, locations, { maxDistanceKm: 50, maxNeighbors: 2, minNeighbors: 2, smoothingKm: 3.5 });
+  assert.equal(interpolate((index) => [null, null, 20, 20][index]), 20);
+  assert.equal(interpolate((index) => [0, 0, 100, 100][index]), 0);
+  assert.equal(interpolate((index) => [null, NaN, 20, null][index]), null);
+  const unsupported = prepareSpatialIdw(15.5, 102.5, locations, { maxDistanceKm: 50, minNeighbors: 3 });
+  assert.equal(unsupported(() => 20), null);
 });
 
 test("wind-aware residual favours upwind evidence and reverses when wind reverses", () => {
