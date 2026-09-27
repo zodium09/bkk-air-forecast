@@ -17,6 +17,7 @@ import {
   formatValue,
   interpretation,
   legendIndex,
+  layerInfo,
   pointValue,
   valueColor,
   type DataMode,
@@ -449,7 +450,7 @@ export default function EnvironmentMap(props: Props) {
       element.className = `mi-marker mi-marker-${props.layer} ${props.display === "dots" ? "mi-idw-dot" : ""} ${labeled ? "" : "compact"} ${selected ? "selected" : ""} ${props.degraded ? "degraded" : ""} ${muted ? "muted" : ""}`;
       element.style.setProperty("--marker-color", color);
       element.textContent = labeled ? formatValue(value) : "";
-      const title = `${point.place ? placeAddress(point.place) : point.label}: ${formatValue(value)} · ${interpretation(props.layer, props.metric, value)}${props.display === "dots" ? " · ค่าประมาณ IDW" : ""}`;
+      const title = `${point.place ? placeAddress(point.place) : point.label}: ${formatValue(value)} ${props.metric === "secondary" ? layerInfo[props.layer].secondaryUnit : layerInfo[props.layer].unit} · ${interpretation(props.layer, props.metric, value)}${props.display === "dots" ? point.method === "provider" ? " · พยากรณ์จากต้นทาง" : " · ค่าประมาณ IDW" : ""}`;
       const marker = L.marker([point.lat, point.lng], {
         icon: L.divIcon({
           html: element,

@@ -5,8 +5,12 @@ import { placeArea } from "./map-places.ts";
 export type AreaWatch = { point: MapPoint; layer: MapDataset["layer"]; step: MapStep; severity: number; title: string; description: string; value: number; unit: string; area: string; source: string; degraded: boolean };
 
 /** Select an actual source period on the requested date, never a different day. */
-export function watchStepIndex(data: MapDataset, date: string, hour?: number) {
+export function watchStepIndex(data: MapDataset, date: string, hour?: number, cadence?: MapStep["cadence"]) {
   if (hour !== undefined) {
+    if (cadence === "window") {
+      const exactWindow = data.steps.findIndex((s) => s.date === date && s.cadence === "window" && s.startHour === hour);
+      if (exactWindow >= 0) return exactWindow;
+    }
     const exact = data.steps.findIndex((s) => s.date === date && s.cadence === "hour" && s.startHour === hour);
     if (exact >= 0) return exact;
     const window = data.steps.findIndex((s) => s.date === date && s.window !== null && s.cadence !== "hour" && s.startHour !== undefined && s.endHour !== undefined && s.startHour <= hour && s.endHour > hour);
@@ -15,9 +19,9 @@ export function watchStepIndex(data: MapDataset, date: string, hour?: number) {
   return data.steps.findIndex((s) => s.date === date && s.window === null);
 }
 
-export function buildAreaWatch(data: MapDataset | null, date: string, hour?: number): AreaWatch[] {
+export function buildAreaWatch(data: MapDataset | null, date: string, hour?: number, cadence?: MapStep["cadence"]): AreaWatch[] {
   if (!data || data.status === "unavailable") return [];
-  const index = watchStepIndex(data, date, hour);
+  const index = watchStepIndex(data, date, hour, cadence);
   const step = data.steps[index];
   if (!step) return [];
   return data.points.flatMap((point) => {
@@ -33,7 +37,7 @@ export function buildAreaWatch(data: MapDataset | null, date: string, hour?: num
       if ((value !== null && value >= 60) || heavyDaily) {
         severity = heavyDaily ? rain > 90 ? 3 : 2 : 1;
         title = heavyDaily ? "พยากรณ์ฝนสะสมสูง" : "โอกาสฝนสูง"; unit = heavyDaily ? "mm / วัน" : "%";
-        description = heavyDaily ? "แบบจำลองให้ฝนสะสมมากในจุดนี้ ยังไม่ยืนยันฝนตกจริงหรือน้ำท่วม" : "มีโอกาสเกิดฝนในช่วงที่เลือก ติดตามเรดาร์และประกาศในพื้นที่";
+        description = heavyDaily ? "แบบจำลองให้ฝนสะสมมากในจุดนี้ ยังไม่ยืนยันฝนตกจริงหรือน้ำท่วม" : step.cadence === "hour" ? "โอกาสฝนรายชั่วโมงสูง ติดตามเรดาร์และประกาศในพื้นที่" : "โอกาสฝนสูงสุดรายชั่วโมงในช่วงที่เลือกสูง ติดตามเรดาร์และประกาศในพื้นที่";
       }
     } else if (data.layer === "heat" && value !== null && value >= 33) {
       severity = value >= 52 ? 3 : value >= 42 ? 2 : 1;

@@ -15,7 +15,7 @@ import { placeAddress } from "../../lib/map-places";
 import { boundaryContains, interpolateMapValue, type MapBoundary } from "../../lib/map-surface";
 import { average, closestPoint, formatValue, interpretation, layerInfo, metricName, modeLabels, pointValue, relativeDay, type DataMode, type EnvironmentLayer, type MapPoint, type Metric } from "../../lib/map-intelligence";
 import { getRegion, provinces, type RegionId } from "../../lib/provinces";
-import { nextTimelineIndex, type WeatherSource } from "../../lib/dashboard-controls";
+import { currentForecastIndex, nextTimelineIndex, type WeatherSource } from "../../lib/dashboard-controls";
 import { buildAreaWatch, type AreaWatch } from "../../lib/area-watch";
 import { createPlacePoints } from "../../lib/place-outlook";
 import "./map-workspace.css";
@@ -30,8 +30,9 @@ export default function MapWorkspace({ initialLayer = "air" }: { initialLayer?: 
   const [province, setProvince] = useState<RegionId>("metro");
   const [mode, setMode] = useState<DataMode>("estimate");
   const [source, setSource] = useState<WeatherSource>("open-meteo");
-  const [metric, setMetric] = useState<Metric>("primary");
+  const [metric, setMetric] = useState<Metric>(initialLayer === "rain" ? "secondary" : "primary");
   const [timeKey, setTimeKey] = useState("");
+  const [clock, setClock] = useState(() => Date.now());
   const [selected, setSelected] = useState<{ lat: number; lng: number; label?: string } | null>(null);
   const [focus, setFocus] = useState(0);
   const [query, setQuery] = useState("");
@@ -48,26 +49,31 @@ export default function MapWorkspace({ initialLayer = "air" }: { initialLayer?: 
   const [initialized, setInitialized] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
-  const { data, loading, error } = useEnvironmentData(layer, province, mode, refresh, source, metric);
+  const { data, loading, error } = useEnvironmentData(layer, province, mode, refresh, source, metric, true);
   const geography = useMapPlaces(province, refresh);
   const anchors = data?.points ?? emptyPoints;
   const points = useMemo(() => createPlacePoints(data, boundary?.region === province ? boundary.data : null, geography.places), [data, boundary, province, geography.places]);
   const requestedIndex = data?.steps.findIndex((s) => s.key === timeKey) ?? -1;
-  const hourNow = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Bangkok", hour: "2-digit", hourCycle: "h23" }).format(new Date()));
-  const firstHourly = data?.steps.findIndex((s) => s.day === 0 && s.cadence === "hour" && s.startHour === hourNow) ?? -1;
-  const index = requestedIndex >= 0 ? requestedIndex : Math.max(0, firstHourly);
+  const index = requestedIndex >= 0 ? requestedIndex : Math.max(0, currentForecastIndex(data?.steps ?? [], new Date(clock)));
   const step = data?.steps[index];
   const compare = compareKey ? data?.steps.findIndex((s) => s.key === compareKey) ?? -1 : -1;
   const point = useMemo(() => selected ? closestPoint(points, selected.lat, selected.lng) : null, [points, selected]);
   const selectionSupported = !!selected && boundary?.region === province && boundaryContains(boundary.data, selected.lat, selected.lng);
-  const spatialSelection = mode === "estimate" && !!selected && (!point || Math.hypot(point.lat - selected.lat, point.lng - selected.lng) > 0.0001);
+  const spatialSelection = mode === "estimate" && !!selected && (!point || Math.hypot(point.lat - selected.lat, point.lng - selected.lng) > (data?.valueMethod === "provider" ? 0.0000001 : 0.0001));
   const values = useMemo(() => data?.steps.map((_, i) => spatialSelection && selected
-    ? selectionSupported ? interpolateMapValue(anchors, i, metric, selected.lat, selected.lng) : null
+    ? selectionSupported && data.valueMethod !== "provider" ? interpolateMapValue(anchors, i, metric, selected.lat, selected.lng) : null
     : point ? pointValue(point, i, metric) : selected ? null : average(points.map((p) => pointValue(p, i, metric)))) ?? [], [data, anchors, points, point, metric, selected, spatialSelection, selectionSupported]);
   const currentValue = values[index] ?? null;
-  const scope = selected?.label ?? (selected ? spatialSelection ? "ตำแหน่งบนแผนที่" : point?.label ?? "ตำแหน่งที่เลือก" : getRegion(province).shortNameTh);
-  const watchCount = buildAreaWatch(data ? { ...data, points } : null, step?.date ?? "", step?.window != null ? step.startHour : undefined).length;
+  const scope = selected?.label ?? (selected ? spatialSelection ? "ตำแหน่งบนแผนที่" : point?.label ?? "ตำแหน่งที่เลือก" : `${layer === "rain" ? "เฉลี่ยจุด · " : ""}${getRegion(province).shortNameTh}`);
+  const watchCount = buildAreaWatch(data ? { ...data, points } : null, step?.date ?? "", step?.window != null ? step.startHour : undefined, step?.cadence).length;
 
+  useEffect(() => {
+    if (requestedIndex >= 0) return;
+    const sync = () => { if (!document.hidden) setClock(Date.now()); };
+    const timer = window.setInterval(sync, 60_000);
+    document.addEventListener("visibilitychange", sync);
+    return () => { clearInterval(timer); document.removeEventListener("visibilitychange", sync); };
+  }, [requestedIndex]);
   useEffect(() => {
     const media = matchMedia("(prefers-reduced-motion: reduce)");
     const sync = () => { setReducedMotion(media.matches); if (media.matches) setPlaying(false); };
@@ -80,8 +86,9 @@ export default function MapWorkspace({ initialLayer = "air" }: { initialLayer?: 
         if (typeof saved.satellite === "boolean") setSatellite(saved.satellite);
       } catch { /* Preferences are optional. */ }
       setProvince(getRegion(params.get("province") ?? "metro").id);
-      setSource(params.get("source") === "tmd" ? "tmd" : "open-meteo");
+      setSource(initialLayer !== "rain" && params.get("source") === "tmd" ? "tmd" : "open-meteo");
       setTimeKey(params.get("time") ?? "");
+      setClock(Date.now());
       if (params.get("metric") === "secondary" && initialLayer !== "air") setMetric("secondary");
       const lat = Number(params.get("lat")), lng = Number(params.get("lng"));
       if (params.has("lat") && params.has("lng") && Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) setSelected({ lat, lng });
@@ -118,9 +125,9 @@ export default function MapWorkspace({ initialLayer = "air" }: { initialLayer?: 
       const nextLayer = next || "air";
       const params = new URLSearchParams(location.search);
       setLayer(nextLayer); setProvince(getRegion(params.get("province") ?? "metro").id);
-      setTimeKey(params.get("time") ?? ""); setSource(params.get("source") === "tmd" ? "tmd" : "open-meteo");
+      setTimeKey(params.get("time") ?? ""); setClock(Date.now()); setSource(nextLayer !== "rain" && params.get("source") === "tmd" ? "tmd" : "open-meteo");
       setMode("estimate");
-      setMetric(params.get("metric") === "secondary" && nextLayer !== "air" ? "secondary" : "primary");
+      setMetric(nextLayer === "rain" || params.get("metric") === "secondary" && nextLayer !== "air" ? "secondary" : "primary");
       const lat = Number(params.get("lat")), lng = Number(params.get("lng"));
       setSelected(params.has("lat") && params.has("lng") && Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 ? { lat, lng } : null);
       setPlaying(false); setLegend(null); setCompareKey(null);
@@ -144,15 +151,15 @@ export default function MapWorkspace({ initialLayer = "air" }: { initialLayer?: 
   function changeTime(i: number) { if (data?.steps[i]) setTimeKey(data.steps[i].key); setPlaying(false); }
   function changeLayer(next: EnvironmentLayer) {
     if (next === layer) return;
-    setLayer(next); setMode("estimate"); setMetric("primary"); setLegend(null); setCompareKey(null); setPlaying(false);
-    const key = step?.date ? `${step.date}${next === "air" ? "" : step.cadence === "hour" ? `:h${String(step.startHour).padStart(2, "0")}` : ":day"}` : "";
-    setTimeKey(key);
+    setLayer(next); setMode("estimate"); setMetric(next === "rain" ? "secondary" : "primary"); if (next === "rain") setSource("open-meteo"); setLegend(null); setCompareKey(null); setPlaying(false);
+    const key = timeKey && step?.date ? `${step.date}${next === "air" ? "" : step.cadence === "hour" ? `:h${String(step.startHour).padStart(2, "0")}` : ":day"}` : "";
+    setTimeKey(key); setClock(Date.now());
     const params = new URLSearchParams({ province, source }); if (key) params.set("time", key);
     if (selected) { params.set("lat", String(selected.lat)); params.set("lng", String(selected.lng)); }
     history.pushState(null, "", `/${next}?${params}`);
   }
   function selectFromList(p: MapPoint) { setSelected({ lat: p.lat, lng: p.lng, label: p.label }); setFocus((n) => n + 1); setView("map"); setQuery(""); requestAnimationFrame(() => { const section = document.getElementById("map-story"); section?.scrollIntoView({ behavior: "instant", block: "start" }); section?.focus({ preventScroll: true }); }); }
-  function selectWatch(watch: AreaWatch) { changeLayer(watch.layer); setMode("estimate"); setMetric("primary"); setTimeKey(watch.step.key); selectFromList(watch.point); }
+  function selectWatch(watch: AreaWatch) { changeLayer(watch.layer); setMode("estimate"); setMetric(watch.layer === "rain" ? "secondary" : "primary"); setTimeKey(watch.step.key); selectFromList(watch.point); }
   const results = points.filter((p) => `${p.label} ${p.area ?? ""}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
   const unavailable = !loading && (error || !data || data.status === "unavailable" || !anchors.length);
   return <MapShell layer={layer} exploring={exploring} mapFirst>
@@ -186,28 +193,28 @@ export default function MapWorkspace({ initialLayer = "air" }: { initialLayer?: 
           {view === "search" && <div className="mf-search"><label htmlFor="place-search">ถนน แขวง/ตำบล เขต/อำเภอ</label><div><MapIcon name="search" size={19} /><input id="place-search" aria-label="ค้นหาถนนหรือพื้นที่" placeholder="เช่น สุขุมวิท คลองตัน บางพลี" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && results[0]) selectFromList(results[0]); if (e.key === "ArrowDown") { e.preventDefault(); panel.current?.querySelector<HTMLButtonElement>(".mf-search-results button")?.focus(); } }} /></div><p>ค้นหาชื่อถนนหรือพื้นที่ แล้วเลือกเพื่อซูมไปยังจุดนั้น</p><ul className="mf-search-results">{results.map((p) => <li key={p.id}><button onClick={() => selectFromList(p)} onKeyDown={(e) => { if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); const buttons = Array.from(panel.current?.querySelectorAll<HTMLButtonElement>(".mf-search-results button") ?? []); const i = buttons.indexOf(e.currentTarget); buttons[(i + (e.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length]?.focus(); } }}><MapIcon name="pin" size={18} /><span>{p.label}<small>{p.area}</small></span><b>{formatValue(pointValue(p, index, metric))}</b><MapIcon name="arrow" size={16} /></button></li>)}</ul>{!results.length && <p className="mf-empty">{loading ? "กำลังโหลดจุดข้อมูล…" : "ไม่พบพื้นที่ ลองเปลี่ยนคำค้นหรือจังหวัด"}</p>}</div>}
           {view === "settings" && <div className="mf-settings">
             <h2>ข้อมูลบนแผนที่</h2>
-            <label>แหล่งข้อมูล<select aria-label="กรองแหล่งข้อมูล" value={layer === "air" ? "air" : source} disabled={layer === "air"} onChange={(e) => { setSource(e.target.value as WeatherSource); setPlaying(false); setCompareKey(null); }}>
-              {layer === "air" ? <option value="air">CAMS + AirBKK / Air4Thai</option> : <><option value="open-meteo">Open-Meteo</option><option value="tmd">TMD + Open-Meteo</option></>}
+            <label>แหล่งข้อมูล<select aria-label="กรองแหล่งข้อมูล" value={layer === "air" ? "air" : source} disabled={layer !== "heat"} onChange={(e) => { setSource(e.target.value as WeatherSource); setPlaying(false); setCompareKey(null); }}>
+              {layer === "air" ? <option value="air">CAMS + AirBKK / Air4Thai</option> : <><option value="open-meteo">Open-Meteo</option>{layer === "heat" && <option value="tmd">TMD + Open-Meteo</option>}</>}
             </select></label>
-            <p>แผนที่แสดงเฉพาะจุดสีจากค่าประมาณ IDW อ่านคำอธิบายรายสถานที่ได้ด้านล่าง</p>
-            {layer !== "air" && <label>{layer === "rain" ? "ข้อมูลฝน" : "ข้อมูลความร้อน"}<select aria-label={layer === "rain" ? "กรองโหมดปริมาณฝน" : "ตัวชี้วัดบนแผนที่"} value={metric} onChange={(e) => { setMetric(e.target.value as Metric); setLegend(null); setCompareKey(null); setPlaying(false); }}><option value="primary">{layer === "rain" ? "โอกาสฝน (%)" : "ดัชนีความร้อน (°C)"}</option><option value="secondary">{layer === "rain" ? "ปริมาณฝนสะสม (มม.)" : "อุณหภูมิ (°C)"}</option></select></label>}
+            <p>{layer === "rain" ? "จุดสีแสดงปริมาณฝนสะสม (มม.) จากต้นทางตามพิกัดสถานที่โดยตรง โอกาสฝน (%) อยู่ในรายละเอียด ไม่มีการเติมค่าจุดที่ขาดข้อมูล" : "แผนที่แสดงเฉพาะจุดสีจากค่าประมาณ IDW อ่านคำอธิบายรายสถานที่ได้ด้านล่าง"}</p>
+            {layer === "heat" && <label>ข้อมูลความร้อน<select aria-label="ตัวชี้วัดบนแผนที่" value={metric} onChange={(e) => { setMetric(e.target.value as Metric); setLegend(null); setCompareKey(null); setPlaying(false); }}><option value="primary">ดัชนีความร้อน (°C)</option><option value="secondary">อุณหภูมิ (°C)</option></select></label>}
             <h2>การแสดงผล</h2>
             {([{ text: "ชื่อจังหวัดและเขต", checked: showPlaceNames, change: setShowPlaceNames }, { text: "ภาพถ่ายดาวเทียม", checked: satellite, change: setSatellite }] as const).map((option) => <label className="mf-check" key={option.text}><span>{option.text}</span><input type="checkbox" checked={option.checked} onChange={(e) => option.change(e.target.checked)} /></label>)}
-            <div className="mf-source"><h2>ที่มาข้อมูล</h2><b>{loading ? "กำลังเชื่อมต่อ…" : data?.model ?? "ยังไม่มีข้อมูล"}</b><p>{modeLabels[mode]} · {metricName(layer, metric)}{step?.date ? ` · ${relativeDay(step.date)} ${step.label}` : ""}</p>{data?.notes.map((note) => <p key={note}>{note}</p>)}</div>
+            <div className="mf-source"><h2>ที่มาข้อมูล</h2><b>{loading ? "กำลังเชื่อมต่อ…" : data?.model ?? "ยังไม่มีข้อมูล"}</b><p>{layer === "rain" ? "พยากรณ์จากต้นทาง" : modeLabels[mode]} · {metricName(layer, metric)}{step?.date ? ` · ${relativeDay(step.date)} ${step.label}` : ""}</p>{data?.notes.map((note) => <p key={note}>{note}</p>)}</div>
             <button className="mf-refresh" disabled={loading} onClick={() => setRefresh((n) => n + 1)}><MapIcon name="refresh" size={18} />โหลดข้อมูลล่าสุด</button><a className="mf-advanced" href={`/${layer}/advanced?province=${province}`}>เครื่องมือขั้นสูง{layer === "rain" ? " / เรดาร์ TMD" : ""}<MapIcon name="arrow" size={16} /></a>
           </div>}
         </div>}
       </div>
       {view !== "search" && view !== "settings" && <MapTimeControl data={data} index={index} onChange={changeTime} playing={playing} onPlay={() => setPlaying((v) => !v)} reducedMotion={reducedMotion} mode={mode} />}
       {(loading || geography.loading || unavailable || geography.error) && <div className="mf-data-message">{loading || geography.loading ? <MapLoadingState /> : <MapErrorState message={error || geography.error || "ไม่มีข้อมูลที่ใช้ได้ในพื้นที่นี้"} retry={() => setRefresh((n) => n + 1)} />}</div>}
-      <div className="mf-status"><DataStatus data={data} mode={mode} loading={loading} step={step} /><span>{mode === "estimate" ? "สีแผนที่เป็นค่าประมาณ" : "ค่าจากจุดข้อมูล"}</span></div>
+      <div className="mf-status"><DataStatus data={data} mode={layer === "rain" ? "forecast" : mode} loading={loading} step={step} /><span>{layer === "rain" ? "ปริมาณฝนสะสม · พยากรณ์ตามพิกัด" : mode === "estimate" ? "สีแผนที่เป็นค่าประมาณ" : "ค่าจากจุดข้อมูล"}</span></div>
       <nav className="mf-nav" aria-label="การนำทางแผนที่">
         <button aria-pressed={view === "map"} onClick={() => { openView("map"); requestAnimationFrame(() => { const section = document.getElementById("place-outlook"); section?.scrollIntoView({ behavior: "instant", block: "start" }); section?.focus({ preventScroll: true }); }); }}><MapIcon name="map" size={19} /><span>รายสถานที่</span></button>
         <button aria-pressed={view === "watch"} onClick={() => openView("watch")}><MapIcon name="warning" size={19} /><span>เฝ้าระวัง{watchCount > 0 && <b className="mf-count" aria-label={`${watchCount} จุดในชั้นข้อมูลนี้`}>{watchCount}</b>}</span></button>
         <button aria-pressed={view === "forecast"} onClick={() => openView("forecast")}><MapIcon name="chart" size={19} /><span>แนวโน้ม</span></button>
         <button aria-pressed={view === "location"} onClick={() => openView("location")}><MapIcon name="pin" size={19} /><span>รายละเอียด</span></button>
       </nav>
-      {view === "map" && <PlaceOutlookList data={data} points={points} index={index} metric={metric} step={step} loading={loading || geography.loading} onSelect={selectFromList} />}
+      {view === "map" && <PlaceOutlookList layer={layer} data={data} points={points} index={index} metric={metric} step={step} loading={loading || geography.loading} onSelect={selectFromList} />}
     </div>
   </MapShell>;
 }

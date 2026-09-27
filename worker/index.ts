@@ -1,6 +1,7 @@
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
+import { getRegion } from "../app/lib/provinces";
 
 interface Env {
   ASSETS: Fetcher;
@@ -28,6 +29,7 @@ interface ExecutionContext {
 const CACHEABLE_API_PATHS = new Set([
   "/api/forecast",
   "/api/rain-forecast",
+  "/api/rain-places",
   "/api/heat-forecast",
   "/api/tmd-radar",
   "/api/bangkok-boundary",
@@ -38,6 +40,11 @@ function normalizedCacheRequest(request: Request) {
   if (request.method !== "GET") return null;
   const url = new URL(request.url);
   if (!CACHEABLE_API_PATHS.has(url.pathname)) return null;
+  if (url.pathname === "/api/rain-places") {
+    const province = url.searchParams.get("province") ?? "metro";
+    url.search = "";
+    url.searchParams.set("province", getRegion(province).id);
+  }
   url.searchParams.delete("refresh");
   url.searchParams.sort();
   return new Request(url.toString(), { method: "GET", headers: { Accept: request.headers.get("accept") ?? "*/*" } });

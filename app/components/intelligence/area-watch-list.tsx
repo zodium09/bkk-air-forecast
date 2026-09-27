@@ -13,13 +13,13 @@ import type { MapPlace } from "../../lib/map-places";
 export default function AreaWatchList({ province, source, step, refresh, boundary, places, onSelect }: { province: RegionId; source: WeatherSource; step?: MapStep; refresh: number; boundary: MapBoundary | null; places: MapPlace[]; onSelect: (watch: AreaWatch) => void }) {
   const [filter, setFilter] = useState<EnvironmentLayer | "all">("all");
   const air = useEnvironmentData("air", province, "forecast", refresh, source);
-  const rain = useEnvironmentData("rain", province, "forecast", refresh, source);
+  const rain = useEnvironmentData("rain", province, "forecast", refresh, "open-meteo", "secondary", true);
   const heat = useEnvironmentData("heat", province, "forecast", refresh, source);
   const feeds = [air, rain, heat];
   const date = step?.date ?? "";
   const hour = step?.window != null ? step.startHour : undefined;
   const watchData = useMemo(() => [air.data, rain.data, heat.data].map((data) => data ? { ...data, points: createPlacePoints(data, boundary, places) } : null), [air.data, rain.data, heat.data, boundary, places]);
-  const watches = watchData.flatMap((data) => buildAreaWatch(data, date, hour)).filter((item) => filter === "all" || item.layer === filter).sort((a, b) => b.severity - a.severity || a.layer.localeCompare(b.layer) || b.value - a.value);
+  const watches = watchData.flatMap((data) => buildAreaWatch(data, date, hour, step?.cadence)).filter((item) => filter === "all" || item.layer === filter).sort((a, b) => b.severity - a.severity || a.layer.localeCompare(b.layer) || b.value - a.value);
   const loading = feeds.some((feed) => feed.loading);
   const incomplete = feeds.filter((feed, index) => !feed.loading && (!watchData[index]?.points.length || !feed.data || feed.data.status === "unavailable" || watchStepIndex(feed.data, date, hour) < 0));
   const groups = [...new Set(watches.map((item) => item.area))];
@@ -36,7 +36,7 @@ export default function AreaWatchList({ province, source, step, refresh, boundar
         <h4>{item.point.label}</h4>
         <div className="mf-watch-value">{formatValue(item.value)} <small>{item.unit}</small><span>{relativeDay(item.step.date)} · {item.step.label}</span></div>
         <p>{item.description}</p>
-        <details><summary>ที่มาข้อมูล{item.degraded ? " · ข้อมูลไม่ครบ" : ""}</summary><p>{item.source}</p><p>จุดประมาณ IDW {item.point.lat.toFixed(4)}, {item.point.lng.toFixed(4)} · ค่าบริเวณจุดตัวแทนพื้นที่ ไม่ใช่ค่าตรวจวัดจริงหรือค่าของทั้งเขต</p></details>
+        <details><summary>ที่มาข้อมูล{item.degraded ? " · ข้อมูลไม่ครบ" : ""}</summary><p>{item.source}</p><p>{item.point.method === "provider" ? "จุดพยากรณ์จากต้นทาง" : "จุดประมาณ IDW"} {item.point.lat.toFixed(4)}, {item.point.lng.toFixed(4)} · ค่าบริเวณจุดตัวแทนพื้นที่ ไม่ใช่ค่าตรวจวัดจริงหรือค่าของทั้งเขต</p></details>
         <button className="mf-watch-map" onClick={() => onSelect(item)}><MapIcon name="map" size={17} />ดูจุดนี้บนแผนที่<MapIcon name="arrow" size={16} /></button>
       </li>)}
     </ul></section>)}

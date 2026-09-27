@@ -2,8 +2,19 @@ import { boundaryContains, prepareMapInterpolation, type MapBoundary } from "./m
 import { formatValue, pointValue, type EnvironmentLayer, type MapDataset, type MapPoint, type MapStep, type Metric } from "./map-intelligence.ts";
 import { placeArea, placeLabel, type MapPlace } from "./map-places.ts";
 
-/** Both the dots and the readable list use these same bounded IDW estimates. */
+/** Provider values stay attached to requested coordinates, including missing values. */
 export function createPlacePoints(data: MapDataset | null, boundary: MapBoundary | null, places: MapPlace[]): MapPoint[] {
+  if (data?.valueMethod === "provider") {
+    if (!boundary) return [];
+    const sources = new Map(data.points.map((point) => [point.place?.id, point]));
+    return places.filter((place) => boundaryContains(boundary, place.lat, place.lng)).map((place) => {
+      const candidate = sources.get(place.id);
+      const source = candidate?.lat === place.lat && candidate.lng === place.lng ? candidate : undefined;
+      return { id: `place-${place.id}`, label: placeLabel(place), area: placeArea(place), lat: place.lat, lng: place.lng, place,
+        values: source?.values ?? data.steps.map(() => null), secondary: source?.secondary ?? data.steps.map(() => null),
+        method: "provider", source: source?.source, forecastGrid: source?.forecastGrid };
+    });
+  }
   if (!data || data.status === "unavailable" || !boundary || !data.points.length) return [];
   return places.filter((place) => boundaryContains(boundary, place.lat, place.lng)).map((point) => {
     const interpolate = prepareMapInterpolation(data.points, point.lat, point.lng);
@@ -12,7 +23,7 @@ export function createPlacePoints(data: MapDataset | null, boundary: MapBoundary
       lat: point.lat, lng: point.lng, place: point,
       values: data.steps.map((_, index) => interpolate(index, "primary")),
       secondary: data.steps.map((_, index) => interpolate(index, "secondary")),
-      source: data.model,
+      source: data.model, method: "idw",
     };
   });
 }
@@ -61,6 +72,9 @@ export function placeReading(layer: EnvironmentLayer, metric: Metric, value: num
 export function sortedPlaceReadings(points: MapPoint[], index: number, layer: EnvironmentLayer, metric: Metric, step?: MapStep) {
   return points.map((point) => {
     const value = pointValue(point, index, metric);
-    return { point, value, ...placeReading(layer, metric, value, step) };
+    const reading = point.method === "provider" && value === null
+      ? { title: "ไม่มีข้อมูลพยากรณ์", description: "ต้นทางไม่มีค่าพยากรณ์สำหรับจุดหรือช่วงเวลานี้", action: "เลือกช่วงเวลาอื่นหรือตรวจสอบเรดาร์ล่าสุด", priority: -1 }
+      : placeReading(layer, metric, value, step);
+    return { point, value, ...reading };
   }).sort((a, b) => b.priority - a.priority || (b.value ?? -Infinity) - (a.value ?? -Infinity) || a.point.label.localeCompare(b.point.label, "th"));
 }

@@ -7,6 +7,7 @@ import {
   modeLabels,
   pointValue,
   relativeDay,
+  rainProbabilityLabel,
   valueColor,
   type DataMode,
   type EnvironmentLayer,
@@ -45,6 +46,7 @@ export default function LocationInsight({
   values: (number | null)[];
   spatialSelection: boolean;
 }) {
+  const direct = data?.valueMethod === "provider";
   const current = data?.steps[index];
   const unit =
     metric === "primary"
@@ -75,7 +77,7 @@ export default function LocationInsight({
     )
     .slice(0, 3);
   const label = spatialSelection
-    ? "ตำแหน่งที่ประมาณด้วย IDW"
+    ? direct ? "ตำแหน่งนี้ไม่มีจุดพยากรณ์ต้นทาง" : "ตำแหน่งที่ประมาณด้วย IDW"
     : selected
       ? (selected.label ?? point?.label ?? "ตำแหน่งที่เลือก")
       : "ภาพรวมพื้นที่";
@@ -84,7 +86,7 @@ export default function LocationInsight({
     selected &&
     Math.hypot(point.lat - selected.lat, point.lng - selected.lng) > 0.0001;
   const delta =
-    next?.value !== null && next?.value !== undefined && value !== null
+    (!direct || current?.window === null) && next?.value !== null && next?.value !== undefined && value !== null
       ? next.value - value
       : null;
   const compared = compare === null ? null : valueAt(compare);
@@ -122,7 +124,9 @@ export default function LocationInsight({
           </span>
         </div>
         <p>
-          {spatialSelection
+          {direct && selected
+            ? spatialSelection ? "ไม่มีข้อมูลต้นทางตรงตำแหน่งนี้ แตะจุดสีหรือเลือกสถานที่จากรายการ" : "พยากรณ์จากต้นทางตามพิกัดสถานที่ ไม่ใช่ค่าตรวจวัดจริง"
+            : spatialSelection
             ? value === null
               ? "ข้อมูลรอบตำแหน่งนี้ไม่เพียงพอ หรืออยู่นอกขอบเขตที่ยืนยันได้"
               : "ประมาณจากจุดรอบข้างด้วย IDW ไม่ใช่ค่าตรวจวัด ณ ตำแหน่งนี้"
@@ -139,13 +143,14 @@ export default function LocationInsight({
                       : "ค่าจากแบบจำลอง ณ จุดนี้"}
         </p>
       </div>
+      {direct && selected && !spatialSelection && point && <p className="mf-rain-detail">{rainProbabilityLabel(current)}: <b>{formatValue(pointValue(point, index, "primary"))}%</b></p>}
       <div className="mi-interpretation">
         <MapIcon name="arrow" size={18} />
         <p>
           {delta === null
             ? mode === "observation"
               ? "เปลี่ยนเป็นพยากรณ์เพื่อสำรวจวันถัดไป"
-              : "ยังไม่มีข้อมูลเพียงพอเพื่อเปรียบเทียบวันถัดไป"
+              : direct && current?.window !== null ? "แนวโน้มด้านล่างเป็นฝนสะสมทั้งวัน จึงไม่เปรียบเทียบกับปริมาณรายชั่วโมงโดยตรง" : "ยังไม่มีข้อมูลเพียงพอเพื่อเปรียบเทียบวันถัดไป"
             : `${next ? relativeDay(next.step.date) : "วันถัดไป"} คาดว่า${Math.abs(delta) < 0.5 ? "ใกล้เคียงเดิม" : delta > 0 ? "เพิ่มขึ้น" : "ลดลง"}${Math.abs(delta) >= 0.5 ? `ประมาณ ${formatValue(Math.abs(delta))} ${deltaUnit}` : ""}`}
         </p>
       </div>
@@ -175,14 +180,14 @@ export default function LocationInsight({
             {compared !== null && value !== null
               ? `เปลี่ยนแปลง ${value - compared > 0 ? "+" : ""}${formatValue(value - compared)} ${deltaUnit}`
               : "ข้อมูลไม่ครบสำหรับเปรียบเทียบ"}{" "}
-            · {modeLabels[mode]}
+            · {direct ? "พยากรณ์จากต้นทาง" : modeLabels[mode]}
           </p>
         </section>
       )}
       {mode !== "observation" && (
         <section className="mi-local-trend">
           <div className="mi-section-title">
-            <h3>แนวโน้ม 7 วัน</h3>
+            <h3>{direct ? "ฝนสะสมรายวัน · 7 วัน" : "แนวโน้ม 7 วัน"}</h3>
             <span>{unit}</span>
           </div>
           <div className="mi-trend-bars">
@@ -253,7 +258,7 @@ export default function LocationInsight({
         <dl>
           <div>
             <dt>ชนิดข้อมูล</dt>
-            <dd>{modeLabels[mode]}</dd>
+            <dd>{direct ? "พยากรณ์จากต้นทาง" : modeLabels[mode]}</dd>
           </div>
           <div>
             <dt>สถานะ</dt>
@@ -316,16 +321,17 @@ export default function LocationInsight({
               </div>
             )}
           </dl>
-          {mode === "estimate" && (
+          {mode === "estimate" && !direct && (
             <p>
               พื้นผิว IDW ใช้จุดใกล้เคียงอย่างน้อย 3 จุดภายใน 50 กม.
               สีที่ต่อเนื่องไม่ได้เพิ่มความละเอียดของแหล่งข้อมูล
               พื้นที่ว่างคือไม่มีข้อมูลรองรับ
             </p>
           )}
+          {direct && point?.forecastGrid && !spatialSelection && <p>พิกัดสถานที่ {point.lat.toFixed(4)}, {point.lng.toFixed(4)} · ศูนย์กลางกริดต้นทาง {point.forecastGrid.lat.toFixed(4)}, {point.forecastGrid.lng.toFixed(4)} · หลายสถานที่อาจได้รับค่าจากกริดเดียวกัน</p>}
           {layer === "rain" && (
             <p>
-              โอกาสฝนคือโอกาสเกิดฝนที่จุดแบบจำลองในช่วงที่เลือก
+              {direct ? "โอกาสฝนแสดงรายชั่วโมง หรือค่าสูงสุดรายชั่วโมงในช่วง/วันที่เลือก ไม่ใช่โอกาสของเหตุการณ์ตลอดช่วง" : "โอกาสฝนคือโอกาสเกิดฝนที่จุดแบบจำลองในช่วงที่เลือก"}
               ไม่ใช่สัดส่วนพื้นที่ฝนตกหรือความแน่นอนของปริมาณฝน
             </p>
           )}

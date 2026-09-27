@@ -56,13 +56,14 @@ for (const route of ["air", "rain", "heat"]) {
     const html = await response.text();
     for (const label of ["พื้นที่สำรวจแผนที่", "เลือกชั้นข้อมูลสิ่งแวดล้อม", "เลื่อนเวลาพยากรณ์", "รายละเอียด", "กำลังโหลดข้อมูลแผนที่", "สำรวจแผนที่เต็มจอ", "mf-status"]) assert.ok(html.includes(label), label);
     assert.doesNotMatch(html, /mi-sheet-handle|db-map-reading|mi-map-top|mi-map-bottom|class="mf-panel"/);
+    if (route === "rain") { assert.match(html, /ปริมาณฝนสะสม/); assert.match(html, /ไม่มีการคำนวณ IDW หรือเติมค่าที่ขาด/); }
     assert.ok(html.indexOf('id="map-story"') < html.indexOf('class="mf-nav"'));
   });
 }
-test("dot-only workspace retains both metrics and the verified official warning link", async () => {
+test("dot-only workspace uses direct rain amounts with supplemental probability and official warning link", async () => {
   const workspace = await readFile(new URL("../app/components/intelligence/map-workspace.tsx", import.meta.url), "utf8");
   const watches = await readFile(new URL("../app/components/intelligence/area-watch-list.tsx", import.meta.url), "utf8");
-  assert.match(workspace, /กรองโหมดปริมาณฝน/);
+  assert.match(workspace, /พิกัดสถานที่โดยตรง/);
   assert.match(workspace, /โอกาสฝน \(%%?\)/);
   assert.match(workspace, /ปริมาณฝนสะสม/);
   assert.match(workspace, /display="dots"/);
@@ -500,4 +501,51 @@ test("rain adapter uses cached nine-point live Open-Meteo providers without fake
   assert.match(dashboard, /buildRainForecastUrl/);
   assert.match(route, /points: \[\]/);
   assert.doesNotMatch(`${route}\n${provider}\n${dashboard}`, /fallbackRain|demoRain|mockRain/i);
+});
+
+test("direct rain endpoint returns source-backed named coordinates and nulls for missing upstream slots", async () => {
+  const originalFetch = globalThis.fetch;
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const time = Array.from({ length: 192 }, (_, i) => new Date(Date.parse(`${today}T00:00:00Z`) + i * 3600000).toISOString().slice(0, 16));
+  const calls = [];
+  globalThis.fetch = async (input) => {
+    const url = new URL(input);
+    assert.equal(url.hostname, "api.open-meteo.com");
+    calls.push(url);
+    return Response.json([{ utc_offset_seconds: 25200, latitude: 13.7, longitude: 100.5,
+      hourly_units: { precipitation: "mm", precipitation_probability: "%" }, daily_units: { precipitation_sum: "mm", precipitation_probability_max: "%" },
+      hourly: { time, precipitation: time.map(() => 0), precipitation_probability: time.map(() => 40) },
+      daily: { time: time.filter((_, i) => i % 24 === 0).map((t) => t.slice(0, 10)), precipitation_sum: Array(8).fill(0), precipitation_probability_max: Array(8).fill(50) } }]);
+  };
+  try {
+    const worker = await loadWorker();
+    const response = await worker.fetch(new Request("http://localhost/api/rain-places?province=bangkok"), environment, executionContext);
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    assert.equal(data.valueMethod, "provider");
+    assert.equal(data.status, "degraded");
+    assert.equal(data.points.length, 180);
+    assert.equal(data.steps.length, 231);
+    assert.ok(data.points.every((p) => p.place.provinceId === "bangkok" && p.lat === p.place.lat && p.lng === p.place.lng));
+    assert.ok(data.points.some((p) => p.secondary[0] === 0));
+    assert.ok(data.points.some((p) => p.secondary.every((v) => v === null)));
+    assert.ok(calls.length <= 4);
+    assert.ok(calls.every((url) => url.searchParams.get("latitude").split(",").length <= 50));
+    assert.match(response.headers.get("cdn-cache-control"), /max-age=/);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("direct rain edge cache keeps every real province distinct and removes display-only query parameters", async () => {
+  const originalCaches = globalThis.caches;
+  const keys = [];
+  globalThis.caches = { default: { match: async (request) => { keys.push(new URL(request.url)); return new Response("cached forecast"); } } };
+  try {
+    const worker = await loadWorker();
+    for (const province of ["metro", "bangkok", "nonthaburi", "pathum-thani", "samut-prakan", "samut-sakhon", "nakhon-pathom"]) {
+      const response = await worker.fetch(new Request(`http://localhost/api/rain-places?province=${province}&source=tmd&mode=chance&time=old&refresh=3`), environment, executionContext);
+      assert.equal(response.headers.get("x-edge-cache"), "HIT");
+      assert.equal(keys.at(-1).searchParams.toString(), `province=${province}`);
+    }
+    assert.equal(new Set(keys.map((url) => url.toString())).size, 7);
+  } finally { globalThis.caches = originalCaches; }
 });

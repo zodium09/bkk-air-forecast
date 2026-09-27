@@ -19,6 +19,8 @@ export type MapPoint = {
   source?: string;
   area?: string;
   place?: MapPlace;
+  method?: "provider" | "idw";
+  forecastGrid?: { lat: number; lng: number };
 };
 export type MapStep = {
   key: string;
@@ -44,6 +46,7 @@ export type MapDataset = {
   points: MapPoint[];
   steps: MapStep[];
   quality: Record<string, unknown>;
+  valueMethod?: "provider" | "idw";
 };
 export const layerInfo = {
   air: {
@@ -97,6 +100,9 @@ export function bangkokDate(now = new Date()) {
     month: "2-digit",
     day: "2-digit",
   }).format(now);
+}
+export function rainProbabilityLabel(step?: MapStep) {
+  return step?.cadence === "hour" ? "โอกาสฝนในชั่วโมงนี้" : step?.window === null ? "โอกาสฝนสูงสุดรายชั่วโมงในวัน" : "โอกาสฝนสูงสุดรายชั่วโมงในช่วงนี้";
 }
 export function relativeDay(date: string, today = bangkokDate()) {
   if (date === today) return "วันนี้";
@@ -301,7 +307,8 @@ export function metricName(layer: EnvironmentLayer, metric: Metric) {
       ? "ปริมาณฝนสะสม"
       : "อุณหภูมิ";
 }
-export function getLegend(layer: EnvironmentLayer, metric: Metric) {
+type LegendBand = { max: number; label: string; color: string; colorName?: string };
+export function getLegend(layer: EnvironmentLayer, metric: Metric): LegendBand[] {
   if (layer === "air")
     return [
       { max: 15, label: "ดีมาก", color: "#38bdf8" },
@@ -313,18 +320,16 @@ export function getLegend(layer: EnvironmentLayer, metric: Metric) {
   if (layer === "rain")
     return metric === "primary"
       ? [
-          { max: 20, label: "โอกาสน้อย", color: "#cadde9" },
-          { max: 40, label: "อาจมีฝน", color: "#8dbad9" },
-          { max: 60, label: "มีโอกาส", color: "#5192c4" },
-          { max: 80, label: "โอกาสสูง", color: "#2866a8" },
-          { max: Infinity, label: "โอกาสสูงมาก", color: "#403e91" },
+          { max: 20, label: "โอกาสน้อย", color: "#38bdf8", colorName: "ฟ้า" },
+          { max: 60, label: "อาจมีฝน", color: "#22c55e", colorName: "เขียว" },
+          { max: 80, label: "โอกาสสูง", color: "#f97316", colorName: "ส้ม" },
+          { max: Infinity, label: "โอกาสสูงมาก", color: "#dc2626", colorName: "แดง" },
         ]
       : [
-          { max: 0, label: "ไม่พบฝน", color: "#cadde9" },
-          { max: 10, label: "0–10", color: "#8dbad9" },
-          { max: 35, label: "10–35", color: "#5192c4" },
-          { max: 90, label: "35–90", color: "#2866a8" },
-          { max: Infinity, label: ">90", color: "#403e91" },
+          { max: 10, label: "0–10", color: "#38bdf8", colorName: "ฟ้า" },
+          { max: 35, label: ">10–35", color: "#22c55e", colorName: "เขียว" },
+          { max: 90, label: ">35–90", color: "#f97316", colorName: "ส้ม" },
+          { max: Infinity, label: ">90", color: "#dc2626", colorName: "แดง" },
         ];
   return metric === "primary"
     ? [

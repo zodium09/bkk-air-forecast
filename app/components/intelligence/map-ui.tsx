@@ -219,7 +219,7 @@ export function DataStatus({
                 : "ข้อมูลบางส่วน / แหล่งสำรอง"}
         </strong>
         <span>
-          {modeLabels[mode]}
+          {data?.valueMethod === "provider" ? "พยากรณ์จากต้นทาง" : modeLabels[mode]}
           {step?.sourceMode === "extrapolated" ? " · ขยายแนวโน้ม" : ""} ·{" "}
           {data ? `${data.timestampLabel} ${stamp}` : "รอตรวจสอบแหล่งข้อมูล"} ·
           ICT
@@ -276,21 +276,22 @@ export function MapLegend({
             className={active === index ? "active" : ""}
             onClick={() => onChange(active === index ? null : index)}
             aria-pressed={active === index}
-            title={`${band.label}: เน้นช่วงนี้`}
+            title={`${band.colorName ? `${band.colorName} · ` : ""}${band.label}: เน้นช่วงนี้`}
+            aria-label={`${band.colorName ? `${band.colorName} · ` : ""}${band.label} ${unit}: เน้นช่วงนี้`}
           >
             <i style={{ background: band.color }} />
             <span>
               {layer === "air"
                 ? ["0–15", "15–25", "25–37.5", "37.5–75", ">75"][index]
                 : layer === "rain" && metric === "primary"
-                  ? ["0–20", "20–40", "40–60", "60–80", ">80"][index]
+                  ? ["0–20", ">20–60", ">60–80", ">80"][index]
                   : band.label}
             </span>
           </button>
         ))}
       </div>
       <div className="mi-legend-detail">
-        <p>{bands.map((b) => b.label).join(" · ")}</p>
+        <p>{bands.map((b) => `${b.colorName ? `${b.colorName} ` : ""}${b.label}`).join(" · ")}</p>
         <span>○ ไม่มีข้อมูล · เส้นประ = ข้อมูลลดทอน</span>
         <small>แตะช่วงเพื่อเน้นพื้นที่ โดยยังเห็นบริบททั้งหมด</small>
       </div>

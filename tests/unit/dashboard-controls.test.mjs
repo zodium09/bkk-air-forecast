@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { environmentRequest, indexForDate, timelineIndices, timelineKeyIndex, nextTimelineIndex } from "../../app/lib/dashboard-controls.ts";
+import { currentForecastIndex, environmentRequest, indexForDate, timelineIndices, timelineKeyIndex, nextTimelineIndex } from "../../app/lib/dashboard-controls.ts";
 import { normalizeWeather } from "../../app/lib/map-intelligence.ts";
 const steps = [
   { key: "d1", date: "2026-09-07", window: null },
@@ -53,4 +53,36 @@ test("TMD daily totals do not expose hourly detail the source did not supply", (
   assert.equal(result.points[0].secondary[0], 0);
   assert.equal(result.points[0].values[0], null);
   assert.equal(normalizeWeather({ ...payload, dataQuality: { tmdStatus: "unavailable" } }, "rain").steps.length, 2);
+});
+
+test("default uses Bangkok's actual date and current hour rather than day zero", () => {
+  const horizon = [
+    { key: "yesterday", date: "2026-09-26", day: 0, window: null, cadence: "day" },
+    { key: "today", date: "2026-09-27", day: 1, window: null, cadence: "day" },
+    { key: "yesterday:h00", date: "2026-09-26", day: 0, window: 0, startHour: 0, endHour: 1, cadence: "hour" },
+    { key: "today:h00", date: "2026-09-27", day: 1, window: 0, startHour: 0, endHour: 1, cadence: "hour" },
+    { key: "today:h23", date: "2026-09-27", day: 1, window: 23, startHour: 23, endHour: 24, cadence: "hour" },
+    { key: "tomorrow:h00", date: "2026-09-28", day: 2, window: 0, startHour: 0, endHour: 1, cadence: "hour" },
+  ];
+  assert.equal(currentForecastIndex(horizon, new Date("2026-09-26T17:15:00Z")), 3);
+  assert.equal(currentForecastIndex(horizon, new Date("2026-09-27T16:59:59Z")), 4);
+  assert.equal(currentForecastIndex(horizon, new Date("2026-09-27T17:00:00Z")), 5);
+});
+test("default prefers the containing three-hour window then an available daily forecast", () => {
+  const horizon = [
+    { date: "2026-09-27", window: null, cadence: "day" },
+    { date: "2026-09-27", window: 1, startHour: 3, endHour: 6, cadence: "window" },
+    { date: "2026-09-27", window: 2, startHour: 6, endHour: 9, cadence: "window" },
+  ];
+  assert.equal(currentForecastIndex(horizon, new Date("2026-09-27T01:10:00Z")), 2);
+  assert.equal(currentForecastIndex(horizon, new Date("2026-09-27T02:00:00Z")), 0);
+});
+test("default selects the nearest available period without inventing hourly data", () => {
+  const now = new Date("2026-09-27T01:10:00Z");
+  const daily = [{ date: "2026-09-29", window: null }, { date: "2026-09-26", window: null }, { date: "2026-09-28", window: null }];
+  assert.equal(currentForecastIndex(daily, now), 2);
+  assert.equal(currentForecastIndex(daily.slice(0, 2), new Date("2026-09-30T01:10:00Z")), 0);
+  assert.equal(currentForecastIndex([], now), -1);
+  const hourly = [{ date: "2026-09-27", window: 7, startHour: 7, cadence: "hour" }, { date: "2026-09-27", window: 9, startHour: 9, cadence: "hour" }];
+  assert.equal(currentForecastIndex(hourly, now), 1);
 });

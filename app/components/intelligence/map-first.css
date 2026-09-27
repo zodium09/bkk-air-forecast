@@ -260,3 +260,20 @@ body:has(.mi-map-first.mi-exploring) { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .mi-map-first *, .mi-map-first *::before, .mi-map-first *::after { transition: none; animation: none; scroll-behavior: auto; }
 }
+
+.mf-accumulation { display:flex; align-items:center; gap:6px; margin:9px 0 2px; flex-wrap:wrap; }
+.mf-accumulation button { border:1px solid var(--mi-line); border-radius:7px; padding:7px 12px; min-height:40px; background:var(--mi-surface); color:inherit; font:inherit; cursor:pointer; }
+.mf-accumulation button[aria-pressed="true"] { background:#2666b0; border-color:#2666b0; color:white; }
+.mf-accumulation span { font-size:12px; opacity:.72; margin-inline-start:auto; }
+.mf-rain-probability { color:var(--mi-muted, #536a73); font-size:13px; }
+.mf-rain-detail { padding:0 18px; font-size:14px; }
+@media (max-width:380px) { .mf-accumulation button { padding:6px 9px; } .mf-accumulation span { width:100%; margin:0; } }
+/* Keep rain period selection and navigation reachable within the first mobile screen. */
+.mi-shell.mi-map-first.mi-layer-rain .mi-work-area { height:clamp(320px, calc(100dvh - 347px), 755px); }
+.mi-shell.mi-map-first.mi-layer-rain.mi-exploring .mi-work-area { height:100%; }
+@media (max-width:780px), (max-width:1024px) and (pointer:coarse) {
+  .mi-shell.mi-map-first.mi-layer-rain .mi-work-area { height:clamp(280px, calc(100dvh - 335px - env(safe-area-inset-top) - env(safe-area-inset-bottom)), 755px); }
+}
+@media (max-width:380px) {
+  .mf-accumulation span { width:auto; margin-inline-start:auto; font-size:11px; }
+}

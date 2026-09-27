@@ -23,9 +23,10 @@ export function useEnvironmentData(
   refresh: number,
   source: WeatherSource = "open-meteo",
   metric: "primary" | "secondary" = "primary",
+  directRain = false,
 ) {
   const requestMode = mode === "observation" ? "observation" : "forecast";
-  const request = environmentRequest(layer, province, requestMode, source, metric);
+  const request = environmentRequest(layer, province, requestMode, source, metric, directRain);
   const cacheKey = request.key;
   const key = `${cacheKey}:${refresh}`;
   const [result, setResult] = useState<{
@@ -61,6 +62,7 @@ export function useEnvironmentData(
         return normalizeAir(payload, requestMode);
       }
 
+      if (layer === "rain" && directRain) return await get(request.url) as MapDataset;
       return normalizeWeather(
         await get(request.url),
         layer,
@@ -88,7 +90,7 @@ export function useEnvironmentData(
       controller.abort();
       window.clearTimeout(timeout);
     };
-  }, [key, cacheKey, layer, province, requestMode, refresh, request.url]);
+  }, [key, cacheKey, layer, province, requestMode, refresh, request.url, directRain]);
   return result.key === key
     ? result
     : { key, data: null, loading: true, error: "" };
