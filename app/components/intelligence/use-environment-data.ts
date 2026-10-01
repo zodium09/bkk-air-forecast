@@ -14,6 +14,7 @@ import {
 } from "../../lib/map-intelligence";
 
 import { environmentRequest, type WeatherSource } from "../../lib/dashboard-controls";
+import { useRefreshPulse } from "./use-live-resource";
 
 const cache = new Map<string, { data: MapDataset; at: number }>();
 export function useEnvironmentData(
@@ -26,15 +27,17 @@ export function useEnvironmentData(
   directRain = false,
 ) {
   const requestMode = mode === "observation" ? "observation" : "forecast";
+  const { pulse } = useRefreshPulse(300000);
   const request = environmentRequest(layer, province, requestMode, source, metric, directRain);
   const cacheKey = request.key;
-  const key = `${cacheKey}:${refresh}`;
+  const key = `${cacheKey}:${refresh}:${pulse}`;
   const [result, setResult] = useState<{
     key: string;
+    resource: string;
     data: MapDataset | null;
     loading: boolean;
     error: string;
-  }>({ key, data: null, loading: true, error: "" });
+  }>({ key, resource: cacheKey, data: null, loading: true, error: "" });
   useEffect(() => {
     const controller = new AbortController();
     const saved = cache.get(cacheKey);
@@ -42,13 +45,13 @@ export function useEnvironmentData(
     async function get(url: string) {
       const response = await fetch(url, {
         signal: controller.signal,
-        cache: refresh ? "reload" : "default",
+        cache: refresh || pulse ? "no-cache" : "default",
       });
       if (!response.ok) throw new Error("แหล่งข้อมูลไม่ตอบกลับ");
       return response.json();
     }
     async function load() {
-      if (!refresh && saved && Date.now() - saved.at < 300_000)
+      if (!refresh && !pulse && saved && Date.now() - saved.at < 300_000)
         return saved.data;
       if (layer === "air") {
         const payload: ForecastPayload =
@@ -73,16 +76,17 @@ export function useEnvironmentData(
       .then((data) => {
         if (!active) return;
         cache.set(cacheKey, { data, at: Date.now() });
-        setResult({ key, data, loading: false, error: "" });
+        setResult({ key, resource: cacheKey, data, loading: false, error: "" });
       })
       .catch(() => {
         if (active)
-          setResult({
+          setResult(previous => ({
             key,
-            data: null,
+            resource: cacheKey,
+            data: previous.resource === cacheKey ? previous.data : null,
             loading: false,
-            error: "เชื่อมต่อข้อมูลไม่สำเร็จ ลองโหลดอีกครั้ง",
-          });
+            error: "โหลดรอบใหม่ไม่ได้ · ตรวจสอบเวลาในข้อมูลที่แสดง",
+          }));
       })
       .finally(() => window.clearTimeout(timeout));
     return () => {
@@ -90,8 +94,8 @@ export function useEnvironmentData(
       controller.abort();
       window.clearTimeout(timeout);
     };
-  }, [key, cacheKey, layer, province, requestMode, refresh, request.url, directRain]);
-  return result.key === key
-    ? result
-    : { key, data: null, loading: true, error: "" };
+  }, [key, cacheKey, layer, province, requestMode, refresh, pulse, request.url, directRain]);
+  return result.resource === cacheKey
+    ? { ...result, loading: result.loading || result.key !== key && !result.data, refreshing: result.key !== key && !!result.data }
+    : { key, data: null, loading: true, refreshing: false, error: "" };
 }

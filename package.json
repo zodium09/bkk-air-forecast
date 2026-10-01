@@ -14,6 +14,7 @@
     "test": "npm run build:cloudflare && npm run test:unit && node --test tests/rendered-html.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
+    "collect:observations": "node --experimental-strip-types scripts/collect-observations.mjs",
     "update:map-places": "node --experimental-strip-types scripts/update-map-places.mjs",
     "test:unit": "node --test --experimental-strip-types tests/unit/*.test.mjs"
   },

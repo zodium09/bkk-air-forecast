@@ -20,7 +20,7 @@ const executionContext = {
   passThroughOnException() {},
 };
 
-test("home opens an accessible overview before personal-area selection and forecasts", async () => {
+test("home prioritizes the current briefing and forecast charts before geographic exploration", async () => {
   const worker = await loadWorker();
   const response = await worker.fetch(new Request("http://localhost/", { headers: { accept: "text/html" } }), environment, executionContext);
   assert.equal(response.status, 200);
@@ -28,7 +28,7 @@ test("home opens an accessible overview before personal-area selection and forec
   for (const label of ["ov-page", "ภาพรวม", "ย่านของฉัน", "มองล่วงหน้า 7 วัน", "พื้นที่ที่ควรติดตาม", "ข้อมูลนี้มาจากไหน?", "ค้นหาถนน เขต หรือพื้นที่", "ข้ามไปที่ข้อมูล"]) assert.ok(html.includes(label), label);
   assert.match(html, /data-theme="light"/);
   assert.ok(html.indexOf('id="overview"') < html.indexOf('id="my-area"'));
-  assert.ok(html.indexOf('id="my-area"') < html.indexOf('id="outlook"'));
+  assert.ok(html.indexOf('id="outlook"') < html.indexOf('id="my-area"'));
   assert.ok(html.includes("ปริมาณสะสมตลอด 24 ชั่วโมง"));
   assert.ok(html.includes("ค่าพยากรณ์ / ประมาณเชิงพื้นที่"));
   assert.ok(html.includes("ระดับน้ำในคลองและแม่น้ำ"));
@@ -57,6 +57,8 @@ for (const route of ["air", "rain", "heat"]) {
     assert.equal(response.status, 200);
     const html = await response.text();
     for (const label of ["พื้นที่สำรวจแผนที่", "เลือกชั้นข้อมูลสิ่งแวดล้อม", "เลื่อนเวลาพยากรณ์", "รายละเอียด", "กำลังโหลดข้อมูลแผนที่", "สำรวจแผนที่เต็มจอ", "mf-status"]) assert.ok(html.includes(label), label);
+    assert.ok(html.indexOf('id="topic-briefing"') < html.indexOf('id="map-story"'));
+    assert.equal((html.match(/<h1[ >]/g) ?? []).length, 1);
     assert.doesNotMatch(html, /mi-sheet-handle|db-map-reading|mi-map-top|mi-map-bottom|class="mf-panel"/);
     if (route === "rain") { assert.match(html, /ปริมาณฝนสะสม/); assert.match(html, /ไม่มีการคำนวณ IDW หรือเติมค่าที่ขาด/); }
     assert.ok(html.indexOf('id="map-story"') < html.indexOf('class="mf-nav"'));

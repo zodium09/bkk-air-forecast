@@ -7,6 +7,10 @@ import ThemeToggle from "../theme-toggle";
 import MapTimeControl from "./map-time-control";
 import AreaWatchList from "./area-watch-list";
 import PlaceOutlookList from "./place-outlook-list";
+import TopicBriefing from "./topic-briefing";
+import WaterOverview from "./water-overview";
+import CurrentAir from "./current-air";
+import RoadFloodOverview from "./road-flood-overview";
 import { DashboardChart } from "./dashboard-controls";
 import { DataStatus, LayerSwitcher, MapErrorState, MapIcon, MapLegend, MapLoadingState, MapShell } from "./map-ui";
 import { useEnvironmentData } from "./use-environment-data";
@@ -23,6 +27,8 @@ import "./night-theme.css";
 import "./dashboard.css";
 import "./map-first.css";
 import "./briefing-workspace.css";
+import "./overview.css";
+import "./briefing.css";
 
 type View = "map" | "watch" | "forecast" | "location" | "settings" | "search";
 const emptyPoints: MapPoint[] = [];
@@ -162,19 +168,21 @@ export default function MapWorkspace({ initialLayer = "air" }: { initialLayer?: 
   function selectFromList(p: MapPoint) { setSelected({ lat: p.lat, lng: p.lng, label: p.label }); setFocus((n) => n + 1); setView("map"); setQuery(""); requestAnimationFrame(() => { const section = document.getElementById("map-story"); section?.scrollIntoView({ behavior: "instant", block: "start" }); section?.focus({ preventScroll: true }); }); }
   function selectWatch(watch: AreaWatch) { changeLayer(watch.layer); setMode("estimate"); setMetric(watch.layer === "rain" ? "secondary" : "primary"); setTimeKey(watch.step.key); selectFromList(watch.point); }
   const results = points.filter((p) => `${p.label} ${p.area ?? ""}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
-  const unavailable = !loading && (error || !data || data.status === "unavailable" || !anchors.length);
+  const unavailable = !loading && (!data || data.status === "unavailable" || !anchors.length);
   return <MapShell layer={layer} exploring={exploring} mapFirst>
     <div className="mi-workspace">
       <header className="mf-header">
         <a href="/" className="mf-brand" aria-label="BKK Air Forecast หน้าหลัก"><MapIcon name="map" size={23} /><span>BKK <b>AIR</b></span></a>
-        <h1 className="mf-sr-only">แผนที่สิ่งแวดล้อมกรุงเทพฯ และปริมณฑล</h1>
+        <a className="bf-home-nav" href="/">ภาพรวม</a>
         <LayerSwitcher layer={layer} onChange={changeLayer} />
         <div className="mf-header-actions"><a className="mf-overview-link" href="/"><MapIcon name="arrow" size={16} />ภาพรวม</a><ThemeToggle /></div>
       </header>
+      {!exploring && <TopicBriefing layer={layer} data={data} values={values} index={index} metric={metric} scope={scope} loading={loading} error={error} following={!timeKey} onNow={() => { setTimeKey(""); setClock(Date.now()); setPlaying(false); }} currentObservation={layer === "air" ? <CurrentAir region={province} place={selected} refresh={refresh}/> : undefined} onTime={changeTime} onMetric={(next) => { setMetric(next); setLegend(null); setCompareKey(null); setPlaying(false); }} />}
       <div className="mf-context">
         <label className="mf-province"><MapIcon name="pin" size={17} /><select aria-label="กรองจังหวัด" value={province} onChange={(e) => { setProvince(e.target.value as RegionId); setSelected(null); setCompareKey(null); setPlaying(false); }}><option value="metro">กรุงเทพฯ–ปริมณฑล</option>{provinces.map((p) => <option key={p.id} value={p.id}>{p.nameTh}</option>)}</select></label>
         <div className="mf-context-actions"><button aria-label="ค้นหาสถานที่หรือพื้นที่" aria-pressed={view === "search"} onClick={() => openView(view === "search" ? "map" : "search")}><MapIcon name="search" /></button><button aria-label="ตัวเลือกแผนที่" aria-pressed={view === "settings"} onClick={() => openView(view === "settings" ? "map" : "settings")}><MapIcon name="layers" /></button></div>
       </div>
+      {view !== "search" && view !== "settings" && <MapTimeControl data={data} index={index} onChange={changeTime} playing={playing} onPlay={() => setPlaying((v) => !v)} reducedMotion={reducedMotion} mode={mode} />}
       <div className={`mi-work-area mf-area ${view !== "map" ? "mf-panel-open" : ""}`}>
         <section id="map-story" className="mi-geography" aria-label="พื้นที่สำรวจแผนที่" tabIndex={-1}>
           <div className="mi-map-stage">
@@ -206,7 +214,7 @@ export default function MapWorkspace({ initialLayer = "air" }: { initialLayer?: 
           </div>}
         </div>}
       </div>
-      {view !== "search" && view !== "settings" && <MapTimeControl data={data} index={index} onChange={changeTime} playing={playing} onPlay={() => setPlaying((v) => !v)} reducedMotion={reducedMotion} mode={mode} />}
+
       {(loading || geography.loading || unavailable || geography.error) && <div className="mf-data-message">{loading || geography.loading ? <MapLoadingState /> : <MapErrorState message={error || geography.error || "ไม่มีข้อมูลที่ใช้ได้ในพื้นที่นี้"} retry={() => setRefresh((n) => n + 1)} />}</div>}
       <div className="mf-status"><DataStatus data={data} mode={layer === "rain" ? "forecast" : mode} loading={loading} step={step} /><span>{layer === "rain" ? "ปริมาณฝนสะสม · พยากรณ์ตามพิกัด" : mode === "estimate" ? "สีแผนที่เป็นค่าประมาณ" : "ค่าจากจุดข้อมูล"}</span></div>
       <nav className="mf-nav" aria-label="การนำทางแผนที่">
@@ -215,6 +223,7 @@ export default function MapWorkspace({ initialLayer = "air" }: { initialLayer?: 
         <button aria-pressed={view === "forecast"} onClick={() => openView("forecast")}><MapIcon name="chart" size={19} /><span>แนวโน้ม</span></button>
         <button aria-pressed={view === "location"} onClick={() => openView("location")}><MapIcon name="pin" size={19} /><span>รายละเอียด</span></button>
       </nav>
+      {layer === "rain" && !exploring && <div className="bf-water-section ov-page"><RoadFloodOverview region={province} place={selected} refresh={refresh}/><WaterOverview region={province} place={selected} refresh={refresh} /></div>}
       {view === "map" && <PlaceOutlookList layer={layer} data={data} points={points} index={index} metric={metric} step={step} loading={loading || geography.loading} onSelect={selectFromList} />}
     </div>
   </MapShell>;

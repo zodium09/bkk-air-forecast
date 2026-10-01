@@ -1,0 +1,92 @@
+.obs-observed-tag { display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border: 1px solid var(--ov-line,#dce6eb); border-radius: 99px; color: var(--ov-accent,#086b62); font-size: 10px; white-space: nowrap; }
+.obs-observed-tag::before { content: ""; width: 5px; height: 5px; background: currentColor; border-radius: 50%; }
+.obs-reading-description { color: var(--ov-ink,#153345); font-size: 12px; line-height: 1.8; margin-top: 10px; }
+.obs-period-note,.obs-panel-note { color: var(--ov-muted,#4d6477); font-size: 11px; line-height: 1.8; margin-top: 10px; }
+.obs-source-line { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 7px 16px; color: var(--ov-muted,#4d6477); font-size: 10px; margin-top: 12px; }
+.obs-error { color: var(--ov-danger,#a32d37); font-size: 11px; margin-top: 8px; }
+.obs-current-air .obs-reading-description { margin-bottom: 0; }
+.obs-current-air .obs-period-note { font-size: 10px; }
+.obs-current-air .obs-forecast-comparison { display: flex; gap: 12px; justify-content: space-between; align-items: baseline; border-top: 1px solid var(--ov-line); padding-top: 12px; margin-top: 16px; font-size: 11px; }
+.obs-forecast-comparison b { font: 600 15px "Manrope",sans-serif; }
+.obs-forecast-comparison small { font: 400 10px "IBM Plex Sans Thai",sans-serif; }
+.obs-air-panel { --ov-ink: #173249; --ov-muted: #506477; --ov-line: #dbe5ee; --ov-accent: #007d58; --ov-surface: #fff; --ov-sky: #edf6ff; --ov-danger: #bd3044; color: var(--ov-ink); display: grid; grid-template-columns: .9fr 1.1fr; border: 1px solid var(--ov-line,#dce6eb); background: var(--ov-surface,white); border-radius: 14px; margin: 0 0 28px; overflow: hidden; }
+.obs-air-current { padding: 25px 28px; background: var(--ov-sky,#edf6fa); }
+.obs-section-kicker { display: flex; align-items: center; gap: 9px; color: var(--ov-accent,#086b62); }
+.obs-section-kicker h2 { font-size: 15px; font-weight: 500; }
+.obs-section-kicker .obs-observed-tag { margin-left: auto; }
+.obs-air-number { font: 600 54px/1.5 "Manrope",sans-serif; color: var(--ov-ink,#153345); display: flex; gap: 12px; align-items: baseline; font-variant-numeric: tabular-nums; }
+.obs-air-number small { font: 400 12px "IBM Plex Sans Thai",sans-serif; color: var(--ov-muted,#4d6477); }
+.obs-air-stations { padding: 25px 28px; }
+.obs-air-stations h3 { font-size: 13px; font-weight: 500; margin-bottom: 8px; }
+.obs-air-stations > a { display: flex; align-items: center; gap: 12px; min-height: 60px; border-bottom: 1px solid var(--ov-line,#dce6eb); font-size: 12px; }
+.obs-air-stations > a > span { flex: 1; }
+.obs-air-stations > a b { font: 600 20px "Manrope",sans-serif; text-align: right; }
+.obs-air-stations > a small { display: block; color: var(--ov-muted,#4d6477); font: 400 10px/1.8 "IBM Plex Sans Thai",sans-serif; }
+.obs-air-stations > a:hover { color: var(--ov-accent,#086b62); }
+.obs-road-summary { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); border-block: 1px solid var(--ov-line); margin-bottom: 22px; }
+.obs-road-summary > div { padding: 19px 22px; }
+.obs-road-summary > div:first-child { padding-left: 0; }
+.obs-road-summary > div+div { border-left: 1px solid var(--ov-line); }
+.obs-road-summary span { font-size: 12px; color: var(--ov-muted); }
+.obs-road-summary b { display: block; font: 600 40px/1.4 "Manrope",sans-serif; color: var(--depth-ink,var(--ov-ink)); font-variant-numeric: tabular-nums; }
+.obs-road-summary small { font: 400 12px "IBM Plex Sans Thai",sans-serif; padding-left: 9px; color: var(--ov-muted); }
+.obs-depth-flood { --depth-ink: #ac293f; }
+.obs-depth-minor { --depth-ink: #976008; }
+.obs-depth-normal { --depth-ink: var(--ov-accent); }
+.obs-depth-unknown { --depth-ink: var(--ov-muted); }
+.obs-road-toolbar { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; margin-bottom: 18px; }
+.obs-road-toolbar label { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 12px; }
+.obs-road-toolbar input[type="checkbox"] { accent-color: var(--ov-accent); width: 17px; height: 17px; }
+.obs-road-toolbar input[type="search"] { background: var(--ov-surface); color: var(--ov-ink); border: 1px solid var(--ov-line); border-radius: 8px; min-height: 44px; padding: 10px 12px; margin-left: auto; width: 225px; font-size: 13px; }
+.obs-road-toolbar input::placeholder { color: var(--ov-muted); }
+.obs-road-list { display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; }
+.obs-road-list a { display: flex; align-items: center; gap: 12px; padding: 16px 0; min-width: 0; border-bottom: 1px solid var(--ov-line); }
+.obs-road-place { flex: 1; min-width: 0; }
+.obs-road-place > span { display: flex; gap: 6px; align-items: baseline; }
+.obs-road-place svg { flex: none; color: var(--depth-ink); }
+.obs-road-place b { font-size: 13px; font-weight: 500; }
+.obs-road-place small { display: block; font-size: 10px; line-height: 1.9; color: var(--ov-muted); padding-left: 23px; }
+.obs-road-value { text-align: right; flex: none; }
+.obs-road-value b { font: 600 24px "Manrope",sans-serif; color: var(--depth-ink); }
+.obs-road-value small { font: 400 10px "IBM Plex Sans Thai",sans-serif; margin-left: 6px; }
+.obs-road-value em { display: block; font-style: normal; font-size: 10px; color: var(--depth-ink); line-height: 1.8; }
+.obs-road-list a > svg { color: var(--ov-muted); flex: none; }
+.obs-road-list a:hover .obs-road-place b { text-decoration: underline; text-underline-offset: 4px; }
+.obs-empty { padding: 22px 0; font-size: 12px; color: var(--ov-muted); line-height: 1.8; }
+.obs-water-history { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--ov-line); }
+.obs-history-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.obs-history-heading h4 { font-size: 14px; font-weight: 500; }
+.obs-history-heading > div { display: flex; gap: 3px; }
+.obs-history-heading button { min-height: 44px; padding: 6px 10px; font-size: 11px; border-radius: 7px; color: var(--ov-muted); }
+.obs-history-heading button[aria-pressed="true"] { color: var(--ov-blue); background: var(--ov-surface); }
+.obs-history-readout { display: flex; justify-content: space-between; margin: 14px 0 2px; font-size: 10px; color: var(--ov-muted); }
+.obs-history-readout b { color: var(--ov-blue); font-weight: 500; }
+.obs-history-svg { width: 100%; height: auto; display: block; }
+.obs-history-svg text { fill: var(--ov-muted); font: 11px "Manrope",sans-serif; }
+.obs-history-labels { display: flex; justify-content: space-between; font-size: 9px; color: var(--ov-muted); }
+.obs-history-slider { width: 100%; min-height: 44px; accent-color: var(--ov-blue); }
+.obs-history-trend { font-size: 12px; color: var(--ov-blue); margin-top: 12px; line-height: 1.8; }
+.obs-history-table { font-size: 11px; margin-top: 10px; }
+.obs-history-table summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--ov-ink); }
+.obs-history-table > div { max-height: 260px; overflow: auto; }
+.obs-history-table table { width: 100%; border-collapse: collapse; }
+.obs-history-table :is(th,td) { padding: 8px 3px; border-bottom: 1px solid var(--ov-line); text-align: left; font-weight: 400; }
+.obs-history-table :is(th,td):last-child { text-align: right; }
+.obs-water-history.is-still .bf-chart-line { animation: none; stroke-dasharray: none; }
+[data-theme="dark"] .obs-air-panel { --ov-ink: #e5edf5; --ov-muted: #aabacb; --ov-line: #35485c; --ov-accent: #60deb0; --ov-surface: #152435; --ov-sky: #183148; --ov-danger: #ffa2aa; }
+[data-theme="dark"] .obs-depth-flood { --depth-ink: #ffa2aa; }
+[data-theme="dark"] .obs-depth-minor { --depth-ink: #f4cc8a; }
+@media (max-width:700px) {
+  .bf-overview .obs-current-air :is(.obs-source-line,.obs-forecast-comparison) { grid-column: 1 / -1; }
+  .obs-air-panel { grid-template-columns: 1fr; }
+  .obs-air-current,.obs-air-stations { padding: 20px; }
+  .obs-air-stations > a { min-height: 68px; }
+  .obs-road-summary > div { padding: 14px 12px; }
+  .obs-road-summary span { font-size: 10px; display: block; }
+  .obs-road-summary b { font-size: 30px; }
+  .obs-road-summary small { font-size: 10px; padding-left: 5px; }
+  .obs-road-toolbar input[type="search"] { width: 100%; margin-left: 0; font-size: 16px; }
+  .obs-road-list { grid-template-columns: 1fr; }
+  .obs-road-place b { font-size: 12px; }
+  .obs-road-value b { font-size: 23px; }
+}

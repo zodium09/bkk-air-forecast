@@ -1,4 +1,5 @@
 import { provinces, type ProvinceId, type RegionId } from "./provinces.ts";
+import { observationAge } from "./observation-time.ts";
 
 export const WATER_SOURCE_PAGE = "https://www.thaiwater.net/water";
 export const WATER_SOURCE_API = "https://api-v3.thaiwater.net/api/v1/thaiwater30/public/waterlevel_load";
@@ -74,6 +75,14 @@ export function waterStationsForArea(stations: WaterStation[], region: RegionId,
   return stations.filter((station) => region === "metro" || station.provinceId === region).map((station) => ({ ...station, distanceKm: place ? Math.hypot((station.lat - place.lat) * 111, (station.lng - place.lng) * 108) : null })).sort((a, b) => {
     const rank = { fresh: 0, stale: 1, unavailable: 2 };
     return rank[a.status] - rank[b.status] || (place ? a.distanceKm! - b.distanceKm! : a.name.localeCompare(b.name, "th"));
+  });
+}
+
+export function currentWaterStations(stations: WaterStation[], now = Date.now()) {
+  return stations.map(station => {
+    const ageMinutes = observationAge(station.observedAt, now);
+    const value = ageMinutes === null || ageMinutes > 1440 ? null : station.value;
+    return { ...station, value, ageMinutes, status: value === null ? "unavailable" as const : ageMinutes! <= 60 ? "fresh" as const : "stale" as const };
   });
 }
 

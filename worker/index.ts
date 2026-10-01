@@ -2,6 +2,8 @@
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
 import { getRegion } from "../app/lib/provinces";
+import { setObservationRuntime, getWaterHistoryStore, type ObservationDatabase } from "../app/lib/water-history-store";
+import { collectWaterObservations } from "../app/lib/collect-water-observations";
 
 interface Env {
   ASSETS: Fetcher;
@@ -106,6 +108,7 @@ async function fetchWithEdgeCache(request: Request, env: Env, ctx: ExecutionCont
 
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    setObservationRuntime(env.DB as unknown as ObservationDatabase | undefined);
     const url = new URL(request.url);
 
     if (url.pathname === "/_vinext/image") {
@@ -120,6 +123,12 @@ const worker = {
     }
 
     return fetchWithEdgeCache(request, env, ctx);
+  },
+  async scheduled(_controller: unknown, env: Env, ctx: ExecutionContext) {
+    setObservationRuntime(env.DB as unknown as ObservationDatabase | undefined);
+    const store = getWaterHistoryStore();
+    if (!store) throw new Error("Water observation archive requires the DB binding");
+    ctx.waitUntil(collectWaterObservations(store));
   },
 };
 

@@ -42,6 +42,7 @@ yarn-error.log*
 /.wrangler/
 /outputs/
 /work/
+/.data/
 /app/backup/
 *.bak
 *.tsbuildinfo

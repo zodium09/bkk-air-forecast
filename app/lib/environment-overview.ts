@@ -10,7 +10,12 @@ export function dailyIndex(data: MapDataset | null, date: string) {
 
 export function overviewValue(data: MapDataset | null, date: string, metric: Metric, place: MapPlace | null = null, boundary: MapBoundary | null = null) {
   const index = dailyIndex(data, date);
-  if (!data || index < 0) return null;
+  return overviewStepValue(data, index, metric, place, boundary);
+}
+
+/** Shared current-period reading. A missing period never becomes a zero. */
+export function overviewStepValue(data: MapDataset | null, index: number, metric: Metric, place: MapPlace | null = null, boundary: MapBoundary | null = null) {
+  if (!data || data.status === "unavailable" || index < 0 || !data.steps[index]) return null;
   if (!place) return average(data.points.map((point) => pointValue(point, index, metric)));
   if (!boundary || !boundaryContains(boundary, place.lat, place.lng)) return null;
   if (data.valueMethod === "provider") {

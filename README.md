@@ -10,7 +10,7 @@ BKK Air Forecast is a Bangkok-metropolitan web application for viewing seven-day
 - Named-area watch lists for PM2.5, rain and heat forecast signals, with actual period, source status and direct map selection
 - On-demand search, settings, trends and location details, shown beside the desktop map or as separate mobile views
 
-- Map-first interactive dashboard at `/`, with visible province/provider filters, date/time selectors, keyboard playback controls, and linked daily/three-hour trend charts; mobile places map and time controls before analytics
+- Chart-first overview at `/` with current readings, seven-day trends, concise summaries and animated graphics; dedicated `/air`, `/rain` and `/heat` briefings lead into geographic exploration
 
 - Seven-day PM2.5 outlook with Bangkok station observations, province model grids, and spatial IDW surfaces
 - Rain outlook split into a chance mode (TMD-assisted 0–48 hours or Open-Meteo 7 days) and a 24-hour accumulation mode (TMD Daily or Open-Meteo 7 days)
@@ -40,7 +40,19 @@ The response retains the provider's actual grid center separately from the reque
 
 Specialist pages under `/advanced` retain their raster surfaces and radar tools. Generated PM2.5 surfaces are cached by day, station-data version, and boundary version. Rain surfaces use a 24-entry LRU-style cache keyed by day, 3-hour window, metric, data version, and boundary version. Daily rain-chance summaries use each point's maximum probability during the day and then average those point values across the selected area. Three-hour summaries similarly average each point's peak probability within that window.
 
-The default metropolitan views call one consolidated forecast endpoint and one consolidated boundary endpoint instead of six province endpoints. Successful public-data responses are stored in Cloudflare Cache API with normalized cache keys: PM2.5 for 10 minutes, direct rain places for up to two hours (capped at midnight), specialist rain for 30 minutes, radar for 5 minutes, and boundaries for 7 days. Client-generated refresh values are excluded from cache keys, and Air4Thai downloads are deduplicated within each metropolitan refresh. This design requires no D1, KV, R2, or paid add-on.
+The default metropolitan views call one consolidated forecast endpoint and one consolidated boundary endpoint instead of six province endpoints. Successful public-data responses are stored in Cloudflare Cache API with normalized cache keys: PM2.5 for 10 minutes, direct rain places for up to two hours (capped at midnight), specialist rain for 30 minutes, radar for 5 minutes, and boundaries for 7 days. Client-generated refresh values are excluded from cache keys, and Air4Thai downloads are deduplicated within each metropolitan refresh. Forecast delivery requires no persistent database. The water observation archive uses local daily journals in Next.js or the `DB` D1 binding in Cloudflare Workers.
+
+## Current observations and water history
+
+`/api/air-observations` reads AirBKK and Air4Thai independently of the PM forecast model. Fresh readings are at most 90 minutes old. The overview summarizes one compatible agency/averaging-period group; a selected place shows an actual nearby station within 30 km. The source payload does not declare the averaging period, so the UI makes that limitation explicit and does not infer an hourly health category.
+
+`/api/road-floods` reads BMA road and tunnel sensors, retains the published classification and centimetre depth, and excludes broken or older-than-30-minute sensors from current summaries. Coverage is Bangkok only. Road measurements, waterway levels and forecasts remain separate.
+
+Visible pages refresh every five minutes and at Bangkok midnight; hidden pages pause fetching and catch up when shown. Existing readings remain visible during refresh with their original timestamps, and freshness is reassessed against the clock.
+
+For local durable collection, run `npm run collect:observations -- --watch` alongside the app. This saves actual ThaiWater observations every five minutes to ignored `.data/water-history/` journals. History survives app restarts, keeps up to 90 days, deduplicates station/datum/timestamp, and never invents earlier samples. The UI exposes 24/72-hour charts, exact values and changes only when recent samples support them.
+
+The Cloudflare entry point includes a five-minute scheduled collector, the `DB` D1 binding and migration `drizzle/0000_last_proemial_gods.sql`. Cloud collection requires deployment with the binding and scheduled trigger; configuring source files alone does not start a cloud collector. Current water readings still work if archive storage is unavailable.
 
 ## Data Sources
 

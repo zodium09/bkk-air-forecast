@@ -6,7 +6,7 @@ product
 
 ## Users
 
-People who live, commute, work, study, or plan outdoor activity in Bangkok and its five surrounding metropolitan provinces and need a quick, location-aware view of PM2.5 and rain conditions over the next seven days. Their primary job is to understand where and when conditions may worsen, while being able to distinguish observations, model forecasts, spatial estimates, and degraded data.
+People who live, commute, work, study, or plan outdoor activity in Bangkok and its five surrounding metropolitan provinces and need a quick, location-aware view of PM2.5, rain and heat forecasts, plus the latest water observations. Their primary job is to understand current conditions and the next seven days, while being able to distinguish observations, model forecasts, spatial estimates, and degraded data.
 
 ## Product Purpose
 

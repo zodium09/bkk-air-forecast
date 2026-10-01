@@ -214,6 +214,18 @@ components:
 
 # Design System: BKK Air Forecast
 
+## October 1, 2026 briefing revision
+
+This revision prioritizes the current environmental briefing, three numeric summaries with daily mini charts, planning signals and the seven-day outlook. Personal-area selection, geographic exploration and current water observations follow. The canvas is pale blue (`#f7faff`) with teal air charts (`#00866b`), blue rain charts (`#2679d6`) and amber heat charts (`#be531e`). Saved light/dark preferences remain supported. These changes supersede the older layout descriptions below.
+
+- `/` provides the overview; `/rain` combines rainfall forecasts and current canal/river observations; `/air` focuses on PM2.5; `/heat` exposes air temperature and heat index through visible metric controls. Topic routes show a written verdict, exact source period, numeric reading, interactive chart, time controls and then the map. Advanced routes and forecast methods remain available.
+- The default follows the Bangkok clock, including hourly rain and heat where supplied. PM2.5 keeps its daily cadence and explicitly labels the nearest available forecast when today's period is absent. Choosing a day switches to daily aggregates; choosing a rain-chart hour uses that exact date/hour across supported feeds. Topic links retain deliberate selections; default links continue following the clock. A visible return-to-current-time control restores this behavior.
+- Mini charts and the seven-day infographic remain daily, even when the numeric briefing shows an hourly period. Missing periods stay missing; valid zero remains zero. Chart axes include zero. Water measurements always retain their station time, independently of the forecast selector.
+- Source changes animate a short chart draw/bar rise and numeric transition. Inspection moves the cursor without replaying chart entry motion. Existing water diagrams animate when the station changes. Reduced motion removes these spatial effects. Time-strip selection scrolls only its horizontal container, preserving the user's vertical reading position.
+- Shared implementation: `briefing-chart.tsx`, `topic-briefing.tsx`, `briefing.css`, and the current-period value helper in `app/lib/environment-overview.ts`. Isolated browser fixtures live only in ignored `output/playwright/`; production routes retain real provider data and explicit failure states.
+
+Validation: Next.js and Cloudflare production builds, lint and TypeScript checks pass. All 115 unit checks and 30 rendered-route checks pass. Browser review covers desktop and 390px mobile layouts, light/dark themes, chart time selection, current-time reset, temperature switching and water station presentation. The live preview was also checked against the real forecast providers.
+
 ## Overview
 
 **Creative North Star: "The Public Environmental Briefing"**

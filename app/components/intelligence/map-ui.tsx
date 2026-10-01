@@ -72,6 +72,7 @@ export function goToStory(id: string) {
 
 export function MapIcon({ name, size = 20 }: { name: string; size?: number }) {
   const paths: Record<string, ReactNode> = {
+    clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
     map: (
       <>
         <path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3Z" />
@@ -172,7 +173,7 @@ export function LayerSwitcher({
         >
           <MapIcon name={item} />
           <span>
-            {item === "air" ? "PM2.5" : item === "rain" ? "ฝน" : "ร้อน"}
+            {item === "air" ? "ฝุ่น PM2.5" : item === "rain" ? "ฝน / น้ำ" : "อุณหภูมิ"}
             <small>
               {item === "air" ? "คุณภาพอากาศ" : layerInfo[item].thai}
             </small>

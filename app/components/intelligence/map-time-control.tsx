@@ -22,8 +22,14 @@ export default function MapTimeControl({ data, index, onChange, playing, onPlay,
   const observed = mode === "observation";
   useEffect(() => {
     if (current?.startHour !== undefined) lastHour.current = current.startHour;
-    root.current?.querySelector<HTMLElement>('.mf-periods [aria-pressed="true"]')?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" });
-    root.current?.querySelector<HTMLElement>('.mf-dates [aria-pressed="true"]')?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" });
+    for (const selector of ['.mf-periods [aria-pressed="true"]', '.mf-dates [aria-pressed="true"]']) {
+      const item = root.current?.querySelector<HTMLElement>(selector);
+      const container = item?.parentElement;
+      if (!item || !container) continue;
+      const frame = container.getBoundingClientRect(), bounds = item.getBoundingClientRect();
+      const distance = bounds.left < frame.left ? bounds.left - frame.left : bounds.right > frame.right ? bounds.right - frame.right : 0;
+      if (distance) container.scrollBy({ left: distance, behavior: "instant" });
+    }
   }, [index, current?.startHour]);
   return <div ref={root} className="mf-time" aria-label="ควบคุมวันและเวลาบนแผนที่">
     <div className="mf-date-row">

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { chartScale, dailyIndex, overviewDates, overviewValue, sourceState } from "../../app/lib/environment-overview.ts";
+import { chartScale, dailyIndex, overviewDates, overviewValue, overviewStepValue, sourceState } from "../../app/lib/environment-overview.ts";
+import { currentForecastIndex } from "../../app/lib/dashboard-controls.ts";
 
 const date = "2026-10-01";
 const day = { key: `${date}:day`, date, window: null, cadence: "day" };
@@ -15,6 +16,23 @@ test("overview uses the exact daily date, never an hourly value or a neighboring
   assert.equal(overviewValue(data, "2026-10-02", "secondary"), null);
   assert.equal(overviewValue({ ...data, steps: [hour] }, date, "secondary"), null);
   assert.equal(overviewValue({ ...data, status: "unavailable" }, date, "secondary"), null);
+});
+
+test("a current overview follows Bangkok's containing hour, while daily charts keep daily totals", () => {
+  const timed = { ...data, steps: [{ ...hour, startHour: 6, endHour: 7 }, day] };
+  const current = currentForecastIndex(timed.steps, new Date("2026-09-30T23:35:00Z"));
+  assert.equal(current, 0);
+  assert.equal(overviewStepValue(timed, current, "secondary"), 6);
+  assert.equal(overviewStepValue(timed, current, "secondary", place, boundary), 4);
+  assert.equal(overviewValue(timed, date, "secondary"), 0);
+  assert.equal(overviewStepValue({ ...timed, status: "unavailable" }, current, "secondary"), null);
+});
+
+test("current-period missing values and unsupported coordinates remain missing", () => {
+  assert.equal(overviewStepValue(data, -1, "secondary"), null);
+  assert.equal(overviewStepValue(data, 8, "secondary"), null);
+  assert.equal(overviewStepValue(data, 0, "secondary", { ...place, lat: 13.751 }, boundary), null);
+  assert.equal(overviewStepValue({ ...data, points: data.points.map(point => ({ ...point, secondary: [null, 0] })) }, 0, "secondary"), null);
 });
 
 test("a personal rain reading needs matching provider coordinates, identity and supported geography", () => {
