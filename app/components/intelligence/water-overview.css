@@ -1,0 +1,96 @@
+.ov-water-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
+.ov-water-toolbar > p { color: var(--ov-muted); font-size: 11px; }
+.ov-motion-control { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; color: var(--ov-blue); font-size: 12px; margin-left: auto; }
+.ov-motion-control:hover { text-decoration: underline; text-underline-offset: 4px; }
+.ov-water-notice { display: flex; align-items: center; gap: 13px; padding: 18px 0; margin-bottom: 24px; border-top: 1px solid var(--ov-line); border-bottom: 1px solid var(--ov-line); }
+.ov-water-notice > svg { color: var(--risk-ink); flex: none; }
+.ov-water-notice > div { flex: 1; }
+.ov-water-notice h3 { font-size: 16px; font-weight: 500; color: var(--risk-ink); }
+.ov-water-notice p { font-size: 11px; color: var(--ov-muted); margin-top: 5px !important; line-height: 1.8; }
+.ov-water-notice button { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 7px 12px; font-size: 12px; color: var(--ov-blue); border: 1px solid var(--ov-line); border-radius: 7px; }
+.ov-water-notice button[aria-pressed="true"] { background: var(--ov-sky); }
+.ov-water-tabs { display: flex; gap: 6px; }
+.ov-water-tabs button { padding: 7px 18px; border-radius: 99px; min-height: 44px; border: 1px solid var(--ov-line); font-size: 13px; }
+.ov-water-tabs button[aria-pressed="true"] { background: var(--ov-blue); color: var(--ov-paper); border-color: var(--ov-blue); }
+.ov-water-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 42px; }
+.ov-water-stations label { font-size: 12px; font-weight: 500; display: block; }
+.ov-water-stations select { display: block; width: 100%; min-height: 48px; margin-top: 7px; padding: 10px 12px; border: 1px solid var(--ov-line); background: var(--ov-surface); color: var(--ov-ink); border-radius: 7px; font-size: 14px; text-overflow: ellipsis; }
+.ov-water-nearby { font-size: 11px; color: var(--ov-muted); margin-top: 12px !important; }
+.ov-water-list { margin-top: 17px; }
+.ov-water-list button { display: flex; justify-content: space-between; gap: 15px; align-items: center; width: 100%; padding: 13px 12px; border-bottom: 1px solid var(--ov-line); text-align: left; min-height: 72px; border-radius: 7px; }
+.ov-water-list button:hover { background: var(--ov-sky); }
+.ov-water-list button[aria-pressed="true"] { background: var(--ov-sky); box-shadow: inset 0 0 0 1px var(--ov-blue); }
+.ov-water-list b { display: block; font-size: 13px; font-weight: 500; }
+.ov-water-list small { display: block; font: 400 11px/1.7 "IBM Plex Sans Thai", sans-serif; color: var(--ov-muted); }
+.ov-water-row-status { display: flex; align-items: center; gap: 6px; font: 400 11px/1.7 "IBM Plex Sans Thai", sans-serif; color: var(--risk-ink); margin-top: 4px; }
+.ov-water-row-status i { width: 7px; height: 7px; border-radius: 50%; background: var(--risk-fill); flex: none; }
+.ov-water-list button > span:last-child { text-align: right; flex: none; font: 600 22px/1.4 "Manrope", sans-serif; font-variant-numeric: tabular-nums; }
+.ov-water-detail { align-self: start; background: var(--ov-sky); border-radius: 16px; padding: 26px 30px; }
+.ov-water-detail:focus-visible { outline: 3px solid var(--ov-accent); outline-offset: 4px; }
+.ov-water-status { display: block; color: var(--ov-blue); font-size: 12px; margin: 6px 0 4px; }
+.ov-water-detail h3 { font-size: 23px; font-weight: 500; margin: 0; }
+.ov-water-detail > p { font-size: 12px; color: var(--ov-muted); }
+.ov-water-number { display: flex; gap: 12px; align-items: baseline; margin: 18px 0 9px; font: 600 48px/1.4 "Manrope", sans-serif; font-variant-numeric: tabular-nums; }
+.ov-water-number small { color: var(--ov-muted); font: 400 13px "IBM Plex Sans Thai", sans-serif; }
+.ov-water-evidence { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 22px; }
+.ov-water-capacity { margin-left: auto; padding-top: 7px; }
+.ov-water-capacity b { display: block; color: var(--risk-ink); font: 600 28px/1.5 "Manrope", sans-serif; font-variant-numeric: tabular-nums; }
+.ov-water-capacity small { color: var(--ov-muted); font-size: 10px; }
+.ov-water-risk-label { display: flex; align-items: center; gap: 8px; color: var(--risk-ink); margin: 10px 0 7px; }
+.ov-water-risk-label b { font-weight: 500; font-size: 15px; }
+.ov-water-detail .ov-water-risk-message { color: var(--risk-ink); font-size: 12px; margin-bottom: 15px; line-height: 1.8; }
+.ov-water-figure { margin: 23px 0 16px; }
+.ov-water-diagram { display: block; width: 100%; max-width: 450px; height: auto; overflow: visible; }
+.ov-water-column { fill: var(--ov-surface); }
+.ov-water-fill { fill: var(--risk-fill); animation: ov-water-rise .65s cubic-bezier(.16,1,.3,1) both; }
+.ov-water-surface { stroke: var(--risk-ink); stroke-width: 2; fill: none; stroke-dasharray: 220; animation: ov-water-sweep .9s cubic-bezier(.16,1,.3,1) both; }
+.ov-water-bank-line { stroke: var(--ov-ink); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.ov-water-bed-line { stroke: var(--ov-muted); stroke-width: 2; }
+.ov-water-diagram text { fill: var(--ov-muted); font: 11px "IBM Plex Sans Thai", sans-serif; }
+.ov-water-diagram .ov-water-diagram-value { fill: var(--ov-ink); font: 600 12px "Manrope", sans-serif; }
+.ov-water-figure figcaption { display: flex; align-items: baseline; gap: 6px; font-size: 10px; color: var(--ov-muted); }
+.ov-water-figure figcaption i { width: 7px; height: 7px; background: var(--risk-fill); border-radius: 50%; flex: none; }
+.ov-water-figure.is-still .ov-water-fill, .ov-water-figure.is-still .ov-water-surface { animation: none; }
+.ov-water-risk-guide { margin-top: 23px; color: var(--ov-muted); font-size: 11px; }
+.ov-water-risk-guide summary { display: flex; align-items: center; justify-content: space-between; min-height: 44px; cursor: pointer; list-style: none; color: var(--ov-ink); }
+.ov-water-risk-guide summary::-webkit-details-marker { display: none; }
+.ov-water-risk-guide[open] summary svg { transform: rotate(180deg); }
+.ov-water-risk-guide p { line-height: 1.8; margin-top: 12px !important; }
+.ov-water-risk-guide a { text-decoration: underline; text-underline-offset: 4px; color: var(--ov-blue); }
+.ov-water-band-key { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 15px; margin-top: 13px; }
+.ov-water-band-key i { display: block; height: 6px; border-radius: 3px; background: var(--risk-fill); margin-bottom: 8px; }
+.ov-water-band-key b, .ov-water-band-key span { display: block; font-size: 11px; font-weight: 400; }
+@keyframes ov-water-rise { from { clip-path: inset(100% 0 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes ov-water-sweep { from { stroke-dashoffset: 220; } to { stroke-dashoffset: 0; } }
+.ov-water-detail .ov-water-bank { font-size: 13px; color: var(--ov-ink); }
+.ov-water-detail .ov-water-bank.is-above { color: var(--ov-danger); }
+.ov-water-scale { width: 100%; max-width: 400px; height: auto; margin: 28px 0 14px; overflow: visible; }
+.ov-water-scale text { fill: var(--ov-muted); font: 11px "IBM Plex Sans Thai", sans-serif; }
+.ov-water-scale .ov-water-scale-value { fill: var(--ov-ink); font: 600 12px "Manrope", sans-serif; }
+.ov-water-zero { stroke: var(--ov-muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.ov-water-scale-empty { padding: 25px 0; color: var(--ov-muted); font-size: 12px; }
+.ov-water-time { margin-bottom: 9px !important; line-height: 1.9; }
+.ov-water-notes { margin-top: 24px; font-size: 11px; color: var(--ov-muted); line-height: 1.9; max-width: 95ch; }
+.ov-water-notes > div { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 10px; }
+.ov-water-notes a { color: var(--ov-blue); display: inline-flex; align-items: center; gap: 8px; min-height: 44px; }
+.ov-water-notes a:hover { text-decoration: underline; text-underline-offset: 4px; }
+@media (max-width: 780px) {
+  .ov-water-layout { grid-template-columns: 1fr; gap: 25px; }
+  .ov-water-stations select { font-size: 16px; }
+  .ov-water-detail { padding: 22px 20px; }
+  .ov-water-toolbar { gap: 12px; }
+  .ov-water-detail h3 { font-size: 21px; }
+  .ov-water-list button:nth-child(n+4) { display: none; }
+  .ov-water-notes > div { gap: 0; }
+  .ov-water-notice { align-items: flex-start; flex-wrap: wrap; }
+  .ov-water-notice > div { min-width: 200px; }
+  .ov-water-notice button { margin-left: 35px; }
+  .ov-water-toolbar > p { width: 100%; }
+  .ov-motion-control { margin-left: 0; }
+  .ov-water-evidence { gap: 0 15px; }
+  .ov-water-number { font-size: 43px; }
+  .ov-water-capacity { margin-left: 0; }
+  .ov-water-capacity b { font-size: 25px; }
+  .ov-water-band-key { grid-template-columns: repeat(3,minmax(0,1fr)); }
+}
+@media (prefers-reduced-motion: reduce) { .ov-water-fill, .ov-water-surface { animation: none; } }

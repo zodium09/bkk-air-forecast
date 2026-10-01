@@ -1,0 +1,55 @@
+.ov-risk--1 { --risk-ink: var(--ov-muted); --risk-surface: var(--ov-sky); }
+.ov-risk-0 { --risk-ink: var(--ov-accent); --risk-surface: var(--ov-air-tint); }
+.ov-risk-1 { --risk-ink: var(--ov-watch); --risk-surface: var(--ov-heat-tint); }
+.ov-risk-2 { --risk-ink: var(--ov-heat); --risk-surface: var(--ov-heat-tint); }
+.ov-risk-3 { --risk-ink: var(--ov-danger); --risk-surface: var(--ov-heat-tint); }
+.ov-risk-meter { margin-top: 18px; }
+.ov-risk-meter-label { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 11px; color: var(--ov-muted); }
+.ov-risk-meter-label b { color: var(--risk-ink); font-size: 13px; font-weight: 500; }
+.ov-risk-steps { display: flex; gap: 5px; margin-top: 9px; }
+.ov-risk-steps > span { flex: 1; min-width: 0; }
+.ov-risk-steps i { display: block; height: 7px; border-radius: 3px; background: var(--ov-line); transition: background .18s; }
+.ov-risk-steps .is-current i { background: var(--risk-fill); box-shadow: 0 0 0 1px var(--ov-ink); }
+.ov-risk-steps small { display: block; font-size: 10px; color: var(--ov-muted); text-align: center; margin-top: 6px; }
+.ov-risk-steps .is-current small { color: var(--ov-ink); font-weight: 500; }
+.ov-risk-meter.is-compact { max-width: 285px; margin-top: 12px; }
+.ov-risk-summary { padding: 27px 30px 23px; background: var(--risk-surface); border-radius: 16px; margin: 0 0 38px; }
+.ov-risk-summary-heading { display: flex; align-items: center; gap: 13px; }
+.ov-risk-summary-symbol { display: grid; place-items: center; width: 48px; height: 48px; background: var(--ov-surface); border-radius: 12px; flex: none; color: var(--risk-ink); }
+.ov-risk-summary-heading h2 { font-size: 22px; font-weight: 500; }
+.ov-risk-summary-heading p { font-size: 11px; color: var(--ov-muted); margin-top: 4px; }
+.ov-risk-summary-count { margin-left: auto; color: var(--ov-muted); font-size: 11px; }
+.ov-risk-summary-lead { font-size: 16px; color: var(--risk-ink); font-weight: 500; margin: 19px 0 10px !important; }
+.ov-risk-signal-list { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); column-gap: 27px; }
+.ov-risk-signal-list a { display: flex; align-items: flex-start; gap: 9px; min-width: 0; padding: 16px 0; border-top: 1px solid var(--ov-line); }
+.ov-risk-signal-list a > svg { flex: none; color: var(--risk-ink); margin-top: 2px; }
+.ov-risk-signal-list a > span { min-width: 0; }
+.ov-risk-signal-list b { font-size: 13px; font-weight: 500; }
+.ov-risk-signal-list small { display: block; font-size: 11px; color: var(--ov-muted); margin-top: 5px; line-height: 1.75; }
+.ov-risk-signal-list strong { display: inline-flex; gap: 6px; align-items: center; flex: none; font-size: 11px; color: var(--risk-ink); font-weight: 500; margin-left: auto; white-space: nowrap; }
+.ov-risk-signal-list a:hover b { text-decoration: underline; text-underline-offset: 4px; }
+.ov-risk-summary-note { font-size: 11px; color: var(--ov-muted); line-height: 1.8; max-width: 100ch; margin-top: 5px !important; }
+.ov-risk-guide { margin-top: 12px; font-size: 11px; color: var(--ov-muted); }
+.ov-risk-guide summary { display: inline-flex; align-items: center; gap: 9px; min-height: 44px; cursor: pointer; color: var(--ov-ink); list-style: none; }
+.ov-risk-guide summary::-webkit-details-marker { display: none; }
+.ov-risk-guide[open] summary svg { transform: rotate(180deg); }
+.ov-risk-guide ul { padding-left: 19px; line-height: 1.9; }
+.ov-risk-guide p { margin-top: 8px !important; }
+.ov-chart-day .ov-chart-bar, .ov-chart-day.is-active .ov-chart-bar { background: var(--risk-fill); transition: background .18s; }
+.ov-chart-day.is-active .ov-chart-bar { box-shadow: 0 0 0 2px var(--ov-ink); }
+.ov-chart-day.is-active .ov-chart-bar > svg { color: var(--ov-ink); }
+.ov-chart-risk-key { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 9px; color: var(--ov-muted); font-size: 11px; }
+.ov-chart-risk-key > span { display: inline-flex; gap: 6px; align-items: center; }
+.ov-chart-risk-key i { width: 9px; height: 9px; background: var(--risk-fill); border-radius: 3px; }
+@media (max-width: 1080px) { .ov-risk-signal-list { grid-template-columns: 1fr; } .ov-risk-signal-list small { max-width: 70ch; } }
+@media (max-width: 780px) {
+  .ov-risk-summary { padding: 22px 20px 15px; margin-bottom: 28px; }
+  .ov-risk-summary-heading { flex-wrap: wrap; gap: 10px; }
+  .ov-risk-summary-heading h2 { font-size: 20px; }
+  .ov-risk-summary-count { width: 100%; margin: 0 0 0 58px; }
+  .ov-risk-summary-lead { font-size: 14px; line-height: 1.8; }
+  .ov-risk-signal-list a { padding: 15px 0; }
+  .ov-risk-signal-list strong { font-size: 10px; }
+  .ov-risk-signal-list small { font-size: 11px; }
+}
+@media (prefers-reduced-motion: reduce) { .ov-risk-steps i, .ov-chart-day .ov-chart-bar { transition: none; } }

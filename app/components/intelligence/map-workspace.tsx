@@ -22,6 +22,7 @@ import "./map-workspace.css";
 import "./night-theme.css";
 import "./dashboard.css";
 import "./map-first.css";
+import "./briefing-workspace.css";
 
 type View = "map" | "watch" | "forecast" | "location" | "settings" | "search";
 const emptyPoints: MapPoint[] = [];
@@ -168,7 +169,7 @@ export default function MapWorkspace({ initialLayer = "air" }: { initialLayer?: 
         <a href="/" className="mf-brand" aria-label="BKK Air Forecast หน้าหลัก"><MapIcon name="map" size={23} /><span>BKK <b>AIR</b></span></a>
         <h1 className="mf-sr-only">แผนที่สิ่งแวดล้อมกรุงเทพฯ และปริมณฑล</h1>
         <LayerSwitcher layer={layer} onChange={changeLayer} />
-        <ThemeToggle />
+        <div className="mf-header-actions"><a className="mf-overview-link" href="/"><MapIcon name="arrow" size={16} />ภาพรวม</a><ThemeToggle /></div>
       </header>
       <div className="mf-context">
         <label className="mf-province"><MapIcon name="pin" size={17} /><select aria-label="กรองจังหวัด" value={province} onChange={(e) => { setProvince(e.target.value as RegionId); setSelected(null); setCompareKey(null); setPlaying(false); }}><option value="metro">กรุงเทพฯ–ปริมณฑล</option>{provinces.map((p) => <option key={p.id} value={p.id}>{p.nameTh}</option>)}</select></label>

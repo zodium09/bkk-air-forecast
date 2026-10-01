@@ -1,0 +1,1111 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-01T08:36:01.439Z",
+  "title": "Design System: BKK Air Forecast",
+  "extensions": {
+    "colorMeta": {
+      "briefing-emerald": {
+        "role": "primary",
+        "displayName": "Briefing Emerald",
+        "cssCustomProperty": "--ov-accent",
+        "tonalRamp": [
+          "oklch(15% 0.0319 164.06)",
+          "oklch(27% 0.0575 164.06)",
+          "oklch(38% 0.0809 164.06)",
+          "oklch(49% 0.1043 164.06)",
+          "oklch(61% 0.1112 164.06)",
+          "oklch(72% 0.1112 164.06)",
+          "oklch(83% 0.0756 164.06)",
+          "oklch(95% 0.0222 164.06)"
+        ]
+      },
+      "briefing-emerald-hover": {
+        "role": "primary",
+        "displayName": "Briefing Emerald Hover",
+        "tonalRamp": [
+          "oklch(15% 0.0322 163.38)",
+          "oklch(27% 0.0580 163.38)",
+          "oklch(38% 0.0817 163.38)",
+          "oklch(49% 0.0950 163.38)",
+          "oklch(61% 0.0950 163.38)",
+          "oklch(72% 0.0950 163.38)",
+          "oklch(83% 0.0646 163.38)",
+          "oklch(95% 0.0190 163.38)"
+        ]
+      },
+      "rain-blue": {
+        "role": "secondary",
+        "displayName": "Rain Blue",
+        "cssCustomProperty": "--ov-blue",
+        "tonalRamp": [
+          "oklch(15% 0.0578 258.87)",
+          "oklch(27% 0.1040 258.87)",
+          "oklch(38% 0.1464 258.87)",
+          "oklch(49% 0.1887 258.87)",
+          "oklch(61% 0.1965 258.87)",
+          "oklch(72% 0.1462 258.87)",
+          "oklch(83% 0.0850 258.87)",
+          "oklch(95% 0.0239 258.87)"
+        ]
+      },
+      "heat-orange": {
+        "role": "tertiary",
+        "displayName": "Heat Orange",
+        "cssCustomProperty": "--ov-heat",
+        "tonalRamp": [
+          "oklch(15% 0.0423 45.77)",
+          "oklch(27% 0.0762 45.77)",
+          "oklch(38% 0.1072 45.77)",
+          "oklch(49% 0.1383 45.77)",
+          "oklch(61% 0.1563 45.77)",
+          "oklch(72% 0.1563 45.77)",
+          "oklch(83% 0.1016 45.77)",
+          "oklch(95% 0.0270 45.77)"
+        ]
+      },
+      "watch-amber": {
+        "role": "tertiary",
+        "displayName": "Watch Amber",
+        "cssCustomProperty": "--ov-watch",
+        "tonalRamp": [
+          "oklch(15% 0.0337 64.80)",
+          "oklch(27% 0.0607 64.80)",
+          "oklch(38% 0.0854 64.80)",
+          "oklch(49% 0.1101 64.80)",
+          "oklch(61% 0.1140 64.80)",
+          "oklch(72% 0.1140 64.80)",
+          "oklch(83% 0.0775 64.80)",
+          "oklch(95% 0.0228 64.80)"
+        ]
+      },
+      "risk-red": {
+        "role": "tertiary",
+        "displayName": "Risk Red",
+        "cssCustomProperty": "--ov-danger",
+        "tonalRamp": [
+          "oklch(15% 0.0601 18.02)",
+          "oklch(27% 0.1082 18.02)",
+          "oklch(38% 0.1522 18.02)",
+          "oklch(49% 0.1765 18.02)",
+          "oklch(61% 0.1765 18.02)",
+          "oklch(72% 0.1754 18.02)",
+          "oklch(83% 0.0947 18.02)",
+          "oklch(95% 0.0249 18.02)"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "White Canvas",
+        "cssCustomProperty": "--ov-paper",
+        "tonalRamp": [
+          "oklch(15% 0.0000 0)",
+          "oklch(27% 0.0000 0)",
+          "oklch(38% 0.0000 0)",
+          "oklch(49% 0.0000 0)",
+          "oklch(61% 0.0000 0)",
+          "oklch(72% 0.0000 0)",
+          "oklch(83% 0.0000 0)",
+          "oklch(95% 0.0000 0)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "White Surface",
+        "cssCustomProperty": "--ov-surface",
+        "tonalRamp": [
+          "oklch(15% 0.0000 0)",
+          "oklch(27% 0.0000 0)",
+          "oklch(38% 0.0000 0)",
+          "oklch(49% 0.0000 0)",
+          "oklch(61% 0.0000 0)",
+          "oklch(72% 0.0000 0)",
+          "oklch(83% 0.0000 0)",
+          "oklch(95% 0.0000 0)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "cssCustomProperty": "--ov-ink",
+        "tonalRamp": [
+          "oklch(15% 0.0228 246.36)",
+          "oklch(27% 0.0411 246.36)",
+          "oklch(38% 0.0532 246.36)",
+          "oklch(49% 0.0532 246.36)",
+          "oklch(61% 0.0532 246.36)",
+          "oklch(72% 0.0532 246.36)",
+          "oklch(83% 0.0362 246.36)",
+          "oklch(95% 0.0106 246.36)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "cssCustomProperty": "--ov-muted",
+        "tonalRamp": [
+          "oklch(15% 0.0167 247.29)",
+          "oklch(27% 0.0301 247.29)",
+          "oklch(38% 0.0390 247.29)",
+          "oklch(49% 0.0390 247.29)",
+          "oklch(61% 0.0390 247.29)",
+          "oklch(72% 0.0390 247.29)",
+          "oklch(83% 0.0265 247.29)",
+          "oklch(95% 0.0078 247.29)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Line",
+        "cssCustomProperty": "--ov-line",
+        "tonalRamp": [
+          "oklch(15% 0.0070 245.10)",
+          "oklch(27% 0.0126 245.10)",
+          "oklch(38% 0.0163 245.10)",
+          "oklch(49% 0.0163 245.10)",
+          "oklch(61% 0.0163 245.10)",
+          "oklch(72% 0.0163 245.10)",
+          "oklch(83% 0.0111 245.10)",
+          "oklch(95% 0.0033 245.10)"
+        ]
+      },
+      "soft": {
+        "role": "neutral",
+        "displayName": "Emerald Soft",
+        "cssCustomProperty": "--ov-soft",
+        "tonalRamp": [
+          "oklch(15% 0.0096 164.53)",
+          "oklch(27% 0.0172 164.53)",
+          "oklch(38% 0.0223 164.53)",
+          "oklch(49% 0.0223 164.53)",
+          "oklch(61% 0.0223 164.53)",
+          "oklch(72% 0.0223 164.53)",
+          "oklch(83% 0.0152 164.53)",
+          "oklch(95% 0.0045 164.53)"
+        ]
+      },
+      "map-soft": {
+        "role": "neutral",
+        "displayName": "Map Soft",
+        "cssCustomProperty": "--mi-soft",
+        "tonalRamp": [
+          "oklch(15% 0.0066 247.99)",
+          "oklch(27% 0.0119 247.99)",
+          "oklch(38% 0.0154 247.99)",
+          "oklch(49% 0.0154 247.99)",
+          "oklch(61% 0.0154 247.99)",
+          "oklch(72% 0.0154 247.99)",
+          "oklch(83% 0.0105 247.99)",
+          "oklch(95% 0.0031 247.99)"
+        ]
+      },
+      "map-sky": {
+        "role": "neutral",
+        "displayName": "Map Sky",
+        "cssCustomProperty": "--ov-sky",
+        "tonalRamp": [
+          "oklch(15% 0.0066 247.99)",
+          "oklch(27% 0.0119 247.99)",
+          "oklch(38% 0.0154 247.99)",
+          "oklch(49% 0.0154 247.99)",
+          "oklch(61% 0.0154 247.99)",
+          "oklch(72% 0.0154 247.99)",
+          "oklch(83% 0.0105 247.99)",
+          "oklch(95% 0.0031 247.99)"
+        ]
+      },
+      "air-tint": {
+        "role": "neutral",
+        "displayName": "Air Tint",
+        "cssCustomProperty": "--ov-air-tint",
+        "tonalRamp": [
+          "oklch(15% 0.0088 161.49)",
+          "oklch(27% 0.0159 161.49)",
+          "oklch(38% 0.0206 161.49)",
+          "oklch(49% 0.0206 161.49)",
+          "oklch(61% 0.0206 161.49)",
+          "oklch(72% 0.0206 161.49)",
+          "oklch(83% 0.0140 161.49)",
+          "oklch(95% 0.0041 161.49)"
+        ]
+      },
+      "rain-tint": {
+        "role": "neutral",
+        "displayName": "Rain Tint",
+        "cssCustomProperty": "--ov-rain-tint",
+        "tonalRamp": [
+          "oklch(15% 0.0066 247.99)",
+          "oklch(27% 0.0119 247.99)",
+          "oklch(38% 0.0154 247.99)",
+          "oklch(49% 0.0154 247.99)",
+          "oklch(61% 0.0154 247.99)",
+          "oklch(72% 0.0154 247.99)",
+          "oklch(83% 0.0105 247.99)",
+          "oklch(95% 0.0031 247.99)"
+        ]
+      },
+      "heat-tint": {
+        "role": "neutral",
+        "displayName": "Heat Tint",
+        "cssCustomProperty": "--ov-heat-tint",
+        "tonalRamp": [
+          "oklch(15% 0.0106 75.28)",
+          "oklch(27% 0.0191 75.28)",
+          "oklch(38% 0.0248 75.28)",
+          "oklch(49% 0.0248 75.28)",
+          "oklch(61% 0.0248 75.28)",
+          "oklch(72% 0.0248 75.28)",
+          "oklch(83% 0.0168 75.28)",
+          "oklch(95% 0.0050 75.28)"
+        ]
+      },
+      "air-fill": {
+        "role": "primary",
+        "displayName": "Air Fill",
+        "cssCustomProperty": "--ov-air-fill",
+        "tonalRamp": [
+          "oklch(15% 0.0331 161.61)",
+          "oklch(27% 0.0596 161.61)",
+          "oklch(38% 0.0838 161.61)",
+          "oklch(49% 0.1081 161.61)",
+          "oklch(61% 0.1346 161.61)",
+          "oklch(72% 0.1420 161.61)",
+          "oklch(83% 0.0965 161.61)",
+          "oklch(95% 0.0284 161.61)"
+        ]
+      },
+      "rain-fill": {
+        "role": "secondary",
+        "displayName": "Rain Fill",
+        "cssCustomProperty": "--ov-rain-fill",
+        "tonalRamp": [
+          "oklch(15% 0.0518 256.32)",
+          "oklch(27% 0.0933 256.32)",
+          "oklch(38% 0.1313 256.32)",
+          "oklch(49% 0.1694 256.32)",
+          "oklch(61% 0.1808 256.32)",
+          "oklch(72% 0.1473 256.32)",
+          "oklch(83% 0.0857 256.32)",
+          "oklch(95% 0.0241 256.32)"
+        ]
+      },
+      "heat-fill": {
+        "role": "tertiary",
+        "displayName": "Heat Fill",
+        "cssCustomProperty": "--ov-heat-fill",
+        "tonalRamp": [
+          "oklch(15% 0.0355 59.13)",
+          "oklch(27% 0.0639 59.13)",
+          "oklch(38% 0.0899 59.13)",
+          "oklch(49% 0.1159 59.13)",
+          "oklch(61% 0.1443 59.13)",
+          "oklch(72% 0.1660 59.13)",
+          "oklch(83% 0.1129 59.13)",
+          "oklch(95% 0.0309 59.13)"
+        ]
+      },
+      "dark-paper": {
+        "role": "neutral",
+        "displayName": "Dark Paper",
+        "cssCustomProperty": "--ov-paper",
+        "tonalRamp": [
+          "oklch(15% 0.0121 238.87)",
+          "oklch(27% 0.0218 238.87)",
+          "oklch(38% 0.0283 238.87)",
+          "oklch(49% 0.0283 238.87)",
+          "oklch(61% 0.0283 238.87)",
+          "oklch(72% 0.0283 238.87)",
+          "oklch(83% 0.0192 238.87)",
+          "oklch(95% 0.0057 238.87)"
+        ]
+      },
+      "dark-surface": {
+        "role": "neutral",
+        "displayName": "Dark Surface",
+        "cssCustomProperty": "--ov-surface",
+        "tonalRamp": [
+          "oklch(15% 0.0135 227.34)",
+          "oklch(27% 0.0244 227.34)",
+          "oklch(38% 0.0316 227.34)",
+          "oklch(49% 0.0316 227.34)",
+          "oklch(61% 0.0316 227.34)",
+          "oklch(72% 0.0316 227.34)",
+          "oklch(83% 0.0215 227.34)",
+          "oklch(95% 0.0063 227.34)"
+        ]
+      },
+      "dark-ink": {
+        "role": "neutral",
+        "displayName": "Dark Ink",
+        "cssCustomProperty": "--ov-ink",
+        "tonalRamp": [
+          "oklch(15% 0.0040 171.80)",
+          "oklch(27% 0.0072 171.80)",
+          "oklch(38% 0.0093 171.80)",
+          "oklch(49% 0.0093 171.80)",
+          "oklch(61% 0.0093 171.80)",
+          "oklch(72% 0.0093 171.80)",
+          "oklch(83% 0.0064 171.80)",
+          "oklch(95% 0.0019 171.80)"
+        ]
+      },
+      "dark-muted": {
+        "role": "neutral",
+        "displayName": "Dark Muted",
+        "cssCustomProperty": "--ov-muted",
+        "tonalRamp": [
+          "oklch(15% 0.0108 193.46)",
+          "oklch(27% 0.0194 193.46)",
+          "oklch(38% 0.0251 193.46)",
+          "oklch(49% 0.0251 193.46)",
+          "oklch(61% 0.0251 193.46)",
+          "oklch(72% 0.0251 193.46)",
+          "oklch(83% 0.0171 193.46)",
+          "oklch(95% 0.0050 193.46)"
+        ]
+      },
+      "dark-line": {
+        "role": "neutral",
+        "displayName": "Dark Line",
+        "cssCustomProperty": "--ov-line",
+        "tonalRamp": [
+          "oklch(15% 0.0139 220.69)",
+          "oklch(27% 0.0250 220.69)",
+          "oklch(38% 0.0325 220.69)",
+          "oklch(49% 0.0325 220.69)",
+          "oklch(61% 0.0325 220.69)",
+          "oklch(72% 0.0325 220.69)",
+          "oklch(83% 0.0221 220.69)",
+          "oklch(95% 0.0065 220.69)"
+        ]
+      },
+      "dark-soft": {
+        "role": "neutral",
+        "displayName": "Dark Emerald Soft",
+        "cssCustomProperty": "--ov-soft",
+        "tonalRamp": [
+          "oklch(15% 0.0205 175.99)",
+          "oklch(27% 0.0369 175.99)",
+          "oklch(38% 0.0478 175.99)",
+          "oklch(49% 0.0478 175.99)",
+          "oklch(61% 0.0478 175.99)",
+          "oklch(72% 0.0478 175.99)",
+          "oklch(83% 0.0325 175.99)",
+          "oklch(95% 0.0096 175.99)"
+        ]
+      },
+      "dark-map-soft": {
+        "role": "neutral",
+        "displayName": "Dark Map Soft",
+        "cssCustomProperty": "--mi-soft",
+        "tonalRamp": [
+          "oklch(15% 0.0139 218.55)",
+          "oklch(27% 0.0250 218.55)",
+          "oklch(38% 0.0325 218.55)",
+          "oklch(49% 0.0325 218.55)",
+          "oklch(61% 0.0325 218.55)",
+          "oklch(72% 0.0325 218.55)",
+          "oklch(83% 0.0221 218.55)",
+          "oklch(95% 0.0065 218.55)"
+        ]
+      },
+      "dark-emerald": {
+        "role": "primary",
+        "displayName": "Dark Emerald",
+        "cssCustomProperty": "--ov-accent",
+        "tonalRamp": [
+          "oklch(15% 0.0288 173.02)",
+          "oklch(27% 0.0518 173.02)",
+          "oklch(38% 0.0730 173.02)",
+          "oklch(49% 0.0941 173.02)",
+          "oklch(61% 0.1098 173.02)",
+          "oklch(72% 0.1098 173.02)",
+          "oklch(83% 0.0746 173.02)",
+          "oklch(95% 0.0220 173.02)"
+        ]
+      },
+      "dark-emerald-hover": {
+        "role": "primary",
+        "displayName": "Dark Emerald Hover",
+        "tonalRamp": [
+          "oklch(15% 0.0284 174.45)",
+          "oklch(27% 0.0512 174.45)",
+          "oklch(38% 0.0720 174.45)",
+          "oklch(49% 0.0928 174.45)",
+          "oklch(61% 0.0949 174.45)",
+          "oklch(72% 0.0949 174.45)",
+          "oklch(83% 0.0645 174.45)",
+          "oklch(95% 0.0190 174.45)"
+        ]
+      },
+      "dark-blue": {
+        "role": "secondary",
+        "displayName": "Dark Blue",
+        "cssCustomProperty": "--ov-blue",
+        "tonalRamp": [
+          "oklch(15% 0.0412 248.79)",
+          "oklch(27% 0.0741 248.79)",
+          "oklch(38% 0.1028 248.79)",
+          "oklch(49% 0.1028 248.79)",
+          "oklch(61% 0.1028 248.79)",
+          "oklch(72% 0.1028 248.79)",
+          "oklch(83% 0.0699 248.79)",
+          "oklch(95% 0.0206 248.79)"
+        ]
+      },
+      "dark-orange": {
+        "role": "tertiary",
+        "displayName": "Dark Orange",
+        "cssCustomProperty": "--ov-heat",
+        "tonalRamp": [
+          "oklch(15% 0.0335 65.77)",
+          "oklch(27% 0.0602 65.77)",
+          "oklch(38% 0.0847 65.77)",
+          "oklch(49% 0.1093 65.77)",
+          "oklch(61% 0.1188 65.77)",
+          "oklch(72% 0.1188 65.77)",
+          "oklch(83% 0.0808 65.77)",
+          "oklch(95% 0.0238 65.77)"
+        ]
+      },
+      "dark-sky": {
+        "role": "neutral",
+        "displayName": "Dark Map Sky",
+        "cssCustomProperty": "--ov-sky",
+        "tonalRamp": [
+          "oklch(15% 0.0234 243.93)",
+          "oklch(27% 0.0422 243.93)",
+          "oklch(38% 0.0547 243.93)",
+          "oklch(49% 0.0547 243.93)",
+          "oklch(61% 0.0547 243.93)",
+          "oklch(72% 0.0547 243.93)",
+          "oklch(83% 0.0372 243.93)",
+          "oklch(95% 0.0109 243.93)"
+        ]
+      },
+      "dark-watch": {
+        "role": "tertiary",
+        "displayName": "Dark Watch",
+        "cssCustomProperty": "--ov-watch",
+        "tonalRamp": [
+          "oklch(15% 0.0310 81.34)",
+          "oklch(27% 0.0557 81.34)",
+          "oklch(38% 0.0784 81.34)",
+          "oklch(49% 0.0988 81.34)",
+          "oklch(61% 0.0988 81.34)",
+          "oklch(72% 0.0988 81.34)",
+          "oklch(83% 0.0672 81.34)",
+          "oklch(95% 0.0198 81.34)"
+        ]
+      },
+      "dark-risk": {
+        "role": "tertiary",
+        "displayName": "Dark Risk",
+        "cssCustomProperty": "--ov-danger",
+        "tonalRamp": [
+          "oklch(15% 0.0460 30.81)",
+          "oklch(27% 0.0829 30.81)",
+          "oklch(38% 0.1074 30.81)",
+          "oklch(49% 0.1074 30.81)",
+          "oklch(61% 0.1074 30.81)",
+          "oklch(72% 0.1074 30.81)",
+          "oklch(83% 0.0731 30.81)",
+          "oklch(95% 0.0215 30.81)"
+        ]
+      },
+      "dark-on-emerald": {
+        "role": "neutral",
+        "displayName": "Dark On Emerald",
+        "tonalRamp": [
+          "oklch(15% 0.0197 172.35)",
+          "oklch(27% 0.0355 172.35)",
+          "oklch(38% 0.0461 172.35)",
+          "oklch(49% 0.0461 172.35)",
+          "oklch(61% 0.0461 172.35)",
+          "oklch(72% 0.0461 172.35)",
+          "oklch(83% 0.0313 172.35)",
+          "oklch(95% 0.0092 172.35)"
+        ]
+      },
+      "dark-air-tint": {
+        "role": "neutral",
+        "displayName": "Dark Air Tint",
+        "cssCustomProperty": "--ov-air-tint",
+        "tonalRamp": [
+          "oklch(15% 0.0205 175.99)",
+          "oklch(27% 0.0369 175.99)",
+          "oklch(38% 0.0478 175.99)",
+          "oklch(49% 0.0478 175.99)",
+          "oklch(61% 0.0478 175.99)",
+          "oklch(72% 0.0478 175.99)",
+          "oklch(83% 0.0325 175.99)",
+          "oklch(95% 0.0096 175.99)"
+        ]
+      },
+      "dark-rain-tint": {
+        "role": "neutral",
+        "displayName": "Dark Rain Tint",
+        "cssCustomProperty": "--ov-rain-tint",
+        "tonalRamp": [
+          "oklch(15% 0.0234 243.93)",
+          "oklch(27% 0.0422 243.93)",
+          "oklch(38% 0.0547 243.93)",
+          "oklch(49% 0.0547 243.93)",
+          "oklch(61% 0.0547 243.93)",
+          "oklch(72% 0.0547 243.93)",
+          "oklch(83% 0.0372 243.93)",
+          "oklch(95% 0.0109 243.93)"
+        ]
+      },
+      "dark-heat-tint": {
+        "role": "neutral",
+        "displayName": "Dark Heat Tint",
+        "cssCustomProperty": "--ov-heat-tint",
+        "tonalRamp": [
+          "oklch(15% 0.0129 55.88)",
+          "oklch(27% 0.0232 55.88)",
+          "oklch(38% 0.0301 55.88)",
+          "oklch(49% 0.0301 55.88)",
+          "oklch(61% 0.0301 55.88)",
+          "oklch(72% 0.0301 55.88)",
+          "oklch(83% 0.0205 55.88)",
+          "oklch(95% 0.0060 55.88)"
+        ]
+      },
+      "dark-air-fill": {
+        "role": "primary",
+        "displayName": "Dark Air Fill",
+        "cssCustomProperty": "--ov-air-fill",
+        "tonalRamp": [
+          "oklch(15% 0.0318 164.35)",
+          "oklch(27% 0.0573 164.35)",
+          "oklch(38% 0.0806 164.35)",
+          "oklch(49% 0.1039 164.35)",
+          "oklch(61% 0.1294 164.35)",
+          "oklch(72% 0.1429 164.35)",
+          "oklch(83% 0.0972 164.35)",
+          "oklch(95% 0.0286 164.35)"
+        ]
+      },
+      "dark-rain-fill": {
+        "role": "secondary",
+        "displayName": "Dark Rain Fill",
+        "cssCustomProperty": "--ov-rain-fill",
+        "tonalRamp": [
+          "oklch(15% 0.0489 254.69)",
+          "oklch(27% 0.0880 254.69)",
+          "oklch(38% 0.1238 254.69)",
+          "oklch(49% 0.1596 254.69)",
+          "oklch(61% 0.1644 254.69)",
+          "oklch(72% 0.1482 254.69)",
+          "oklch(83% 0.0862 254.69)",
+          "oklch(95% 0.0242 254.69)"
+        ]
+      },
+      "dark-heat-fill": {
+        "role": "tertiary",
+        "displayName": "Dark Heat Fill",
+        "cssCustomProperty": "--ov-heat-fill",
+        "tonalRamp": [
+          "oklch(15% 0.0355 59.13)",
+          "oklch(27% 0.0639 59.13)",
+          "oklch(38% 0.0899 59.13)",
+          "oklch(49% 0.1159 59.13)",
+          "oklch(61% 0.1443 59.13)",
+          "oklch(72% 0.1660 59.13)",
+          "oklch(83% 0.1129 59.13)",
+          "oklch(95% 0.0309 59.13)"
+        ]
+      },
+      "band-cyan": {
+        "role": "secondary",
+        "displayName": "Band Cyan",
+        "tonalRamp": [
+          "oklch(15% 0.0309 232.66)",
+          "oklch(27% 0.0555 232.66)",
+          "oklch(38% 0.0782 232.66)",
+          "oklch(49% 0.1008 232.66)",
+          "oklch(61% 0.1255 232.66)",
+          "oklch(72% 0.1390 232.66)",
+          "oklch(83% 0.0945 232.66)",
+          "oklch(95% 0.0278 232.66)"
+        ]
+      },
+      "band-mint": {
+        "role": "primary",
+        "displayName": "Band Mint",
+        "tonalRamp": [
+          "oklch(15% 0.0323 163.22)",
+          "oklch(27% 0.0582 163.22)",
+          "oklch(38% 0.0819 163.22)",
+          "oklch(49% 0.1056 163.22)",
+          "oklch(61% 0.1314 163.22)",
+          "oklch(72% 0.1535 163.22)",
+          "oklch(83% 0.1044 163.22)",
+          "oklch(95% 0.0307 163.22)"
+        ]
+      },
+      "band-yellow": {
+        "role": "tertiary",
+        "displayName": "Band Yellow",
+        "tonalRamp": [
+          "oklch(15% 0.0307 91.94)",
+          "oklch(27% 0.0552 91.94)",
+          "oklch(38% 0.0777 91.94)",
+          "oklch(49% 0.1002 91.94)",
+          "oklch(61% 0.1248 91.94)",
+          "oklch(72% 0.1473 91.94)",
+          "oklch(83% 0.1177 91.94)",
+          "oklch(95% 0.0346 91.94)"
+        ]
+      },
+      "band-apricot": {
+        "role": "tertiary",
+        "displayName": "Band Apricot",
+        "tonalRamp": [
+          "oklch(15% 0.0367 55.93)",
+          "oklch(27% 0.0661 55.93)",
+          "oklch(38% 0.0931 55.93)",
+          "oklch(49% 0.1200 55.93)",
+          "oklch(61% 0.1494 55.93)",
+          "oklch(72% 0.1590 55.93)",
+          "oklch(83% 0.1081 55.93)",
+          "oklch(95% 0.0297 55.93)"
+        ]
+      },
+      "band-rose": {
+        "role": "tertiary",
+        "displayName": "Band Rose",
+        "tonalRamp": [
+          "oklch(15% 0.0600 16.44)",
+          "oklch(27% 0.1080 16.44)",
+          "oklch(38% 0.1520 16.44)",
+          "oklch(49% 0.1961 16.44)",
+          "oklch(61% 0.2154 16.44)",
+          "oklch(72% 0.1760 16.44)",
+          "oklch(83% 0.0950 16.44)",
+          "oklch(95% 0.0250 16.44)"
+        ]
+      },
+      "band-green": {
+        "role": "primary",
+        "displayName": "Band Green",
+        "tonalRamp": [
+          "oklch(15% 0.0417 149.58)",
+          "oklch(27% 0.0751 149.58)",
+          "oklch(38% 0.1057 149.58)",
+          "oklch(49% 0.1363 149.58)",
+          "oklch(61% 0.1697 149.58)",
+          "oklch(72% 0.1920 149.58)",
+          "oklch(83% 0.1306 149.58)",
+          "oklch(95% 0.0384 149.58)"
+        ]
+      },
+      "band-orange": {
+        "role": "tertiary",
+        "displayName": "Band Orange",
+        "tonalRamp": [
+          "oklch(15% 0.0411 47.60)",
+          "oklch(27% 0.0740 47.60)",
+          "oklch(38% 0.1041 47.60)",
+          "oklch(49% 0.1343 47.60)",
+          "oklch(61% 0.1671 47.60)",
+          "oklch(72% 0.1867 47.60)",
+          "oklch(83% 0.1030 47.60)",
+          "oklch(95% 0.0274 47.60)"
+        ]
+      },
+      "band-red": {
+        "role": "tertiary",
+        "displayName": "Band Red",
+        "tonalRamp": [
+          "oklch(15% 0.0612 27.33)",
+          "oklch(27% 0.1101 27.33)",
+          "oklch(38% 0.1550 27.33)",
+          "oklch(49% 0.1999 27.33)",
+          "oklch(61% 0.2152 27.33)",
+          "oklch(72% 0.1744 27.33)",
+          "oklch(83% 0.0945 27.33)",
+          "oklch(95% 0.0249 27.33)"
+        ]
+      },
+      "band-gold": {
+        "role": "tertiary",
+        "displayName": "Band Gold",
+        "tonalRamp": [
+          "oklch(15% 0.0307 86.05)",
+          "oklch(27% 0.0553 86.05)",
+          "oklch(38% 0.0778 86.05)",
+          "oklch(49% 0.1003 86.05)",
+          "oklch(61% 0.1249 86.05)",
+          "oklch(72% 0.1474 86.05)",
+          "oklch(83% 0.1099 86.05)",
+          "oklch(95% 0.0323 86.05)"
+        ]
+      },
+      "dark-map-air": {
+        "role": "primary",
+        "displayName": "Dark Map Air",
+        "cssCustomProperty": "--mi-accent",
+        "tonalRamp": [
+          "oklch(15% 0.0260 188.77)",
+          "oklch(27% 0.0468 188.77)",
+          "oklch(38% 0.0659 188.77)",
+          "oklch(49% 0.0850 188.77)",
+          "oklch(61% 0.1040 188.77)",
+          "oklch(72% 0.1040 188.77)",
+          "oklch(83% 0.0707 188.77)",
+          "oklch(95% 0.0208 188.77)"
+        ]
+      },
+      "dark-map-rain": {
+        "role": "secondary",
+        "displayName": "Dark Map Rain",
+        "cssCustomProperty": "--mi-accent",
+        "tonalRamp": [
+          "oklch(15% 0.0392 246.70)",
+          "oklch(27% 0.0705 246.70)",
+          "oklch(38% 0.0992 246.70)",
+          "oklch(49% 0.1280 246.70)",
+          "oklch(61% 0.1304 246.70)",
+          "oklch(72% 0.1304 246.70)",
+          "oklch(83% 0.0887 246.70)",
+          "oklch(95% 0.0253 246.70)"
+        ]
+      },
+      "dark-map-heat": {
+        "role": "tertiary",
+        "displayName": "Dark Map Heat",
+        "cssCustomProperty": "--mi-accent",
+        "tonalRamp": [
+          "oklch(15% 0.0329 67.87)",
+          "oklch(27% 0.0593 67.87)",
+          "oklch(38% 0.0835 67.87)",
+          "oklch(49% 0.1076 67.87)",
+          "oklch(61% 0.1128 67.87)",
+          "oklch(72% 0.1128 67.87)",
+          "oklch(83% 0.0767 67.87)",
+          "oklch(95% 0.0226 67.87)"
+        ]
+      }
+    },
+    "tonalRampNote": "Synthesized OKLCH preview aids reduce chroma toward extreme lightness/darkness and stay within sRGB gamut. Only DESIGN.md frontmatter values and source CSS define implemented colors.",
+    "typographyMeta": {
+      "display": {
+        "displayName": "Thai Display",
+        "purpose": "Overview heading; responsive sizes follow overview.css."
+      },
+      "headline": {
+        "displayName": "Section Headline",
+        "purpose": "Briefing section titles."
+      },
+      "title": {
+        "displayName": "Topic Title",
+        "purpose": "Environmental topic labels."
+      },
+      "body": {
+        "displayName": "Thai Body",
+        "purpose": "Page prose and reading context."
+      },
+      "label": {
+        "displayName": "Control Label",
+        "purpose": "Compact labels; explanatory paragraphs use body-sized roles."
+      },
+      "reading": {
+        "displayName": "Daily Reading",
+        "purpose": "Large tabular environmental values with Thai units.",
+        "fontVariantNumeric": "tabular-nums"
+      },
+      "table-reading": {
+        "displayName": "Table Reading",
+        "purpose": "Comparable daily values.",
+        "fontVariantNumeric": "tabular-nums"
+      },
+      "chart-reading": {
+        "displayName": "Selected Chart Reading",
+        "purpose": "Large selected-day value in the infographic.",
+        "fontVariantNumeric": "tabular-nums"
+      },
+      "bar-reading": {
+        "displayName": "Bar Reading",
+        "purpose": "Numeric label above a proportional daily bar."
+      }
+    },
+    "shadows": [
+      {
+        "name": "map-preview",
+        "value": "0 8px 32px #1732490b",
+        "purpose": "Subtle resting lift on the white geographic preview."
+      },
+      {
+        "name": "search-popover",
+        "value": "0 12px 34px rgba(25, 61, 70, .18)",
+        "purpose": "Open search result layer."
+      },
+      {
+        "name": "map-dot",
+        "value": "0 1px 3px #193d4633",
+        "purpose": "Colored geographic points on preview tiles."
+      }
+    ],
+    "motion": [
+      {
+        "name": "primary-hover",
+        "value": "background .18s",
+        "purpose": "Primary-action hover feedback."
+      },
+      {
+        "name": "selected-day-scroll",
+        "value": "smooth",
+        "purpose": "Bring an offscreen selected day into the plot viewport; reduced motion uses instant."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "transition: none; animation: none; scroll-behavior: auto",
+        "purpose": "Overview respects prefers-reduced-motion."
+      },
+      {
+        "name": "chart-color",
+        "value": "background .18s",
+        "purpose": "Stable risk hue; selection adds an ink outline. Height changes are immediate."
+      },
+      {
+        "name": "water-fill-reveal",
+        "value": "ov-water-rise .65s cubic-bezier(.16,1,.3,1) both",
+        "purpose": "One reveal of final measured geometry per station or observation-timestamp change."
+      },
+      {
+        "name": "water-surface-sweep",
+        "value": "ov-water-sweep .9s cubic-bezier(.16,1,.3,1) both",
+        "purpose": "One finite surface sweep; pause and reduced motion disable animation and retain final geometry."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "overview-intermediate",
+        "value": "1080px"
+      },
+      {
+        "name": "mobile",
+        "value": "780px"
+      },
+      {
+        "name": "narrow",
+        "value": "360px"
+      },
+      {
+        "name": "map-coarse-pointer",
+        "value": "1024px",
+        "condition": "(max-width: 1024px) and (pointer: coarse)"
+      },
+      {
+        "name": "map-short-landscape",
+        "value": "500px",
+        "condition": "(max-height: 500px) and (orientation: landscape)"
+      }
+    ],
+    "focus": {
+      "value": "3px solid var(--ov-accent)",
+      "outlineOffset": "4px",
+      "purpose": "All overview links, buttons, inputs, selects and summaries."
+    },
+    "sourceFiles": [
+      "app/components/intelligence/overview.css",
+      "app/components/intelligence/briefing-workspace.css",
+      "app/components/intelligence/environment-overview.tsx",
+      "app/components/intelligence/forecast-infographic.tsx",
+      "app/components/intelligence/map-workspace.tsx",
+      "app/components/intelligence/map-first.css",
+      "app/components/intelligence/night-theme.css",
+      "app/lib/environment-overview.ts",
+      "app/lib/map-intelligence.ts",
+      "app/layout.tsx",
+      "app/components/intelligence/risk-signals.tsx",
+      "app/components/intelligence/risk-signals.css",
+      "app/components/intelligence/water-overview.tsx",
+      "app/components/intelligence/water-overview.css",
+      "app/lib/water-levels.ts"
+    ],
+    "surfaceBrief": ".impeccable/overview-brief.md",
+    "captureScope": "Extracted from implemented CSS and source. Component previews inherit --ov-* colors when hosted in the overview. Values in preview charts/panels are unavailable rather than invented observations. Detailed workspace light --mi-accent values are consumed by its brand, active controls, dates and scrubber; existing night-theme important overrides retain the separately recorded dark map accents.",
+    "verification": {
+      "status": "Risk and finite-motion refinement passed the supplied automated/browser checks; fresh finish reviewer returned ship with no material fixes.",
+      "checks": [
+        "137 unit tests",
+        "32 rendered-page tests",
+        "Lint",
+        "Next.js production build",
+        "Cloudflare build"
+      ],
+      "browser": [
+        "Selected date synchronizes readings, chart, map and detailed routes",
+        "17 fresh attention-filtered stations at test time",
+        "Stale station ID 5 (คลองมหาสวัสดิ) remains unknown with no capacity or diagram",
+        "Aborted water fetch shows cannot-assess and retry",
+        "Pause disables animation",
+        "Reveal running at 100ms and finished by 850ms",
+        "Reduced-motion animation none",
+        "No page overflow at 1440px and 390px",
+        "Checked desktop browser errors empty"
+      ],
+      "captures": [
+        "output/playwright/risk-desktop-summary-final.png",
+        "output/playwright/risk-desktop-chart-final.png",
+        "output/playwright/risk-desktop-water-final.png",
+        "output/playwright/risk-mobile-summary-final.png",
+        "output/playwright/risk-mobile-chart-final.png",
+        "output/playwright/risk-mobile-water-final.png",
+        "output/playwright/risk-mobile-dark-final.png"
+      ],
+      "contrast": "4.65–7.70 in reviewed source combinations; no universal contrast claim.",
+      "limitations": "No screen-reader, 200% text-zoom, all-browser or detector pass claimed."
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Action",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Solid emerald action leading from the briefing to the personal-area section.",
+      "html": "<a class=\"ds-primary ds-focus\" href=\"#my-area\">ดูย่านของฉัน <svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" aria-hidden=\"true\"><path d=\"M5 12h14M13 6l6 6-6 6\"/></svg></a>",
+      "css": ".ds-primary { display: inline-flex; align-items: center; gap: 26px; min-height: 48px; padding: 10px 20px; border-radius: 8px; background: var(--ov-accent, #007d58); color: #fff; text-decoration: none; font-family: \"IBM Plex Sans Thai\", sans-serif; font-size: 15px; font-weight: 500; line-height: 1.65; transition: background .18s; } .ds-primary:hover { background: #006344; } .ds-focus:focus-visible { outline: 3px solid var(--ov-accent, #007d58); outline-offset: 4px; } @media (prefers-reduced-motion: reduce) { .ds-primary { transition: none; } }"
+    },
+    {
+      "name": "Secondary Action",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Outlined control for location or data refresh.",
+      "html": "<button type=\"button\" class=\"ds-secondary ds-focus\"><svg viewBox=\"0 0 24 24\" width=\"17\" height=\"17\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" aria-hidden=\"true\"><path d=\"M20 7v5h-5M4 17v-5h5\"/><path d=\"M6 7a7 7 0 0 1 12-2l2 2M4 17l2 2a7 7 0 0 0 12-2\"/></svg>โหลดข้อมูลล่าสุด</button>",
+      "css": ".ds-secondary { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; gap: 7px; padding: 8px 13px; border: 1px solid var(--ov-line, #dbe5ee); border-radius: 7px; background: transparent; color: var(--ov-ink, #173249); font-family: \"IBM Plex Sans Thai\", sans-serif; font-size: 12px; font-weight: 400; line-height: 1.65; cursor: pointer; } .ds-secondary:hover { background: var(--ov-soft, #e8faf1); } .ds-secondary:disabled { cursor: wait; opacity: .55; } .ds-focus:focus-visible { outline: 3px solid var(--ov-accent, #007d58); outline-offset: 4px; }"
+    },
+    {
+      "name": "Place Search",
+      "kind": "input",
+      "refersTo": "search-field",
+      "description": "Road or locality search in an outlined white field.",
+      "html": "<label class=\"ds-search\"><svg viewBox=\"0 0 24 24\" width=\"20\" height=\"20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" aria-hidden=\"true\"><circle cx=\"10.5\" cy=\"10.5\" r=\"6.5\"/><path d=\"m16 16 5 5\"/></svg><input class=\"ds-focus\" type=\"search\" aria-label=\"ค้นหาถนนหรือย่าน\" placeholder=\"ค้นหาถนนหรือย่าน\"></label>",
+      "css": ".ds-search { display: flex; align-items: center; gap: 12px; padding: 0 17px; border: 1px solid var(--ov-line, #dbe5ee); border-radius: 12px; background: var(--ov-surface, #fff); color: var(--ov-blue, #0862d8); } .ds-search input { width: 100%; min-width: 0; min-height: 54px; background: transparent; border: 0; color: var(--ov-ink, #173249); caret-color: var(--ov-accent, #007d58); font-family: \"IBM Plex Sans Thai\", sans-serif; font-size: 14px; } .ds-search input::placeholder { color: var(--ov-muted, #506477); opacity: 1; } .ds-focus:focus-visible { outline: 3px solid var(--ov-accent, #007d58); outline-offset: 4px; } @media(max-width:780px) { .ds-search { padding-inline:13px; } .ds-search input { min-height:52px; font-size:16px; } }"
+    },
+    {
+      "name": "Overview Navigation",
+      "kind": "nav",
+      "refersTo": "navigation-link",
+      "description": "Quiet text navigation with an emerald-tinted current-section pill.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"เมนูหลัก\"><a class=\"ds-focus\" href=\"#overview\" aria-current=\"page\">ภาพรวม</a><a class=\"ds-focus\" href=\"#my-area\">ย่านของฉัน</a><a class=\"ds-focus\" href=\"#area-map\">แผนที่</a></nav>",
+      "css": ".ds-nav { display:flex; align-items:center; justify-content:center; gap:27px; } .ds-nav a { display:flex; align-items:center; min-height:44px; color:var(--ov-muted, #506477); font-family: \"IBM Plex Sans Thai\", sans-serif; font-size:14px; line-height:1.65; white-space:nowrap; text-decoration:none; } .ds-nav a:hover, .ds-nav a[aria-current] { color:var(--ov-accent, #007d58); } .ds-nav a[aria-current] { font-weight:600; } .ds-focus:focus-visible { outline: 3px solid var(--ov-accent, #007d58); outline-offset: 4px; } @media(max-width:780px) { .ds-nav { justify-content:flex-start; gap:22px; overflow-x:auto; } .ds-nav a { font-size:12px; } } .ds-nav a[aria-current] { background:var(--ov-soft, #e8faf1); border-radius:99px; padding-inline:16px; }"
+    },
+    {
+      "name": "Area Chip",
+      "kind": "chip",
+      "refersTo": "area-chip",
+      "description": "Compact outlined geographic action, taller on phones.",
+      "html": "<button type=\"button\" class=\"ds-chip ds-focus\"><svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" aria-hidden=\"true\"><path d=\"M20 10c0 6-8 11-8 11S4 16 4 10a8 8 0 1 1 16 0Z\"/><circle cx=\"12\" cy=\"10\" r=\"2.5\"/></svg>คลองเตย</button>",
+      "css": ".ds-chip { display:inline-flex; align-items:center; gap:5px; min-height:40px; padding:7px 13px; border:1px solid var(--ov-line, #dbe5ee); border-radius:7px; background:var(--ov-surface, #fff); color:var(--ov-ink, #173249); font-family: \"IBM Plex Sans Thai\", sans-serif; font-size:12px; line-height:1.65; cursor:pointer; } .ds-chip:hover { border-color:var(--ov-accent, #007d58); } .ds-focus:focus-visible { outline: 3px solid var(--ov-accent, #007d58); outline-offset: 4px; } @media(max-width:780px) { .ds-chip { min-height:44px; } }"
+    },
+    {
+      "name": "Topic Map Container",
+      "kind": "card",
+      "refersTo": "map-container",
+      "description": "White geographic preview with a rain-tinted header, bright top edge and subtle resting shadow; the preview shows loading rather than fabricated geography.",
+      "html": "<section class=\"ds-map\"><header><h2>กรุงเทพฯ–ปริมณฑล</h2><a class=\"ds-focus\" href=\"/rain\" aria-label=\"เปิดแผนที่\"><svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" aria-hidden=\"true\"><path d=\"M5 12h14M13 6l6 6-6 6\"/></svg></a></header><div class=\"ds-map-canvas\"><p>กำลังโหลดแผนที่…</p></div></section>",
+      "css": ".ds-map { min-width:0; border:1px solid var(--ov-line, #dbe5ee); border-radius:20px; overflow:hidden; box-shadow:0 8px 32px #1732490b; background:var(--ov-surface, #fff); color:var(--ov-ink, #173249); font-family:\"IBM Plex Sans Thai\",sans-serif; } .ds-map header { display:flex; align-items:center; justify-content:space-between; padding:17px 20px 13px; background:var(--ov-rain-tint, #edf6ff); border-top:4px solid var(--ov-rain-fill, #3388f4); } .ds-map h2 { margin:0; font-size:18px; font-weight:600; line-height:1.4; } .ds-map a { display:grid; place-items:center; width:44px; min-height:44px; color:var(--ov-blue, #0862d8); text-decoration:none; } .ds-map a:hover { text-decoration:underline; } .ds-map-canvas { position:relative; height:283px; background:var(--ov-sky, #edf6ff); } .ds-map-canvas p { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); margin:0; width:max-content; max-width:85%; padding:9px 13px; border-radius:8px; background:var(--ov-surface, #fff); color:var(--ov-ink, #173249); font-size:12px; text-align:center; } .ds-focus:focus-visible { outline: 3px solid var(--ov-accent, #007d58); outline-offset: 4px; } @media(max-width:780px) { .ds-map-canvas { height:260px; } .ds-map header { padding:14px 16px 10px; } }"
+    },
+    {
+      "name": "Topic Layer Tabs",
+      "kind": "nav",
+      "refersTo": "layer-tab-rain-active",
+      "description": "Coordinated environmental topic controls; selected tabs use the topic's darker color.",
+      "html": "<div class=\"ds-tabs\" role=\"group\" aria-label=\"ประเภทข้อมูล\"><button class=\"ds-air ds-focus\" aria-pressed=\"false\">ฝุ่น</button><button class=\"ds-rain ds-focus\" aria-pressed=\"true\">ฝน</button><button class=\"ds-heat ds-focus\" aria-pressed=\"false\">ความร้อน</button></div>",
+      "css": ".ds-tabs { display:inline-flex; gap:3px; padding:3px; border-radius:7px; background:var(--ov-soft, #e8faf1); } .ds-tabs button { display:flex; align-items:center; justify-content:center; gap:6px; min-height:40px; padding:6px 15px; border:0; border-radius:5px; background:transparent; color:var(--ov-ink, #173249); font-family:\"IBM Plex Sans Thai\",sans-serif; font-size:12px; line-height:1.65; cursor:pointer; } .ds-air { --ds-topic-ink:var(--ov-accent, #007d58); } .ds-rain { --ds-topic-ink:var(--ov-blue, #0862d8); } .ds-heat { --ds-topic-ink:var(--ov-heat, #b94d00); } .ds-tabs button[aria-pressed=\"true\"] { background:var(--ds-topic-ink); color:#fff; font-weight:600; } .ds-focus:focus-visible { outline: 3px solid var(--ov-accent, #007d58); outline-offset: 4px; }"
+    },
+    {
+      "name": "Three Daily Scale Panels",
+      "kind": "custom",
+      "refersTo": "reading-air",
+      "description": "Bright topic panels retain real segmented metric scales and add a named four-level planning meter; missing preview values remain explicitly unassessable.",
+      "html": "<div class=\"ds-panels\"><article class=\"ds-panel ds-air\"><header><h2>ฝุ่น PM2.5</h2><span>วันนี้</span></header><div class=\"ds-number\">— <small>µg/m³</small></div><p class=\"ds-verdict\">ยังไม่มีข้อมูลในวันที่เลือก</p><div class=\"ds-risk-meter\"><div class=\"ds-risk-meter-label\"><span>ความเสี่ยงจากพยากรณ์</span><b>ยังประเมินไม่ได้</b></div><div class=\"ds-risk-steps\" aria-hidden=\"true\"><span><i></i><small>ต่ำ</small></span><span><i></i><small>ปานกลาง</small></span><span><i></i><small>สูง</small></span><span><i></i><small>สูงมาก</small></span></div></div><div class=\"ds-scale ds-missing\" aria-hidden=\"true\"><div class=\"ds-scale-track\"><i style=\"flex:15;background:#38bdf8\"></i><i style=\"flex:10;background:#34d399\"></i><i style=\"flex:12.5;background:#facc15\"></i><i style=\"flex:37.5;background:#fb923c\"></i><i style=\"flex:25;background:#f43f5e\"></i></div><div class=\"ds-scale-labels\"><span>0</span><span>สเกลฝุ่น PM2.5</span><span>100+</span></div></div><button class=\"ds-focus\">ดูแนวโน้ม</button><div class=\"ds-source-note\">ไม่มีข้อมูล · ยังไม่มีเวลาอ้างอิง</div></article><article class=\"ds-panel ds-rain\"><header><h2>ฝนสะสม</h2><span>วันนี้</span></header><div class=\"ds-number\">— <small>มม.</small></div><p class=\"ds-verdict\">ยังไม่มีข้อมูลในวันที่เลือก</p><div class=\"ds-risk-meter\"><div class=\"ds-risk-meter-label\"><span>ความเสี่ยงจากพยากรณ์</span><b>ยังประเมินไม่ได้</b></div><div class=\"ds-risk-steps\" aria-hidden=\"true\"><span><i></i><small>ต่ำ</small></span><span><i></i><small>ปานกลาง</small></span><span><i></i><small>สูง</small></span><span><i></i><small>สูงมาก</small></span></div></div><div class=\"ds-scale ds-missing\" aria-hidden=\"true\"><div class=\"ds-scale-track\"><i style=\"flex:10;background:#38bdf8\"></i><i style=\"flex:25;background:#22c55e\"></i><i style=\"flex:55;background:#f97316\"></i><i style=\"flex:30;background:#dc2626\"></i></div><div class=\"ds-scale-labels\"><span>0</span><span>สเกลฝนสะสม</span><span>120+</span></div></div><button class=\"ds-focus\">ดูแนวโน้ม</button><div class=\"ds-source-note\">ไม่มีข้อมูล · ยังไม่มีเวลาอ้างอิง</div></article><article class=\"ds-panel ds-heat\"><header><h2>ความร้อนที่รู้สึก</h2><span>วันนี้</span></header><div class=\"ds-number\">— <small>°C</small></div><p class=\"ds-verdict\">ยังไม่มีข้อมูลในวันที่เลือก</p><div class=\"ds-risk-meter\"><div class=\"ds-risk-meter-label\"><span>ความเสี่ยงจากพยากรณ์</span><b>ยังประเมินไม่ได้</b></div><div class=\"ds-risk-steps\" aria-hidden=\"true\"><span><i></i><small>ต่ำ</small></span><span><i></i><small>ปานกลาง</small></span><span><i></i><small>สูง</small></span><span><i></i><small>สูงมาก</small></span></div></div><div class=\"ds-scale ds-missing\" aria-hidden=\"true\"><div class=\"ds-scale-track\"><i style=\"flex:27;background:#38bdf8\"></i><i style=\"flex:6;background:#22c55e\"></i><i style=\"flex:9;background:#eab308\"></i><i style=\"flex:10;background:#f97316\"></i><i style=\"flex:8;background:#dc2626\"></i></div><div class=\"ds-scale-labels\"><span>0</span><span>สเกลดัชนีความร้อน</span><span>60+</span></div></div><button class=\"ds-focus\">ดูแนวโน้ม</button><div class=\"ds-source-note\">ไม่มีข้อมูล · ยังไม่มีเวลาอ้างอิง</div></article></div>",
+      "css": ".ds-panels { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; font-family:\"IBM Plex Sans Thai\",sans-serif; color:var(--ov-ink, #173249); line-height:1.65; } .ds-panel { min-width:0; background:var(--ds-topic-tint, #ebfbf2); border-radius:18px; padding:22px 24px; border-top:4px solid var(--ds-topic-fill, #13ac76); } .ds-air { --ds-topic-ink:var(--ov-accent, #007d58); --ds-topic-tint:var(--ov-air-tint, #ebfbf2); --ds-topic-fill:var(--ov-air-fill, #13ac76); } .ds-rain { --ds-topic-ink:var(--ov-blue, #0862d8); --ds-topic-tint:var(--ov-rain-tint, #edf6ff); --ds-topic-fill:var(--ov-rain-fill, #3388f4); } .ds-heat { --ds-topic-ink:var(--ov-heat, #b94d00); --ds-topic-tint:var(--ov-heat-tint, #fff3e3); --ds-topic-fill:var(--ov-heat-fill, #f99026); } .ds-panel header { display:flex; gap:9px; align-items:center; } .ds-panel h2 { margin:0; font-size:16px; font-weight:500; line-height:1.4; } .ds-panel header span { margin-left:auto; font-size:11px; color:var(--ov-muted, #506477); } .ds-number { display:flex; align-items:baseline; gap:9px; margin:7px 0 1px; font:600 43px/1.5 \"Manrope\",sans-serif; font-variant-numeric:tabular-nums; letter-spacing:-.025em; } .ds-number small { font:400 13px/1.5 \"IBM Plex Sans Thai\",sans-serif; letter-spacing:0; color:var(--ov-muted, #506477); } .ds-verdict { margin:0; font-size:13px; color:var(--ov-muted, #506477); } .ds-scale { margin-top:23px; } .ds-scale-track { display:flex; gap:3px; height:8px; position:relative; } .ds-scale-track > i { border-radius:3px; } .ds-scale.ds-missing .ds-scale-track { opacity:.35; } .ds-scale-labels { display:flex; justify-content:space-between; gap:5px; margin-top:7px; font-size:10px; color:var(--ov-muted, #506477); } .ds-panel button { display:inline-flex; align-items:center; min-height:40px; padding:0; margin-top:12px; background:transparent; border:0; color:var(--ds-topic-ink, #007d58); font-family:\"IBM Plex Sans Thai\",sans-serif; font-size:12px; font-weight:500; cursor:pointer; } .ds-panel button:hover { text-decoration:underline; text-underline-offset:4px; } .ds-source-note { margin-top:8px; padding-top:12px; border-top:1px solid var(--ov-line, #dbe5ee); font-size:10px; color:var(--ov-muted, #506477); } .ds-focus:focus-visible { outline: 3px solid var(--ov-accent, #007d58); outline-offset: 4px; } @media(max-width:1080px) { .ds-panel { padding:20px 18px; } } @media(max-width:780px) { .ds-panels { grid-template-columns:1fr; gap:14px; } .ds-panel { padding:20px; } .ds-number { font-size:40px; } }.ds-risk-meter{margin-top:18px}.ds-risk-meter-label{display:flex;align-items:baseline;justify-content:space-between;gap:12px;font-size:11px;color:var(--ov-muted, #506477)}.ds-risk-meter-label b{color:var(--ov-muted, #506477);font-size:13px;font-weight:500}.ds-risk-steps{display:flex;gap:5px;margin-top:9px}.ds-risk-steps>span{flex:1;min-width:0}.ds-risk-steps i{display:block;height:7px;border-radius:3px;background:var(--ov-line, #dbe5ee);transition:background .18s}.ds-risk-steps small{display:block;font-size:10px;color:var(--ov-muted, #506477);text-align:center;margin-top:6px}@media(prefers-reduced-motion:reduce){.ds-risk-steps i{transition:none}}"
+    },
+    {
+      "name": "Source Disclosure",
+      "kind": "custom",
+      "description": "Native expandable provider evidence row with readable limitations.",
+      "html": "<details class=\"ds-source\"><summary class=\"ds-focus\"><span><b>ฝน</b><small>Open-Meteo</small></span><span class=\"ds-source-state\">ยังไม่มีข้อมูล</span><svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" aria-hidden=\"true\"><path d=\"m6 9 6 6 6-6\"/></svg></summary><div><p>กำลังรอข้อมูลจากต้นทาง</p><p>ยังไม่มีเวลาอัปเดต</p><a class=\"ds-focus\" href=\"/rain/advanced\">อ่านข้อมูลและเครื่องมือขั้นสูง</a></div></details>",
+      "css": ".ds-source { border-top:1px solid var(--ov-line, #dbe5ee); border-bottom:1px solid var(--ov-line, #dbe5ee); color:var(--ov-ink, #173249); font-family: \"IBM Plex Sans Thai\", sans-serif; line-height:1.65; } .ds-source summary { list-style:none; display:flex; align-items:center; gap:14px; min-height:78px; cursor:pointer; } .ds-source summary::-webkit-details-marker { display:none; } .ds-source summary > span:first-of-type { flex:1; } .ds-source summary b { font-size:14px; font-weight:500; } .ds-source summary small { display:block; color:var(--ov-muted, #506477); font-size:11px; } .ds-source-state { color:var(--ov-muted, #506477); font-size:11px; } .ds-source[open] summary > svg:last-child { transform:rotate(180deg); } .ds-source > div { padding:0 0 22px 35px; max-width:85ch; color:var(--ov-muted, #506477); font-size:13px; } .ds-source p { margin:0 0 9px; } .ds-source a { display:inline-flex; align-items:center; min-height:44px; color:var(--ov-accent, #007d58); text-decoration:none; font-size:13px; font-weight:500; } .ds-source a:hover { text-decoration:underline; text-underline-offset:5px; } .ds-focus:focus-visible { outline: 3px solid var(--ov-accent, #007d58); outline-offset: 4px; } @media(max-width:780px) { .ds-source > div { padding-left:0; } }"
+    },
+    {
+      "name": "Seven-Day Infographic and Numeric Disclosure",
+      "kind": "custom",
+      "refersTo": "infographic-rain",
+      "description": "Proportional day-button plot with stable planning-risk hue, outlined selection, explicit missing gaps and optional numeric table; unknown preview values are not fabricated observations.",
+      "html": "<section class=\"ds-infographic\"><div class=\"ds-chart-heading\"><div><span class=\"ds-chart-topic\">ฝนสะสม · วันนี้</span><div class=\"ds-chart-number\">—<small>มม.</small></div><p>ยังไม่มีข้อมูลในวันที่เลือก</p></div><div class=\"ds-chart-guide\"><span>ปริมาณสะสมตลอด 24 ชั่วโมง</span><p>กดแท่งกราฟเพื่อเลือกวัน</p><div class=\"ds-step\"><button class=\"ds-focus\" disabled aria-label=\"เลือกวันก่อนหน้า\"><svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" aria-hidden=\"true\"><path d=\"M19 12H5M11 6l-6 6 6 6\"/></svg></button><button class=\"ds-focus\" aria-label=\"เลือกวันถัดไป\"><svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" aria-hidden=\"true\"><path d=\"M5 12h14M13 6l6 6-6 6\"/></svg></button></div></div></div><div class=\"ds-chart-scroll\" role=\"region\" aria-label=\"กราฟฝน เลื่อนแนวนอนเพื่อดูทุกวัน\"><div class=\"ds-chart-plot\"><div class=\"ds-axis\" aria-hidden=\"true\"><span>1</span><span>0.5</span><span>0</span></div><div class=\"ds-grid\" aria-hidden=\"true\"><i></i><i></i><i></i></div><div class=\"ds-chart-days\"><button class=\"ds-chart-day ds-focus ds-active\" aria-pressed=\"true\" aria-label=\"ฝนสะสม วันนี้ ไม่มีข้อมูล\"><span class=\"ds-bar-space\"><span class=\"ds-missing-bar\"><b>—</b><small>ไม่มีข้อมูล</small></span></span><span class=\"ds-day-label\">วันนี้<i aria-hidden=\"true\"></i></span></button><button class=\"ds-chart-day ds-focus\" aria-pressed=\"false\" aria-label=\"ฝนสะสม พรุ่งนี้ ไม่มีข้อมูล\"><span class=\"ds-bar-space\"><span class=\"ds-missing-bar\"><b>—</b><small>ไม่มีข้อมูล</small></span></span><span class=\"ds-day-label\">พรุ่งนี้</span></button><button class=\"ds-chart-day ds-focus\" aria-pressed=\"false\" aria-label=\"ฝนสะสม 3 ต.ค. ไม่มีข้อมูล\"><span class=\"ds-bar-space\"><span class=\"ds-missing-bar\"><b>—</b><small>ไม่มีข้อมูล</small></span></span><span class=\"ds-day-label\">3 ต.ค.</span></button><button class=\"ds-chart-day ds-focus\" aria-pressed=\"false\" aria-label=\"ฝนสะสม 4 ต.ค. ไม่มีข้อมูล\"><span class=\"ds-bar-space\"><span class=\"ds-missing-bar\"><b>—</b><small>ไม่มีข้อมูล</small></span></span><span class=\"ds-day-label\">4 ต.ค.</span></button><button class=\"ds-chart-day ds-focus\" aria-pressed=\"false\" aria-label=\"ฝนสะสม 5 ต.ค. ไม่มีข้อมูล\"><span class=\"ds-bar-space\"><span class=\"ds-missing-bar\"><b>—</b><small>ไม่มีข้อมูล</small></span></span><span class=\"ds-day-label\">5 ต.ค.</span></button><button class=\"ds-chart-day ds-focus\" aria-pressed=\"false\" aria-label=\"ฝนสะสม 6 ต.ค. ไม่มีข้อมูล\"><span class=\"ds-bar-space\"><span class=\"ds-missing-bar\"><b>—</b><small>ไม่มีข้อมูล</small></span></span><span class=\"ds-day-label\">6 ต.ค.</span></button><button class=\"ds-chart-day ds-focus\" aria-pressed=\"false\" aria-label=\"ฝนสะสม 7 ต.ค. ไม่มีข้อมูล\"><span class=\"ds-bar-space\"><span class=\"ds-missing-bar\"><b>—</b><small>ไม่มีข้อมูล</small></span></span><span class=\"ds-day-label\">7 ต.ค.</span></button></div></div></div><p class=\"ds-chart-caption\">ความสูงแท่งคือค่าพยากรณ์ · — คือไม่มีข้อมูล · เลือกวันได้แม้บางประเภทไม่มีค่า</p><div class=\"ds-risk-key\" aria-label=\"เกณฑ์สีความเสี่ยง\"><span><i style=\"background:#34d399\"></i>ต่ำ</span><span><i style=\"background:#facc15\"></i>ปานกลาง</span><span><i style=\"background:#fb923c\"></i>สูง</span><span><i style=\"background:#f43f5e\"></i>สูงมาก</span></div></section><details class=\"ds-table-disclosure\"><summary class=\"ds-focus\">ดูตัวเลขทั้ง 3 ประเภท</summary><table class=\"ds-daily\"><thead><tr><th scope=\"col\">วางแผนวันของคุณ</th><th scope=\"col\"><button class=\"ds-focus\" aria-pressed=\"true\">วันนี้<small>พยากรณ์รายวัน</small></button></th><th scope=\"col\"><button class=\"ds-focus\" aria-pressed=\"false\">พรุ่งนี้<small>พยากรณ์รายวัน</small></button></th></tr></thead><tbody><tr><th scope=\"row\">ฝุ่น PM2.5<small>µg/m³ · เฉลี่ย</small></th><td class=\"ds-day-selected\"><b>—</b><span>ไม่มีข้อมูล</span></td><td><b>—</b><span>ไม่มีข้อมูล</span></td></tr></tbody></table></details>",
+      "css": ".ds-infographic { --ds-topic-ink:var(--ov-blue, #0862d8); --ds-topic-tint:var(--ov-rain-tint, #edf6ff); --ds-topic-fill:var(--ov-rain-fill, #3388f4); background:var(--ds-topic-tint, #edf6ff); border-radius:20px; padding:27px 30px 18px; color:var(--ov-ink, #173249); font-family:\"IBM Plex Sans Thai\",sans-serif; line-height:1.65; } .ds-chart-heading { display:flex; justify-content:space-between; gap:24px; margin-bottom:21px; } .ds-chart-topic { display:inline-flex; gap:8px; align-items:center; font-size:13px; font-weight:500; color:var(--ds-topic-ink, #0862d8); } .ds-chart-number { display:flex; align-items:baseline; gap:12px; font:600 48px/1.5 \"Manrope\",sans-serif; font-variant-numeric:tabular-nums; } .ds-chart-number small { font:400 13px \"IBM Plex Sans Thai\",sans-serif; color:var(--ov-muted, #506477); } .ds-chart-heading p { margin:0; font-size:13px; color:var(--ov-muted, #506477); } .ds-chart-guide { text-align:right; font-size:12px; color:var(--ov-muted, #506477); } .ds-chart-guide > span { color:var(--ov-ink, #173249); font-weight:500; } .ds-chart-guide p { font-size:11px; margin-top:7px; } .ds-step { display:flex; justify-content:flex-end; gap:8px; margin-top:10px; } .ds-step button { border:1px solid var(--ov-line, #dbe5ee); background:var(--ov-surface, #fff); display:grid; place-items:center; width:44px; height:44px; border-radius:50%; color:var(--ds-topic-ink, #0862d8); cursor:pointer; } .ds-step button:disabled { cursor:default; opacity:.4; } .ds-chart-scroll { overflow-x:auto; overflow-y:hidden; scrollbar-color:var(--ds-topic-ink, #0862d8) var(--ds-topic-tint, #edf6ff); scrollbar-width:thin; } .ds-chart-plot { position:relative; padding:35px 5px 5px 42px; min-width:620px; } .ds-axis { position:absolute; left:0; top:35px; height:180px; display:flex; flex-direction:column; justify-content:space-between; font:400 10px \"Manrope\",sans-serif; color:var(--ov-muted, #506477); } .ds-axis span { transform:translateY(-50%); } .ds-grid { position:absolute; left:42px; right:5px; top:35px; height:180px; display:flex; flex-direction:column; justify-content:space-between; } .ds-grid i { border-top:1px dashed var(--ov-line, #dbe5ee); } .ds-grid i:last-child { border-top-style:solid; } .ds-chart-days { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:16px; position:relative; } .ds-chart-day { min-width:0; border-radius:10px; display:flex; flex-direction:column; padding:0 10px; border:0; background:transparent; color:inherit; font-family:\"IBM Plex Sans Thai\",sans-serif; cursor:pointer; } .ds-chart-day:hover { background:var(--ov-surface, #fff); } .ds-chart-day:focus-visible { outline-offset:-2px; } .ds-bar-space { display:flex; align-items:flex-end; position:relative; width:100%; height:180px; } .ds-chart-bar { display:block; position:absolute; width:100%; background:var(--risk-fill, #dbe5ee); border-radius:9px 9px 0 0; min-height:2px; transition:background .18s; } .ds-chart-bar b { position:absolute; left:50%; top:-29px; transform:translateX(-50%); color:var(--ov-ink, #173249); font:600 16px \"Manrope\",sans-serif; white-space:nowrap; } .ds-chart-day.ds-active .ds-chart-bar { background:var(--risk-fill, #dbe5ee); box-shadow:0 0 0 2px var(--ov-ink, #173249); } .ds-missing-bar { display:flex; flex-direction:column; align-items:center; justify-content:center; position:absolute; bottom:0; width:100%; height:62px; border:1px dashed var(--ov-muted, #506477); border-radius:9px 9px 0 0; color:var(--ov-muted, #506477); } .ds-missing-bar b { font:500 22px \"Manrope\",sans-serif; } .ds-missing-bar small { font-size:10px; } .ds-day-label { display:block; width:100%; font-size:12px; margin-top:12px; min-height:67px; font-weight:500; text-align:center; } .ds-day-label i { display:block; width:6px; height:6px; background:var(--ds-topic-ink, #0862d8); margin:5px auto 0; border-radius:50%; } .ds-chart-day.ds-active .ds-day-label { color:var(--ds-topic-ink, #0862d8); } .ds-chart-caption { margin:14px 0 0; font-size:11px; color:var(--ov-muted, #506477); } .ds-table-disclosure { margin-top:15px; font-family:\"IBM Plex Sans Thai\",sans-serif; } .ds-table-disclosure > summary { display:flex; align-items:center; justify-content:space-between; min-height:48px; color:var(--ov-muted, #506477); cursor:pointer; list-style:none; font-size:13px; } .ds-daily { border-collapse:collapse; width:100%; table-layout:fixed; color:var(--ov-ink, #173249); font-family: \"IBM Plex Sans Thai\", sans-serif; font-size:13px; line-height:1.65; } .ds-daily th, .ds-daily td { border-bottom:1px solid var(--ov-line, #dbe5ee); text-align:center; } .ds-daily th:first-child { text-align:left; } .ds-daily thead th { padding-bottom:14px; font-weight:500; color:var(--ov-muted, #506477); } .ds-daily button { width:100%; min-height:64px; border:0; border-radius:7px; background:transparent; color:inherit; font-family: \"IBM Plex Sans Thai\", sans-serif; font-size:13px; cursor:pointer; } .ds-daily button small { display:block; margin-top:1px; font-size:10px; font-weight:400; } .ds-daily button[aria-pressed=\"true\"] { background:var(--ov-accent, #007d58); color:#fff; } .ds-daily tbody th { padding:19px 0; font-weight:500; } .ds-daily tbody th small { display:block; font-size:10px; color:var(--ov-muted, #506477); font-weight:400; } .ds-daily td { padding:16px 4px; } .ds-daily td.ds-day-selected { background:var(--ov-soft, #e8faf1); } .ds-daily td b { font:600 22px/1.5 \"Manrope\",sans-serif; font-variant-numeric:tabular-nums; } .ds-daily td span { display:block; color:var(--ov-muted, #506477); font-size:10px; } .ds-focus:focus-visible { outline: 3px solid var(--ov-accent, #007d58); outline-offset: 4px; } @media(max-width:780px) { .ds-infographic { padding:20px 16px 16px; } .ds-chart-heading { gap:14px; flex-wrap:wrap; margin-bottom:10px; } .ds-chart-guide { width:100%; text-align:left; } .ds-chart-number { font-size:42px; } } @media(prefers-reduced-motion:reduce) { .ds-chart-bar { transition:none; } .ds-chart-scroll { scroll-behavior:auto; } } .ds-risk-key{display:flex;flex-wrap:wrap;gap:15px;margin-top:9px;color:var(--ov-muted, #506477);font-size:11px}.ds-risk-key>span{display:inline-flex;gap:6px;align-items:center}.ds-risk-key i{width:9px;height:9px;border-radius:3px}"
+    },
+    {
+      "name": "Water Station Evidence",
+      "kind": "custom",
+      "description": "Station-specific observed level and published capacity status with source agency/time. Unknown-state preview omits measured geometry and fabricated readings; the legend preserves the five ThaiWater bands.",
+      "html": "<section class=\"ds-water\"><h2>ระดับน้ำในคลองและแม่น้ำ</h2><p>ค่าตรวจวัดล่าสุดตามเวลาของแต่ละสถานี</p><label>เลือกสถานีตรวจวัด<select disabled><option>กำลังรอข้อมูลจากต้นทาง</option></select></label><div class=\"ds-water-detail\" tabindex=\"-1\"><h3>สถานีตรวจวัด</h3><span class=\"ds-water-status\">ข้อมูลใช้ไม่ได้ · ตรวจสอบเวลาหรือค่าจากต้นทาง</span><div class=\"ds-water-evidence\"><strong>— <small>ม. รทก.</small></strong><span class=\"ds-water-capacity\"><b>—</b><small>ความจุลำน้ำจากต้นทาง</small></span></div><p class=\"ds-water-risk\">ยังประเมินสถานะล่าสุดไม่ได้</p><p>รอค่าตรวจวัดล่าสุดก่อนใช้ติดตามสถานการณ์</p><p>ยังเปรียบเทียบกับตลิ่งจากข้อมูลล่าสุดไม่ได้</p><p>ยังไม่มีข้อมูลล่าสุดที่ใช้เทียบระดับน้ำกับตลิ่งได้</p></div><details class=\"ds-water-guide\"><summary>อ่านเกณฑ์สีระดับน้ำ</summary><div class=\"ds-water-key\"><span><i style=\"background:#f43f5e\"></i><b>น้ำน้อยวิกฤติ</b><small>≤10%</small></span><span><i style=\"background:#facc15\"></i><b>น้ำน้อย</b><small>>10–30%</small></span><span><i style=\"background:#34d399\"></i><b>น้ำปกติ</b><small>>30–70%</small></span><span><i style=\"background:#fb923c\"></i><b>น้ำมาก</b><small>>70–100%</small></span><span><i style=\"background:#f43f5e\"></i><b>ล้นตลิ่ง</b><small>>100%</small></span></div><p>เปอร์เซ็นต์ความจุเป็นค่าที่ต้นทางส่งมา ไม่ใช่โอกาสน้ำท่วม ข้อมูลเก่าและสถานีที่ไม่มีเกณฑ์ยังประเมินไม่ได้</p></details><p>แสดงหน่วยงานตรวจวัดและเวลาไทยเมื่อมีข้อมูล</p></section>",
+      "css": ".ds-water{color:var(--ov-ink, #173249);font-family:\"IBM Plex Sans Thai\",sans-serif;line-height:1.65}.ds-water h2{font-size:28px;font-weight:600;line-height:1.4}.ds-water p,.ds-water label{font-size:12px;color:var(--ov-muted, #506477)}.ds-water select{display:block;min-height:48px;padding:10px 12px;background:var(--ov-surface, #ffffff);color:var(--ov-ink, #173249);border:1px solid var(--ov-line, #dbe5ee);border-radius:7px;margin:7px 0 22px}.ds-water-detail{background:var(--ov-sky, #edf6ff);padding:26px 30px;border-radius:16px}.ds-water h3{font-size:23px;font-weight:500;margin:0}.ds-water-status{display:block;color:var(--ov-blue, #0862d8);font-size:12px;margin:6px 0 4px}.ds-water-evidence{display:flex;align-items:center;flex-wrap:wrap;gap:8px 22px}.ds-water strong{font:600 48px/1.4 Manrope,sans-serif;font-variant-numeric:tabular-nums}.ds-water small{font:400 13px \"IBM Plex Sans Thai\",sans-serif;color:var(--ov-muted, #506477)}.ds-water-capacity{margin-left:auto;padding-top:7px}.ds-water-capacity b{display:block;color:var(--ov-muted, #506477);font:600 28px/1.5 Manrope,sans-serif;font-variant-numeric:tabular-nums}.ds-water-capacity small{font-size:10px}.ds-water .ds-water-risk{font-size:15px;color:var(--ov-muted, #506477)}.ds-water-guide{margin-top:23px;color:var(--ov-muted, #506477);font-size:11px}.ds-water-guide summary{display:flex;align-items:center;justify-content:space-between;min-height:44px;cursor:pointer;list-style:none;color:var(--ov-ink, #173249)}.ds-water-key{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:15px;margin-top:13px}.ds-water-key i{display:block;height:6px;border-radius:3px;margin-bottom:8px}.ds-water-key b,.ds-water-key small{display:block;font-size:11px;font-weight:400}.ds-water-detail:focus-visible,.ds-water-guide summary:focus-visible{outline:3px solid var(--ov-accent, #007d58);outline-offset:4px}@media(max-width:780px){.ds-water-detail{padding:22px 20px}.ds-water h3{font-size:21px}.ds-water strong{font-size:43px}.ds-water-capacity{margin-left:0}.ds-water-key{grid-template-columns:repeat(3,minmax(0,1fr))}}"
+    },
+    {
+      "name": "Forecast Planning Meter and Signals",
+      "kind": "custom",
+      "description": "Four existing planning levels for a selected date and area. The preview shows unknown readings plus the genuine color legend, never invented environmental values.",
+      "html": "<section class=\"ds-risk\"><h2>สัญญาณที่ควรติดตาม</h2><p>พื้นที่และวันที่ที่เลือก · ยังมีข้อมูลไม่พอสำหรับประเมินความเสี่ยง</p><div class=\"ds-risk-meter\"><div class=\"ds-risk-meter-label\"><span>ความเสี่ยงจากพยากรณ์</span><b>ยังประเมินไม่ได้</b></div><div class=\"ds-risk-steps\" aria-hidden=\"true\"><span><i></i><small>ต่ำ</small></span><span><i></i><small>ปานกลาง</small></span><span><i></i><small>สูง</small></span><span><i></i><small>สูงมาก</small></span></div></div><div class=\"ds-risk-key\" aria-label=\"เกณฑ์สีความเสี่ยง\"><span><i style=\"background:#34d399\"></i>ต่ำ</span><span><i style=\"background:#facc15\"></i>ปานกลาง</span><span><i style=\"background:#fb923c\"></i>สูง</span><span><i style=\"background:#f43f5e\"></i>สูงมาก</span></div><div class=\"ds-risk-list\"><a class=\"ds-risk-focus\" href=\"#outlook\"><span><b>ฝุ่น PM2.5</b><small>ยังไม่มีข้อมูลสำหรับวันที่เลือก</small></span><strong>— <svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" aria-hidden=\"true\"><path d=\"M5 12h14M13 6l6 6-6 6\"/></svg></strong></a><a class=\"ds-risk-focus\" href=\"#outlook\"><span><b>ฝนสะสม</b><small>ยังไม่มีข้อมูลสำหรับวันที่เลือก</small></span><strong>— <svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" aria-hidden=\"true\"><path d=\"M5 12h14M13 6l6 6-6 6\"/></svg></strong></a><a class=\"ds-risk-focus\" href=\"#outlook\"><span><b>ดัชนีความร้อน</b><small>ยังไม่มีข้อมูลสำหรับวันที่เลือก</small></span><strong>— <svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" aria-hidden=\"true\"><path d=\"M5 12h14M13 6l6 6-6 6\"/></svg></strong></a></div><p class=\"ds-risk-note\">สัญญาณเพื่อวางแผนจากค่าพยากรณ์ ไม่ใช่ประกาศเตือนภัย · ค่าภาพรวมอาจไม่สะท้อนจุดที่ฝนหรือฝุ่นสูงเฉพาะแห่ง</p></section>",
+      "css": ".ds-risk{padding:27px 30px 23px;background:var(--ov-sky, #edf6ff);border-radius:16px;color:var(--ov-ink, #173249);font-family:\"IBM Plex Sans Thai\",sans-serif;line-height:1.65}.ds-risk h2{margin:0;font-size:22px;font-weight:500;line-height:1.4}.ds-risk>p{font-size:11px;color:var(--ov-muted, #506477)}.ds-risk-meter{margin-top:18px}.ds-risk-meter-label{display:flex;align-items:baseline;justify-content:space-between;gap:12px;font-size:11px;color:var(--ov-muted, #506477)}.ds-risk-meter-label b{color:var(--ov-muted, #506477);font-size:13px;font-weight:500}.ds-risk-steps{display:flex;gap:5px;margin-top:9px}.ds-risk-steps>span{flex:1;min-width:0}.ds-risk-steps i{display:block;height:7px;border-radius:3px;background:var(--ov-line, #dbe5ee);transition:background .18s}.ds-risk-steps small{display:block;font-size:10px;color:var(--ov-muted, #506477);text-align:center;margin-top:6px}@media(prefers-reduced-motion:reduce){.ds-risk-steps i{transition:none}}.ds-risk-key{display:flex;flex-wrap:wrap;gap:15px;margin-top:9px;color:var(--ov-muted, #506477);font-size:11px}.ds-risk-key>span{display:inline-flex;gap:6px;align-items:center}.ds-risk-key i{width:9px;height:9px;border-radius:3px}.ds-risk-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:27px}.ds-risk-list a{display:flex;align-items:flex-start;gap:9px;min-width:0;padding:16px 0;border-top:1px solid var(--ov-line, #dbe5ee);color:inherit;text-decoration:none}.ds-risk-list b{font-size:13px;font-weight:500}.ds-risk-list small{display:block;font-size:11px;color:var(--ov-muted, #506477);margin-top:5px;line-height:1.75}.ds-risk-list strong{display:inline-flex;gap:6px;align-items:center;flex:none;font-size:11px;color:var(--ov-muted, #506477);font-weight:500;margin-left:auto}.ds-risk-list a:hover b{text-decoration:underline;text-underline-offset:4px}.ds-risk-focus:focus-visible{outline:3px solid var(--ov-accent, #007d58);outline-offset:4px}.ds-risk .ds-risk-note{font-size:11px;line-height:1.8;max-width:100ch}@media(max-width:1080px){.ds-risk-list{grid-template-columns:1fr}}@media(max-width:780px){.ds-risk{padding:22px 20px 15px}.ds-risk h2{font-size:20px}}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Public Environmental Briefing",
+    "overview": "A bright white reading environment makes environmental evidence approachable in Thai. Saturated emerald, blue and orange identify air, rain and heat, with pale topic tints giving each daily reading and infographic a clear home. The interface remains precise: freshness, uncertainty, units and written verdicts sit beside the numbers.\n\nThai headings and prose carry the explanation; measured Manrope numerals make comparable values easy to scan. Three scale panels introduce the daily picture, while a proportional seven-day chart makes time selection tangible. The real geographic preview, chart and readings share the same selected day and personal area. Light is the default appearance; an explicit saved dark choice is respected across pages.",
+    "keyCharacteristics": [
+      "White canvas with emerald, blue and orange topic accents and bright tinted panels.",
+      "Thai-first typography with tabular numerals and labeled proportional forecast bars.",
+      "Segmented threshold scales and explicit missing-data gaps.",
+      "Coordinated dates, topics and geographic context across readings, chart and map.",
+      "Visible freshness, provenance and unavailable states beside the data."
+    ],
+    "rules": [
+      {
+        "name": "The Topic and Risk Rule",
+        "body": "Topic fills identify data types; segmented scale colors and written verdicts retain their separate threshold meanings.",
+        "section": "colors"
+      },
+      {
+        "name": "The Evidence Color Rule",
+        "body": "A colored reading must retain its written status and source context; unavailable data must remain distinct from zero.",
+        "section": "colors"
+      },
+      {
+        "name": "The Reading Pair Rule",
+        "body": "Keep every number visually attached to its unit, forecast period and interpretation.",
+        "section": "typography"
+      },
+      {
+        "name": "The Quiet Surface Rule",
+        "body": "Use topic tints and dividers for evidence, a subtle lift for the geographic preview, and floating depth for transient search controls.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Stable Risk Hue Rule",
+        "body": "Selecting a forecast bar adds an ink outline while preserving the bar's risk color.",
+        "section": "colors"
+      }
+    ],
+    "dos": [
+      "Do retain source status, actual timestamps and forecast periods beside comparable readings.",
+      "Do distinguish saturated topic identity from the scale's threshold colors and written risk verdicts.",
+      "Do use Thai-first prose, tabular readings and labeled bars with an axis that includes zero.",
+      "Do coordinate selected dates and topics across readings, chart, map and detailed links.",
+      "Do preserve visible keyboard focus, selected-day visibility and reduced-motion behavior.",
+      "Do distinguish observations, model forecasts, spatial estimates and missing data."
+    ],
+    "donts": [
+      "Don't present missing values as zero, borrow a reading from another day, or invent observations.",
+      "Don't treat topic fills or bar height as a substitute for risk labels and source limitations.",
+      "Don't describe source watch signals as verified incidents or official warnings.",
+      "Don't imply that a named road or map dot proves street-level forecast resolution.",
+      "Don't allow decorative imagery or nested cards inside the daily panels to compete with evidence."
+    ]
+  }
+}

@@ -1,5 +1,5 @@
-import MapWorkspace from "./components/intelligence/map-workspace";
+import EnvironmentOverview from "./components/intelligence/environment-overview";
 
 export default function Home() {
-  return <MapWorkspace initialLayer="air" />;
+  return <EnvironmentOverview />;
 }

@@ -1,0 +1,53 @@
+/* The detailed map shares the white canvas and bright topic accents of the briefing. */
+.mi-shell.mi-map-first { --mi-ink: #173249; --mi-muted: #506477; --mi-line: #dbe5ee; --mi-surface: #fff; --mi-soft: #edf6ff; background: #fff; }
+.mi-shell.mi-map-first.mi-layer-air { --mi-accent: #007d58; --mi-soft: #ebfbf2; }
+.mi-shell.mi-map-first.mi-layer-rain { --mi-accent: #0862d8; }
+.mi-shell.mi-map-first.mi-layer-heat { --mi-accent: #b94d00; --mi-soft: #fff3e3; }
+.mi-shell.mi-map-first .mi-workspace { max-width: 1400px; margin-inline: auto; width: 100%; }
+.mf-header { height: 76px; padding: 10px 28px; }
+.mf-brand { gap: 11px; }
+.mf-brand > svg { width: 30px; height: 30px; }
+.mf-context { height: 54px; padding: 4px 28px; }
+.mf-overview-link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-size: 13px; color: var(--mi-muted) !important; }
+.mf-header-actions { display: flex; align-items: center; gap: 20px; }
+.mi-shell.mi-map-first .mi-work-area { margin: 20px 28px 0; height: clamp(400px, calc(100dvh - 360px), 660px); border: 1px solid var(--mi-line); border-radius: 14px 14px 0 0; }
+.mi-shell.mi-map-first .mi-geography { background: var(--mi-surface); }
+.mi-shell.mi-map-first .mf-time { margin: 0 28px; border: 1px solid var(--mi-line); border-top: 0; padding: 9px 16px 4px; }
+.mf-status { margin: 0 28px; padding: 9px 16px; border: 1px solid var(--mi-line); border-top: 0; border-radius: 0 0 14px 14px; }
+.mf-data-message { margin-inline: 28px; }
+.mf-nav { border: 0; background: transparent; margin: 12px 28px 0; justify-content: flex-start; gap: 5px; }
+.mi-map-first .mf-nav button { min-width: 130px; padding: 8px 16px; border-radius: 7px; }
+.mi-map-first .mf-nav button[aria-pressed="true"] { background: var(--mi-soft); }
+.mf-places { padding: 35px 28px 50px; }
+.mf-place-list > li { border-color: var(--mi-line); }
+.mi-shell.mi-map-first .mf-reading-main { min-height: 44px; }
+.mi-shell.mi-map-first .mi-legend-bands button { min-height: 36px; }
+.mi-shell.mi-map-first button:hover:not(:disabled) { background-color: var(--mi-soft); }
+.mi-shell.mi-map-first ::selection { background: #007d58; color: #fff; }
+.mi-shell.mi-map-first .mf-panel { scrollbar-color: var(--mi-line) var(--mi-surface); scrollbar-width: thin; }
+html[data-theme="dark"] .mi-shell.mi-map-first { --mi-ink: #edf5f2; --mi-muted: #a8bfbe; --mi-line: #304850; --mi-surface: #172c35; --mi-soft: #1b333a; background: #101f29; }
+html[data-theme="dark"] .mi-shell.mi-map-first .mf-header, html[data-theme="dark"] .mi-shell.mi-map-first .mf-context { background: var(--mi-surface); }
+.mi-shell.mi-map-first.mi-exploring .mi-workspace { max-width: none; margin: 0; }
+.mi-shell.mi-map-first.mi-exploring .mi-work-area { margin: 0; height: 100%; border: 0; border-radius: 0; }
+@media (max-width: 780px), (max-width: 1024px) and (pointer: coarse) {
+  .mf-header { height: calc(60px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 12px 0; gap: 8px; }
+  .mf-header-actions { gap: 6px; }
+  .mf-overview-link { font-size: 0; min-width: 36px; justify-content: center; }
+  .mf-overview-link svg { width: 20px; }
+  .mf-brand { width: 24px; }
+  .mf-brand > svg { width: 24px; }
+  .mi-map-first .mi-layer-switch button { padding-inline: 4px; }
+  .mf-context { height: 46px; padding-inline: 16px; }
+  .mi-shell.mi-map-first .mi-work-area { margin: 12px 12px 0; height: clamp(300px, calc(100dvh - 330px), 650px); border-radius: 12px 12px 0 0; }
+  .mi-shell.mi-map-first.mi-layer-rain .mi-work-area { height: clamp(280px, calc(100dvh - 372px), 650px); }
+  .mi-shell.mi-map-first .mf-time, .mf-status, .mf-data-message { margin-inline: 12px; }
+  .mf-status { padding: 5px 10px; }
+  .mf-nav { margin: 9px 12px 0; gap: 0; }
+  .mi-map-first .mf-nav button { padding: 5px; min-width: 0; }
+  .mf-places { padding: 28px 20px 40px; }
+  .mi-shell.mi-map-first.mi-exploring .mi-work-area { margin: 0; height: 100%; border-radius: 0; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .mf-header { height: 48px; }
+  .mi-shell.mi-map-first .mi-work-area { height: 65dvh; }
+}

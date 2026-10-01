@@ -43,6 +43,14 @@ test('daily rainfall thresholds never classify hourly probability as heavy rainf
  assert.equal(buildAreaWatch(data,date)[0].unit,'mm / วัน');
  assert.equal(buildAreaWatch(data,date,8)[0].title,'โอกาสฝนสูง');
 });
+test('rain-amount overview does not surface probability-only signals and retains actual heavy daily totals',()=>{
+ const data=normalizeWeather(payload,'rain');
+ assert.equal(buildAreaWatch(data,date,undefined,undefined,'secondary')[0].value,80);
+ assert.equal(buildAreaWatch(data,date,8,undefined,'secondary').length,0);
+ const lowAmount={...data,points:data.points.map(p=>({...p,secondary:p.secondary.map(()=>0)}))};
+ assert.equal(buildAreaWatch(lowAmount,date,undefined,undefined,'secondary').length,0);
+ assert.equal(buildAreaWatch(lowAmount,date)[0].unit,'%');
+});
 test('watch thresholds exclude missing data and rank severe named locations first',()=>{
  const data={...normalizeWeather(payload,'heat'),layer:'air',steps:[{key:date,date,window:null,day:0,label:'เฉลี่ยรายวัน'}],points:[{id:'bangkok-1',label:'กรุงเทพฯ · ตอนเหนือ',values:[37.5],secondary:[]},{id:'bangkok-2',label:'กรุงเทพฯ · ตอนใต้',values:[76],secondary:[]},{id:'nonthaburi-2',label:'นนทบุรี · ตอนเหนือ',values:[50],secondary:[]},{id:'missing',label:'Missing',values:[NaN],secondary:[]}]};
  const watches=buildAreaWatch(data,date); assert.deepEqual(watches.map(w=>w.point.id),['bangkok-2','nonthaburi-2']);

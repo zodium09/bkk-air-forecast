@@ -12,6 +12,10 @@ People who live, commute, work, study, or plan outdoor activity in Bangkok and i
 
 BKK Air Forecast combines current Bangkok air-quality observations with atmospheric and weather models to provide planning-oriented PM2.5 and rain outlooks for Bangkok, Nonthaburi, Pathum Thani, Samut Prakan, Samut Sakhon, and Nakhon Pathom. Success means users can identify likely high-risk days, areas, and time windows, understand forecast uncertainty and data freshness, and know when to defer to official public-health or weather warnings.
 
+## Water Observation Extension
+
+The overview also includes recent published canal and river water-level observations in the six metropolitan provinces. These are station measurements with their source agency, timestamp, vertical datum and freshness; they remain distinct from the seven-day model forecast. Coverage follows available upstream stations and does not imply a measurement for every neighborhood.
+
 ## Brand Personality
 
 Trustworthy, precise, and calm. The product should communicate technical evidence in approachable Thai, make uncertainty visible, and avoid alarmist or falsely authoritative language.

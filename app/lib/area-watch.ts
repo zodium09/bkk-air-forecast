@@ -1,5 +1,5 @@
 import { provinces } from "./provinces.ts";
-import { finite, pointValue, type MapDataset, type MapPoint, type MapStep } from "./map-intelligence.ts";
+import { finite, pointValue, type MapDataset, type MapPoint, type MapStep, type Metric } from "./map-intelligence.ts";
 import { placeArea } from "./map-places.ts";
 
 export type AreaWatch = { point: MapPoint; layer: MapDataset["layer"]; step: MapStep; severity: number; title: string; description: string; value: number; unit: string; area: string; source: string; degraded: boolean };
@@ -19,7 +19,7 @@ export function watchStepIndex(data: MapDataset, date: string, hour?: number, ca
   return data.steps.findIndex((s) => s.date === date && s.window === null);
 }
 
-export function buildAreaWatch(data: MapDataset | null, date: string, hour?: number, cadence?: MapStep["cadence"]): AreaWatch[] {
+export function buildAreaWatch(data: MapDataset | null, date: string, hour?: number, cadence?: MapStep["cadence"], rainMetric: Metric = "primary"): AreaWatch[] {
   if (!data || data.status === "unavailable") return [];
   const index = watchStepIndex(data, date, hour, cadence);
   const step = data.steps[index];
@@ -34,7 +34,7 @@ export function buildAreaWatch(data: MapDataset | null, date: string, hour?: num
     } else if (data.layer === "rain") {
       // Daily accumulation thresholds must never be applied to a single hour.
       const heavyDaily = step.window === null && rain !== null && rain > 35.5;
-      if ((value !== null && value >= 60) || heavyDaily) {
+      if ((rainMetric === "primary" && value !== null && value >= 60) || heavyDaily) {
         severity = heavyDaily ? rain > 90 ? 3 : 2 : 1;
         title = heavyDaily ? "พยากรณ์ฝนสะสมสูง" : "โอกาสฝนสูง"; unit = heavyDaily ? "mm / วัน" : "%";
         description = heavyDaily ? "แบบจำลองให้ฝนสะสมมากในจุดนี้ ยังไม่ยืนยันฝนตกจริงหรือน้ำท่วม" : step.cadence === "hour" ? "โอกาสฝนรายชั่วโมงสูง ติดตามเรดาร์และประกาศในพื้นที่" : "โอกาสฝนสูงสุดรายชั่วโมงในช่วงที่เลือกสูง ติดตามเรดาร์และประกาศในพื้นที่";

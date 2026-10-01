@@ -20,20 +20,22 @@ const executionContext = {
   passThroughOnException() {},
 };
 
-test("home opens a dot map with a continuous readable place list below the map", async () => {
+test("home opens an accessible overview before personal-area selection and forecasts", async () => {
   const worker = await loadWorker();
   const response = await worker.fetch(new Request("http://localhost/", { headers: { accept: "text/html" } }), environment, executionContext);
   assert.equal(response.status, 200);
   const html = await response.text();
-  for (const label of ["mi-map-first", "กรองจังหวัด", "การนำทางแผนที่", "เลื่อนเวลาพยากรณ์", "เฝ้าระวัง", "ค้นหาสถานที่หรือพื้นที่"]) assert.ok(html.includes(label), label);
-  assert.match(html, /data-theme="dark"/);
-  assert.doesNotMatch(html, /mi-home-intro|mi-home-topics|db-toolbar|db-map-reading/);
-  assert.ok(html.indexOf('class="mi-map-stage"') < html.indexOf('class="mf-reading"'));
-  assert.ok(html.includes("สรุปรายสถานที่และพื้นที่"));
-  assert.ok(html.includes("รายการสรุปสถานที่"));
-  assert.ok(html.indexOf('id="map-story"') < html.indexOf('id="place-outlook"'));
-  assert.ok(html.includes("จุดสีและรายการใช้ค่าประมาณ IDW เดียวกัน"));
-  assert.ok(html.includes("ค้นหาถนน แขวง/ตำบล เขต/อำเภอ"));
+  for (const label of ["ov-page", "ภาพรวม", "ย่านของฉัน", "มองล่วงหน้า 7 วัน", "พื้นที่ที่ควรติดตาม", "ข้อมูลนี้มาจากไหน?", "ค้นหาถนน เขต หรือพื้นที่", "ข้ามไปที่ข้อมูล"]) assert.ok(html.includes(label), label);
+  assert.match(html, /data-theme="light"/);
+  assert.ok(html.indexOf('id="overview"') < html.indexOf('id="my-area"'));
+  assert.ok(html.indexOf('id="my-area"') < html.indexOf('id="outlook"'));
+  assert.ok(html.includes("ปริมาณสะสมตลอด 24 ชั่วโมง"));
+  assert.ok(html.includes("ค่าพยากรณ์ / ประมาณเชิงพื้นที่"));
+  assert.ok(html.includes("ระดับน้ำในคลองและแม่น้ำ"));
+  assert.ok(html.includes("ค่าตรวจวัดล่าสุดตามเวลาของแต่ละสถานี"));
+  assert.ok(html.indexOf('id="outlook"') < html.indexOf('id="water-levels"'));
+  assert.ok(html.includes("ค่านี้ไม่ใช่ความลึกของน้ำท่วม"));
+  assert.match(html, /href="\/rain\?province=metro"/);
   assert.doesNotMatch(html, /class="mf-panel"/);
 });
 
