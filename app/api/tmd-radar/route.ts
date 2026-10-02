@@ -30,7 +30,7 @@ type RawCatalog = {
 function parseUtc(value: unknown) {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z?$/.test(value)) return null;
   const timestamp = Date.parse(value.endsWith("Z") ? value : `${value}Z`);
-  return Number.isFinite(timestamp) ? timestamp : null;
+  return Number.isFinite(timestamp) && new Date(timestamp).toISOString().slice(0,19) === value.replace(/Z$/, "") ? timestamp : null;
 }
 
 function parseBounds(value: unknown): [[number, number], [number, number]] | null {
@@ -115,16 +115,13 @@ export async function createTmdRadarResponse(options: {
     const catalog = await response.json() as RawCatalog;
     if (!Array.isArray(catalog.overlays)) throw new Error("invalid TMD RadarGIS catalog");
 
-    const rawObserved = (catalog.overlays as RawOverlay[])
+    const observedFrames = (catalog.overlays as RawOverlay[])
       .filter((overlay) => overlay.group === OBSERVED_GROUP)
-      .map((overlay) => ({ overlay, timestamp: parseUtc(overlay.valid_dt_iso) }))
-      .filter((entry): entry is { overlay: RawOverlay; timestamp: number } => entry.timestamp !== null)
-      .sort((a, b) => a.timestamp - b.timestamp)
+      .map((overlay) => normalizeFrame(overlay, "observed", null))
+      .filter((frame): frame is TmdRadarFrame => frame !== null && Date.parse(frame.validAt) <= now + 300000)
+      .sort((a, b) => Date.parse(a.validAt) - Date.parse(b.validAt))
       .slice(-MAX_OBSERVED_FRAMES);
-    const baseTime = rawObserved.at(-1)?.timestamp ?? null;
-    const observedFrames = rawObserved
-      .map(({ overlay }) => normalizeFrame(overlay, "observed", baseTime))
-      .filter((frame): frame is TmdRadarFrame => frame !== null);
+    const baseTime = observedFrames.length ? Date.parse(observedFrames.at(-1)!.validAt) : null;
     const nowcastFrames = (catalog.overlays as RawOverlay[])
       .filter((overlay) => overlay.group === NOWCAST_GROUP)
       .map((overlay) => normalizeFrame(overlay, "nowcast", baseTime))

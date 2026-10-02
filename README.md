@@ -4,6 +4,7 @@ BKK Air Forecast is a Bangkok-metropolitan web application for viewing seven-day
 
 ## Features
 
+- Top-of-page important-event briefing with source-classified road/water/PM2.5 observations, nearby TMD rain analysis and current-interval heat forecasts; scope-aware in-page alerts suppress unchanged refreshes. Contracts: [docs/IMPORTANT_EVENTS_TH.md](docs/IMPORTANT_EVENTS_TH.md).
 - Large mobile map with colored forecast dots (direct provider rain values; IDW for air/heat), immediate touch panning, an unobstructed canvas and optional full-map mode
 - Continuous place list below the map: named Bangkok districts and surrounding sample areas, ordered by forecast signal with plain-language readings and next steps
 - One-tap day/hour selection for provider-supplied rain and heat forecasts; opening without an explicit time defaults to the current Bangkok date/hour and follows the clock until the user chooses a time. Changing layers preserves a deliberately selected time, while default views remain current. Daily-only sources use the nearest available period; PM2.5 stays explicitly daily
@@ -43,6 +44,8 @@ Specialist pages under `/advanced` retain their raster surfaces and radar tools.
 The default metropolitan views call one consolidated forecast endpoint and one consolidated boundary endpoint instead of six province endpoints. Successful public-data responses are stored in Cloudflare Cache API with normalized cache keys: PM2.5 for 10 minutes, direct rain places for up to two hours (capped at midnight), specialist rain for 30 minutes, radar for 5 minutes, and boundaries for 7 days. Client-generated refresh values are excluded from cache keys, and Air4Thai downloads are deduplicated within each metropolitan refresh. Forecast delivery requires no persistent database. The water observation archive uses local daily journals in Next.js or the `DB` D1 binding in Cloudflare Workers.
 
 ## Current observations and water history
+
+The overview and `/rain` include TMD radar playback, source analysis within 8 km, nearby hourly model trends and optional in-app rain notices while the page is open. Generated Bangkok artwork links to the three topics through interactive controls. Location results are not cached or persisted. See [the radar data and interaction contract](docs/RAIN_RADAR_NEARBY_TH.md).
 
 `/api/air-observations` reads AirBKK and Air4Thai independently of the PM forecast model. Fresh readings are at most 90 minutes old. The overview summarizes one compatible agency/averaging-period group; a selected place shows an actual nearby station within 30 km. The source payload does not declare the averaging period, so the UI makes that limitation explicit and does not infer an hourly health category.
 

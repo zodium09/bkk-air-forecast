@@ -5,7 +5,7 @@ import { formatWaterValue as formatValue, waterBankDifference, waterRisk, waterS
 import { MapIcon } from "./map-ui";
 import { riskStyle } from "./risk-signals";
 import "./water-overview.css";
-import { useLiveResource } from "./use-live-resource";
+import { useLiveResource, type LiveResource } from "./use-live-resource";
 import WaterHistoryChart from "./water-history-chart";
 
 function readingTime(station: WaterStation) {
@@ -44,13 +44,14 @@ function WaterScale({ station, motion }: { station: WaterStation; motion: boolea
   </svg>;
 }
 
-export default function WaterOverview({ region, place, refresh }: { region: RegionId; place: { lat: number; lng: number } | null; refresh: number }) {
+export default function WaterOverview({ region, place, refresh, sharedResource, onRefresh }: { region: RegionId; place: { lat: number; lng: number } | null; refresh: number; sharedResource?: LiveResource<WaterPayload>; onRefresh?: () => void }) {
   const [reload, setReload] = useState(0);
   const [kind, setKind] = useState<"all" | "canal" | "river">("all");
   const [stationId, setStationId] = useState("");
   const [signalFilter, setSignalFilter] = useState<"all" | "high" | "low">("all");
   const [motion, setMotion] = useState(true);
-  const resource = useLiveResource<WaterPayload>("/api/water-levels", refresh + reload);
+  const localResource = useLiveResource<WaterPayload>(sharedResource ? null : "/api/water-levels", refresh + reload);
+  const resource = sharedResource ?? localResource;
   const { data, loading } = resource;
   const areaStations = waterStationsForArea(currentWaterStations(data?.stations ?? [], resource.clock), region, place);
   const highWater = (station: WaterStation) => ["high", "overflow"].includes(waterRisk(station).id);
@@ -73,11 +74,11 @@ export default function WaterOverview({ region, place, refresh }: { region: Regi
     }
   }
   return <section className="ov-section ov-water" id="water-levels" tabIndex={-1} aria-busy={loading}>
-    <div className="ov-section-heading"><div><h2>ระดับน้ำในคลองและแม่น้ำ</h2><p>{getRegion(region).shortNameTh} · ค่าตรวจวัดล่าสุดรายสถานี ไม่เปลี่ยนตามวันพยากรณ์</p></div><button className="ov-location-button" disabled={loading} onClick={() => setReload((value) => value + 1)}><MapIcon name="refresh" size={17} />{loading ? "กำลังโหลดระดับน้ำ…" : "อัปเดตระดับน้ำ"}</button></div>
+    <div className="ov-section-heading"><div><h2>ระดับน้ำในคลองและแม่น้ำ</h2><p>{getRegion(region).shortNameTh} · ค่าตรวจวัดล่าสุดรายสถานี ไม่เปลี่ยนตามวันพยากรณ์</p></div><button className="ov-location-button" disabled={loading} onClick={() => onRefresh ? onRefresh() : setReload((value) => value + 1)}><MapIcon name="refresh" size={17} />{loading ? "กำลังโหลดระดับน้ำ…" : "อัปเดตระดับน้ำ"}</button></div>
     <div className="ov-water-toolbar"><div className="ov-water-tabs" aria-label="เลือกประเภททางน้ำ">{[{ id: "all", label: "ทั้งหมด" }, { id: "canal", label: "คลอง" }, { id: "river", label: "แม่น้ำ" }].map((item) => <button key={item.id} aria-pressed={kind === item.id} onClick={() => setKind(item.id as typeof kind)}>{item.label}</button>)}</div><button className="ov-motion-control" aria-pressed={!motion} onClick={() => setMotion((value) => !value)}><MapIcon name="chart" size={16} />{motion ? "หยุดภาพเคลื่อนไหว" : "เปิดภาพเคลื่อนไหว"}</button><p role="status">{loading ? "กำลังเชื่อมต่อ ThaiWater…" : resource.refreshing ? "กำลังอัปเดตค่าตรวจวัด…" : `${fresh} สถานีมีข้อมูลภายใน 1 ชั่วโมง · ${areaStations.length - fresh} สถานีข้อมูลเก่าหรือใช้ไม่ได้`}</p></div>
     <div className="fc-water-summary" aria-label="แยกสถานีน้ำมากและน้ำน้อย"><button aria-pressed={signalFilter === "high"} disabled={loading} onClick={() => setSignalFilter(signalFilter === "high" ? "all" : "high")}><span>น้ำมาก / ถึงตลิ่ง</span><b>{loading ? "…" : assessed ? attention : "—"}</b><small>สถานี · ดูเฉพาะกลุ่มนี้</small></button><button aria-pressed={signalFilter === "low"} disabled={loading} onClick={() => setSignalFilter(signalFilter === "low" ? "all" : "low")}><span>น้ำน้อย / น้อยวิกฤติ</span><b>{loading ? "…" : assessed ? low : "—"}</b><small>สถานี · คนละสาเหตุกับน้ำท่วม</small></button><button aria-pressed={signalFilter === "all"} disabled={loading} onClick={() => setSignalFilter("all")}><span>จัดสถานะได้</span><b>{loading ? "…" : assessed}</b><small>จาก {areaStations.length} สถานี · ดูทั้งหมด</small></button></div>
     <div className={`ov-water-notice ov-risk-${attention ? 2 : -1}`}><MapIcon name={attention ? "warning" : "info"} size={22} /><div><h3>{loading ? "กำลังตรวจสถานะระดับน้ำ" : !assessed ? "ยังประเมินสัญญาณระดับน้ำไม่ได้" : attention ? `${attention} สถานีน้ำมากหรือถึงระดับตลิ่ง` : "ยังไม่พบสถานีน้ำมากหรือถึงตลิ่งในข้อมูลที่จัดสถานะได้"}</h3><p>{!loading && !assessed ? "ข้อมูลล่าสุดหรือเกณฑ์เปรียบเทียบยังไม่พร้อม · ลองอัปเดตข้อมูลหรือเลือกจังหวัดอื่น" : "สถานะจากความจุลำน้ำหรือระดับตลิ่ง ณ สถานี · น้ำน้อยแสดงแยกต่างหาก · ไม่ใช่ประกาศเตือนภัย"}</p></div><button aria-pressed={signalFilter === "high"} disabled={loading} onClick={() => setSignalFilter(signalFilter === "high" ? "all" : "high")}>{signalFilter === "high" ? "แสดงทุกสถานี" : "ดูสถานีน้ำมาก"}<MapIcon name="arrow" size={16} /></button></div>
-    {!loading && !canUse && <div className="ov-recovery" role="status"><MapIcon name="info" size={18} /><p>{areaStations.length ? "ยังไม่มีค่าระดับน้ำที่ใช้ได้ในพื้นที่นี้" : "ไม่มีข้อมูลระดับน้ำที่ใช้ได้จากต้นทางสำหรับพื้นที่นี้"}</p><button className="ov-text-link" onClick={() => setReload((value) => value + 1)}>ลองโหลดอีกครั้ง</button></div>}
+    {!loading && !canUse && <div className="ov-recovery" role="status"><MapIcon name="info" size={18} /><p>{areaStations.length ? "ยังไม่มีค่าระดับน้ำที่ใช้ได้ในพื้นที่นี้" : "ไม่มีข้อมูลระดับน้ำที่ใช้ได้จากต้นทางสำหรับพื้นที่นี้"}</p><button className="ov-text-link" onClick={() => onRefresh ? onRefresh() : setReload((value) => value + 1)}>ลองโหลดอีกครั้ง</button></div>}
     <div className="ov-water-layout"><div className="ov-water-stations"><label htmlFor="overview-water-station">เลือกสถานีตรวจวัด<select id="overview-water-station" value={station?.id ?? ""} disabled={loading || !stations.length} onChange={(event) => chooseStation(event.target.value)}>{!stations.length && <option value="">{loading ? "กำลังโหลดรายชื่อ…" : "ไม่พบสถานีประเภทนี้"}</option>}{stations.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.province}</option>)}</select></label>
       {place && <p className="ov-water-nearby">เรียงสถานีที่ข้อมูลพร้อมใกล้ย่านที่เลือกก่อน · ระยะเส้นตรง</p>}
       <div className="ov-water-list">{stations.slice(0,6).map((item) => { const state = waterRisk(item); return <button key={item.id} className={`ov-risk-${state.priority}`} style={riskStyle(state.priority)} aria-pressed={station?.id === item.id} onClick={() => chooseStation(item.id)}><span><b>{item.name}</b><small>{item.waterway}{item.distanceKm !== null ? ` · ${new Intl.NumberFormat("th-TH", { maximumFractionDigits: 1 }).format(item.distanceKm)} กม.` : ` · ${item.province}`}</small><em className="ov-water-row-status"><i />{item.status === "fresh" ? state.title : item.status === "stale" ? "ข้อมูลเก่า · ไม่ประเมินสถานะล่าสุด" : "ข้อมูลใช้ไม่ได้"}</em></span><span>{formatValue(item.value)}<small>{item.datum === "msl" ? "ม. รทก." : "ม. อ้างอิงสถานี"} · {item.status === "fresh" ? "ล่าสุด" : item.status === "stale" ? "ข้อมูลเก่า" : "ใช้ไม่ได้"}</small></span></button>; })}</div>

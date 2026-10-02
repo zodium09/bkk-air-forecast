@@ -72,6 +72,9 @@ export function goToStory(id: string) {
 
 export function MapIcon({ name, size = 20 }: { name: string; size?: number }) {
   const paths: Record<string, ReactNode> = {
+    radar: <><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="M12 12 19 5"/><circle cx="12" cy="12" r="1"/></>,
+    bell: <><path d="M6 8a6 6 0 0 1 12 0v5l2 3H4l2-3ZM10 20h4"/></>,
+    water: <><path d="M3 6q2-3 4 0t4 0t4 0t4 0M3 12q2-3 4 0t4 0t4 0t4 0M3 18q2-3 4 0t4 0t4 0t4 0"/></>,
     clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
     map: (
       <>

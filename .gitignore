@@ -15,6 +15,7 @@
 /.playwright-cli/
 /output/playwright/
 /output/geography/
+/output/radar-research/
 
 # next.js
 /.next/

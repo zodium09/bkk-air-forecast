@@ -8,6 +8,7 @@ import MapTimeControl from "./map-time-control";
 import AreaWatchList from "./area-watch-list";
 import PlaceOutlookList from "./place-outlook-list";
 import TopicBriefing from "./topic-briefing";
+import RainRadar from "./rain-radar";
 import WaterOverview from "./water-overview";
 import CurrentAir from "./current-air";
 import RoadFloodOverview from "./road-flood-overview";
@@ -183,6 +184,7 @@ export default function MapWorkspace({ initialLayer = "air" }: { initialLayer?: 
         <div className="mf-header-actions"><a className="mf-overview-link" href="/"><MapIcon name="arrow" size={16} />ภาพรวม</a><a className="mf-surveillance-link" href="/surveillance">เฝ้าระวัง</a><ThemeToggle /></div>
       </header>
       {!exploring && <TopicBriefing layer={layer} data={data} values={values} companionValues={companionValues} index={index} metric={metric} scope={scope} loading={loading} error={error} following={!timeKey} onNow={() => { setTimeKey(""); setClock(Date.now()); setPlaying(false); }} currentObservation={layer === "air" ? <CurrentAir region={province} place={selected} refresh={refresh}/> : undefined} onTime={changeTime} onMetric={(next) => { setMetric(next); setLegend(null); setCompareKey(null); setPlaying(false); }} />}
+      {layer === "rain" && !exploring && <RainRadar region={province} position={selected ? { ...selected, label: scope } : null} onSelect={position => { setSelected(position); setFocus(value=>value+1); }} rainData={data} refresh={refresh}/>}
       <div className="mf-context">
         <label className="mf-province"><MapIcon name="pin" size={17} /><select aria-label="กรองจังหวัด" value={province} onChange={(e) => { setProvince(e.target.value as RegionId); setSelected(null); setCompareKey(null); setPlaying(false); }}><option value="metro">กรุงเทพฯ–ปริมณฑล</option>{provinces.map((p) => <option key={p.id} value={p.id}>{p.nameTh}</option>)}</select></label>
         <div className="mf-context-actions"><button aria-label="ค้นหาสถานที่หรือพื้นที่" aria-pressed={view === "search"} onClick={() => openView(view === "search" ? "map" : "search")}><MapIcon name="search" /></button><button aria-label="ตัวเลือกแผนที่" aria-pressed={view === "settings"} onClick={() => openView(view === "settings" ? "map" : "settings")}><MapIcon name="layers" /></button></div>

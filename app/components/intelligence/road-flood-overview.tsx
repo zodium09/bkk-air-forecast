@@ -5,11 +5,12 @@ import { thaiObservationTime } from "../../lib/observation-time";
 import { formatValue } from "../../lib/map-intelligence";
 import type { RegionId } from "../../lib/provinces";
 import { MapIcon } from "./map-ui";
-import { useLiveResource } from "./use-live-resource";
+import { useLiveResource, type LiveResource } from "./use-live-resource";
 import "./observations.css";
 
-export default function RoadFloodOverview({ region, place, refresh, compact = false }: { region: RegionId; place: {lat: number; lng: number} | null; refresh: number; compact?: boolean }) {
-  const resource = useLiveResource<RoadFloodPayload>("/api/road-floods", refresh);
+export default function RoadFloodOverview({ region, place, refresh, compact = false, sharedResource }: { region: RegionId; place: {lat: number; lng: number} | null; refresh: number; compact?: boolean; sharedResource?: LiveResource<RoadFloodPayload> }) {
+  const localResource = useLiveResource<RoadFloodPayload>(sharedResource ? null : "/api/road-floods", refresh);
+  const resource = sharedResource ?? localResource;
   const [attention, setAttention] = useState(true);
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState("all");
