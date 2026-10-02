@@ -8,7 +8,7 @@
 .mf-brand { gap: 11px; }
 .mf-brand > svg { width: 30px; height: 30px; }
 .mf-context { height: 54px; padding: 4px 28px; }
-.mf-overview-link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-size: 13px; color: var(--mi-muted) !important; }
+.mf-overview-link, .mf-surveillance-link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-size: 13px; color: var(--mi-muted) !important; }
 .mf-header-actions { display: flex; align-items: center; gap: 20px; }
 .mi-shell.mi-map-first .mi-work-area { margin: 20px 28px 0; height: clamp(400px, calc(100dvh - 360px), 660px); border: 1px solid var(--mi-line); border-radius: 14px 14px 0 0; }
 .mi-shell.mi-map-first .mi-geography { background: var(--mi-surface); }
@@ -32,6 +32,7 @@ html[data-theme="dark"] .mi-shell.mi-map-first .mf-header, html[data-theme="dark
 @media (max-width: 780px), (max-width: 1024px) and (pointer: coarse) {
   .mf-header { height: calc(60px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 12px 0; gap: 8px; }
   .mf-header-actions { gap: 6px; }
+  .mf-surveillance-link { display: none; }
   .mf-overview-link { font-size: 0; min-width: 36px; justify-content: center; }
   .mf-overview-link svg { width: 20px; }
   .mf-brand { width: 24px; }

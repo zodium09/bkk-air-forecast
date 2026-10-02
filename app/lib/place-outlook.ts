@@ -30,7 +30,7 @@ export function createPlacePoints(data: MapDataset | null, boundary: MapBoundary
 
 export type PlaceReading = { title: string; description: string; action: string; priority: number };
 export function placeReading(layer: EnvironmentLayer, metric: Metric, value: number | null, step?: MapStep): PlaceReading {
-  if (value === null) return { title: "ยังประมาณค่าไม่ได้", description: "จุดข้อมูลใกล้เคียงไม่เพียงพอสำหรับช่วงเวลานี้", action: "ตรวจสอบแหล่งข้อมูลหรือเลือกช่วงเวลาอื่น", priority: -1 };
+  if (value === null) return { title: "ยังไม่มีข้อมูลพยากรณ์", description: "ยังไม่มีค่าที่ใช้ได้สำหรับจุดหรือช่วงเวลานี้", action: "ตรวจสอบแหล่งข้อมูลหรือเลือกช่วงเวลาอื่น", priority: -1 };
   const daily = step?.window === null;
   const amount = formatValue(value);
   if (layer === "air") {
@@ -38,7 +38,7 @@ export function placeReading(layer: EnvironmentLayer, metric: Metric, value: num
     return {
       title: priority >= 2 ? "ควรติดตามฝุ่นสูง" : priority === 1 ? "ฝุ่นอยู่ระดับปานกลาง" : "คาดว่าฝุ่นอยู่ระดับดี",
       description: `PM2.5 ประมาณ ${amount} µg/m³ เฉลี่ยรายวันบริเวณจุดนี้`,
-      action: priority >= 2 ? "เช็กค่าตรวจวัดล่าสุดก่อนวางแผนกิจกรรมกลางแจ้ง" : "ติดตามค่าตรวจวัดอีกครั้งเมื่อใกล้เวลาออกเดินทาง",
+      action: priority === 3 ? "พยากรณ์ฝุ่นสูงมาก · ตรวจค่าจากสถานีและคำแนะนำของหน่วยงานก่อนทำกิจกรรมกลางแจ้ง" : priority === 2 ? "เช็กค่าตรวจวัดล่าสุดก่อนวางแผนกิจกรรมกลางแจ้ง" : "ติดตามค่าตรวจวัดอีกครั้งเมื่อใกล้เวลาออกเดินทาง",
       priority,
     };
   }
@@ -52,19 +52,25 @@ export function placeReading(layer: EnvironmentLayer, metric: Metric, value: num
     };
   }
   if (layer === "rain") {
-    const priority = daily && value > 90 ? 3 : daily && value > 35.5 ? 2 : value > 0 ? 1 : 0;
+    const priority = !daily ? -1 : value > 90 ? 3 : value > 35 ? 2 : value > 0 ? 1 : 0;
     return {
-      title: priority >= 2 ? "ควรติดตามฝนสะสมสูง" : value > 0 ? "แบบจำลองคาดว่ามีฝน" : "แบบจำลองยังไม่ให้ฝน",
+      title: priority >= 2 ? "ควรติดตามฝนสะสมสูง" : value > 0 ? "คาดว่ามีฝนในช่วงที่เลือก" : "พยากรณ์ 0 มม. ในช่วงที่เลือก",
       description: `ฝนสะสมประมาณ ${amount} มม. ${daily ? "ตลอดวัน" : "ในช่วงเวลาที่เลือก"}`,
       action: value > 0 ? "เผื่อเวลาเดินทาง ติดตามเรดาร์และประกาศในพื้นที่" : "ตรวจเรดาร์อีกครั้ง เพราะยังอาจมีฝนเฉพาะจุด",
       priority,
     };
   }
-  const priority = metric === "primary" ? value >= 52 ? 3 : value >= 42 ? 2 : value >= 33 ? 1 : 0 : value >= 40 ? 2 : value >= 35 ? 1 : 0;
+  if (metric === "secondary") return {
+    title: "อุณหภูมิอากาศในช่วงที่เลือก",
+    description: `อุณหภูมิอากาศประมาณ ${amount}°C ${daily ? "ค่าสูงสุดของวัน" : "ในช่วงเวลาที่เลือก"}`,
+    action: "อ่านดัชนีความร้อนควบคู่ก่อนเลือกช่วงกิจกรรมกลางแจ้ง",
+    priority: -1,
+  };
+  const priority = value >= 52 ? 3 : value >= 42 ? 2 : value >= 33 ? 1 : 0;
   return {
     title: priority >= 2 ? "ควรติดตามความร้อนสูง" : priority === 1 ? "คาดว่าอากาศร้อน" : "ความร้อนยังไม่เด่นในช่วงนี้",
-    description: `${metric === "primary" ? "ดัชนีความร้อนที่รู้สึก" : "อุณหภูมิอากาศ"}ประมาณ ${amount}°C ${daily ? "ค่าสูงสุดของวัน" : "ในช่วงเวลาที่เลือก"}`,
-    action: priority > 0 ? "ดูแนวโน้มเพื่อเลือกช่วงที่อากาศเย็นกว่าสำหรับกิจกรรมกลางแจ้ง" : "เช็กแนวโน้มช่วงบ่ายก่อนวางแผนกิจกรรม",
+    description: `ดัชนีความร้อนที่รู้สึกประมาณ ${amount}°C ${daily ? "ค่าสูงสุดของวัน" : "ในช่วงเวลาที่เลือก"}`,
+    action: priority === 3 ? "หลีกเลี่ยงกิจกรรมกลางแจ้งในช่วงร้อนจัด และอ่านคำแนะนำกรมอนามัย" : priority === 2 ? "ลดเวลาทำกิจกรรมกลางแจ้ง เลือกช่วงที่เย็นกว่า และติดตามคำแนะนำในพื้นที่" : priority === 1 ? "เตรียมน้ำดื่มและวางแผนพักในที่ร่มระหว่างกิจกรรม" : "เช็กแนวโน้มช่วงบ่ายก่อนวางแผนกิจกรรม",
     priority,
   };
 }

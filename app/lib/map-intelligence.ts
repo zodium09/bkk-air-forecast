@@ -87,6 +87,7 @@ export function average(values: (number | null)[]) {
   return valid.length ? valid.reduce((a, b) => a + b, 0) / valid.length : null;
 }
 export function formatValue(value: number | null) {
+  if (value !== null && value !== 0 && Math.abs(value) < 0.05) return value > 0 ? "<0.1" : ">−0.1";
   return value === null
     ? "—"
     : new Intl.NumberFormat("th-TH", { maximumFractionDigits: 1 }).format(

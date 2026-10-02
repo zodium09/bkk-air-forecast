@@ -31,6 +31,6 @@ export default function WaterHistoryChart({ station, version, refresh, motion }:
       <p className="obs-history-trend">{points.length===1 ? "เริ่มเก็บประวัติแล้ว · รอค่าตรวจวัดเวลาใหม่เพื่อดูแนวโน้ม" : trend ? `${Math.abs(trend.changeCm)<.05 ? "ระดับใกล้เคียงเดิม" : trend.changeCm>0 ? `เพิ่ม ${formatValue(trend.changeCm)} ซม.` : `ลด ${formatValue(-trend.changeCm)} ซม.`} เทียบค่าก่อนหน้า ${Math.round(trend.minutes)} นาที` : "มีประวัติ แต่ยังไม่มีค่าล่าสุดที่ต่อเนื่องพอจะสรุปการเปลี่ยนแปลง"}</p>
       <details className="obs-history-table"><summary>ดูค่าตรวจวัดทั้งหมด {points.length} เวลา</summary><div><table><caption className="ov-sr-only">ระดับน้ำย้อนหลัง {station.name}</caption><thead><tr><th>เวลาตรวจวัด</th><th>{unit}</th></tr></thead><tbody>{points.map(p=><tr key={p.observedAt}><th scope="row">{thaiObservationTime(p.observedAt)} น.</th><td>{new Intl.NumberFormat("th-TH",{maximumFractionDigits:3}).format(p.value)}</td></tr>)}</tbody></table></div></details>
     </>}
-    <p className="obs-panel-note">แสดงเฉพาะค่าที่สะสมได้จริง · เส้นขาดเมื่อข้อมูลห่างเกิน 1 ชั่วโมง · เก็บประวัติสูงสุด 90 วัน</p>
+    <p className="obs-panel-note">แสดงเฉพาะค่าที่สะสมได้จริง{points.length ? ` · ช่วงที่มีข้อมูล ${thaiObservationTime(points[0].observedAt)} ถึง ${thaiObservationTime(points.at(-1)!.observedAt)}` : ""} · เส้นขาดเมื่อข้อมูลห่างเกิน 1 ชั่วโมง · ระบบเก็บได้สูงสุด 90 วัน</p>
   </div>;
 }

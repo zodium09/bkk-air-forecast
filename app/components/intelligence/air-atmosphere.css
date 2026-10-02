@@ -1,0 +1,140 @@
+/* White, colorful evidence chapters. Weather and PM retain separate model contracts. */
+.bf-overview {
+  --ov-paper: #fff; --ov-surface: #fff; --ov-accent: #00795f; --ov-muted: #40627a;
+  --ov-soft: #e7fff2; --ov-air-tint: #e7fff2; --ov-rain-tint: #e8f3ff; --ov-heat-tint: #fff2e2;
+  --ov-air-fill: #16c893; --ov-rain-fill: #2785ff; --ov-heat-fill: #ff963d;
+}
+.bf-overview .fc-contents .bf-air,.bf-overview .fc-chapter.bf-air { --bf-color: #008064; --bf-tint: #e7fff2; }
+.bf-overview .fc-contents .bf-rain,.bf-overview .fc-chapter.bf-rain { --bf-color: #0862d8; --bf-tint: #e8f3ff; }
+.bf-overview .fc-contents .bf-heat,.bf-overview .fc-chapter.bf-heat { --bf-color: #b34b00; --bf-tint: #fff2e2; }
+.bf-overview .ov-brand-mark { background: #008064; }
+.aa-chapter-links { display: flex; flex-wrap: wrap; gap: 8px; margin: -8px 0 28px; }
+.aa-chapter-links a { display: inline-flex; align-items: center; min-height: 44px; padding: 6px 15px; background: var(--ov-air-tint); border-radius: 8px; color: var(--ov-accent); font-size: 13px; }
+.aa-chapter-links a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.aa-analysis { padding: 36px 0 32px; border-top: 1px solid var(--ov-line); }
+.aa-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 20px; }
+.aa-heading h3 { font-size: 27px; line-height: 1.4; font-weight: 600; letter-spacing: -.02em; }
+.aa-heading p { color: var(--ov-muted); font-size: 14px; margin-top: 8px; max-width: 70ch; line-height: 1.85; }
+.aa-period { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--ov-muted); font-size: 12px; margin-bottom: 22px !important; }
+.aa-period span { margin-left: auto; }
+.aa-resource { padding: 14px 18px; background: var(--ov-sky); margin-bottom: 20px !important; border-radius: 8px; font-size: 14px; }
+.aa-resource button { text-decoration: underline; margin-left: 14px; min-height: 44px; }
+.aa-explainer { display: grid; grid-template-columns: 1.6fr 1fr; align-items: center; gap: 40px; padding: 28px 34px; background: var(--ov-air-tint); border-radius: 16px; }
+.aa-summary h4 { font-size: 24px; line-height: 1.5; font-weight: 600; margin: 0 0 14px; color: var(--ov-accent); }
+.aa-summary p { font-size: 14px; line-height: 1.85; max-width: 68ch; }
+.aa-summary p > strong { font-weight: 600; color: var(--ov-accent); }
+.aa-pm-context { border-top: 1px solid var(--ov-line); padding-top: 18px; margin-top: 20px; }
+.aa-pm-context > span { color: var(--ov-muted); font-size: 12px; display: block; }
+.aa-pm-context > strong { display: block; font-size: 21px; font-weight: 600; margin: 4px 0; }
+.aa-pm-context p { font-size: 12px; color: var(--ov-muted); }
+.aa-summary .aa-causal-note { font-size: 12px; margin-top: 15px; color: var(--ov-muted); }
+.aa-wind-compass { margin: 0; text-align: center; color: var(--ov-accent); }
+.aa-wind-compass svg { width: 210px; max-width: 100%; display: block; margin: 0 auto 8px; overflow: visible; }
+.aa-wind-compass text { fill: var(--ov-muted); font: 12px "IBM Plex Sans Thai",sans-serif; }
+.aa-compass-circle { stroke: #7ddfc3; stroke-width: 9px; }
+.aa-compass-circle.inner { stroke-width: 1px; stroke-dasharray: 3 5; }
+.aa-compass-ticks { stroke: currentColor; stroke-width: 2px; }
+.aa-wind-compass .aa-compass-missing { font: 600 30px "Manrope",sans-serif; }
+.aa-wind-arrow { animation: aa-wind-reveal 550ms cubic-bezier(.16,1,.3,1) both; }
+.aa-wind-compass figcaption > span { display: block; font-size: 15px; font-weight: 500; }
+.aa-wind-compass strong { display: block; font: 600 31px/1.6 "Manrope",sans-serif; font-variant-numeric: tabular-nums; }
+.aa-wind-compass strong small { font: 12px "IBM Plex Sans Thai",sans-serif; }
+.aa-wind-compass figcaption > small { display: block; font-size: 11px; color: var(--ov-muted); }
+.aa-factors { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 14px; margin: 24px 0 30px; }
+.aa-analysis .aa-factor { padding: 18px 20px; text-align: left; border-radius: 12px; background: var(--aa-tint); color: var(--aa-ink); border: 1px solid transparent; min-height: 124px; }
+.aa-factor.aa-windKmh { --aa-tint: #e7fff2; --aa-ink: #007a61; }
+.aa-factor.aa-mixingHeightM { --aa-tint: #e8f3ff; --aa-ink: #0862d8; }
+.aa-factor.aa-rainMm { --aa-tint: #f2edff; --aa-ink: #7142c4; }
+.aa-factor.aa-humidityPct { --aa-tint: #fff2e2; --aa-ink: #a84b08; }
+.aa-analysis .aa-factor[aria-pressed="true"] { border-color: var(--aa-ink); box-shadow: inset 0 -3px 0 var(--aa-ink); }
+.aa-factor > span { display: block; font-size: 14px; }
+.aa-factor > strong { font: 600 27px/1.8 "Manrope",sans-serif; display: block; font-variant-numeric: tabular-nums; }
+.aa-factor strong small { font: 12px "IBM Plex Sans Thai",sans-serif; }
+.aa-factor > small { font-size: 11px; }
+.aa-plot-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin: 20px 0 16px; }
+.aa-plot-heading h4 { font-size: 19px; font-weight: 500; margin: 0; }
+.aa-plot-heading p { font-size: 13px; line-height: 1.85; color: var(--ov-muted); max-width: 70ch; margin-top: 7px; }
+.aa-switch { display: flex; padding: 4px; gap: 3px; flex: none; background: var(--ov-sky); border-radius: 8px; }
+.aa-switch button { min-height: 40px; padding: 6px 13px; border-radius: 6px; font-size: 12px; white-space: nowrap; }
+.aa-switch button[aria-pressed="true"] { background: var(--ov-blue); color: #fff; }
+.aa-chart { padding: 22px 24px 16px; border: 1px solid var(--ov-line); border-radius: 12px; min-width: 0; }
+.aa-chart-readout { display: flex; justify-content: space-between; gap: 15px; align-items: center; font-size: 13px; }
+.aa-chart-readout strong { font: 600 21px "Manrope",sans-serif; color: var(--aa-plot-color); font-variant-numeric: tabular-nums; }
+.aa-chart-readout small { font: 12px "IBM Plex Sans Thai",sans-serif; }
+.aa-chart-scroll { overflow-x: auto; overscroll-behavior-x: contain; scrollbar-color: var(--aa-plot-color) var(--ov-sky); scrollbar-width: thin; }
+.aa-chart-inner svg { display: block; width: 100%; min-height: 130px; max-height: 260px; }
+.aa-chart-inner svg text { font: 12px "Manrope",sans-serif; fill: var(--ov-muted); }
+.aa-grid { stroke: var(--ov-line); stroke-dasharray: 4 5; }
+.aa-selected-line { stroke: var(--aa-plot-color); stroke-dasharray: 3 4; opacity: .5; }
+.aa-chart-dates { display: grid; gap: 3px; }
+.aa-chart-dates button { padding: 7px 3px; min-height: 44px; border-radius: 6px; font-size: 11px; line-height: 1.6; }
+.aa-chart-dates button[aria-pressed="true"] { background: var(--ov-sky); color: var(--ov-blue); font-weight: 500; }
+.aa-chart-note,.aa-note { font-size: 11px; color: var(--ov-muted); line-height: 1.9; margin-top: 13px !important; }
+.aa-empty { font-size: 13px; padding: 15px 0; }
+.aa-table { font-size: 12px; margin-top: 9px; }
+.aa-table summary,.aa-method summary { cursor: pointer; min-height: 44px; align-content: center; color: var(--ov-accent); }
+.aa-table > div { max-height: 340px; overflow: auto; }
+.aa-table table { border-collapse: collapse; width: 100%; font-size: 12px; font-variant-numeric: tabular-nums; }
+.aa-table :is(th,td) { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--ov-line); }
+.aa-table tbody th { font-weight: 400; }
+.aa-table caption { padding: 10px 0; text-align: left; color: var(--ov-muted); }
+.aa-cold { padding-top: 38px; margin-top: 38px; border-top: 1px solid var(--ov-line); }
+.aa-model-tag { padding: 6px 12px; border-radius: 6px; background: var(--ov-rain-tint); color: var(--ov-blue); font-size: 11px; white-space: nowrap; }
+.aa-cold-verdict { display: flex; align-items: center; gap: 20px; padding: 24px 28px; border-radius: 12px; background: var(--ov-rain-tint); color: var(--ov-blue); }
+.aa-cold-verdict strong { font-size: 23px; line-height: 1.5; font-weight: 600; }
+.aa-cold-verdict p { margin-top: 7px; font-size: 13px; color: var(--ov-muted); }
+.aa-cold-evidence { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 26px; margin: 24px 0 32px; }
+.aa-cold-evidence > div { padding: 8px 0 18px; border-bottom: 1px solid var(--ov-line); }
+.aa-cold-evidence span,.aa-cold-evidence small { display: block; font-size: 12px; color: var(--ov-muted); }
+.aa-cold-evidence strong { display: block; color: var(--ov-blue); font-size: 25px; font-weight: 500; margin: 8px 0; font-variant-numeric: tabular-nums; }
+.aa-cold-evidence small { font-size: 11px; line-height: 1.8; }
+.aa-cold-meaning { margin-top: 24px; padding: 22px 26px; border-radius: 12px; background: #fff8d9; color: #6b4d00; }
+.aa-cold-meaning h4 { font-size: 17px; margin: 0 0 8px; font-weight: 500; }
+.aa-cold-meaning p { font-size: 13px; line-height: 1.85; max-width: 75ch; }
+.aa-method { padding: 8px 0; margin-top: 16px; font-size: 12px; }
+.aa-method p { max-width: 80ch; line-height: 1.9; margin: 10px 0; color: var(--ov-muted); }
+.aa-provenance { margin-top: 24px; border-top: 1px solid var(--ov-line); padding-top: 18px; font-size: 11px; color: var(--ov-muted); line-height: 1.9; }
+.aa-provenance div { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 8px; }
+.aa-provenance a { display: inline-block; color: var(--ov-accent); min-height: 44px; align-content: center; text-decoration: underline; text-underline-offset: 4px; }
+[data-theme="dark"] .bf-overview { --ov-paper: #101f29; --ov-surface: #172c35; --ov-accent: #6dd9bb; --ov-muted: #b4ced9; --ov-soft: #153d34; --ov-air-tint: #153d34; --ov-rain-tint: #17354c; --ov-heat-tint: #3e2e23; }
+[data-theme="dark"] .bf-overview .fc-contents .bf-air,[data-theme="dark"] .bf-overview .fc-chapter.bf-air { --bf-color: #6dd9bb; --bf-tint: #153d34; }
+[data-theme="dark"] .bf-overview .fc-contents .bf-rain,[data-theme="dark"] .bf-overview .fc-chapter.bf-rain { --bf-color: #8ac5ff; --bf-tint: #17354c; }
+[data-theme="dark"] .bf-overview .fc-contents .bf-heat,[data-theme="dark"] .bf-overview .fc-chapter.bf-heat { --bf-color: #ffba73; --bf-tint: #3e2e23; }
+[data-theme="dark"] .aa-factor.aa-windKmh { --aa-tint: #153d34; --aa-ink: #6dd9bb; }
+[data-theme="dark"] .aa-factor.aa-mixingHeightM { --aa-tint: #17354c; --aa-ink: #8ac5ff; }
+[data-theme="dark"] .aa-factor.aa-rainMm { --aa-tint: #332a4e; --aa-ink: #cbb3ff; }
+[data-theme="dark"] .aa-factor.aa-humidityPct { --aa-tint: #3e2e23; --aa-ink: #ffba73; }
+[data-theme="dark"] .aa-chart-readout strong { color: var(--ov-ink); }
+[data-theme="dark"] .aa-chart { --aa-plot-color: #6dd9bb !important; }
+[data-theme="dark"] .aa-cold .aa-chart { --aa-plot-color: #8ac5ff !important; }
+[data-theme="dark"] .aa-cold-meaning { background: #3d341b; color: #f5d58f; }
+@keyframes aa-wind-reveal { from { clip-path: inset(0 0 65% 0); } to { clip-path: inset(0); } }
+@media (max-width: 760px) {
+  .aa-heading { align-items: flex-start; flex-wrap: wrap; gap: 8px; }
+  .aa-heading h3 { font-size: 24px; }
+  .aa-heading p { font-size: 13px; }
+  .aa-period span { margin-left: 0; width: 100%; }
+  .aa-explainer { grid-template-columns: 1fr; gap: 22px; padding: 24px 22px; }
+  .aa-summary h4 { font-size: 21px; }
+  .aa-summary p { font-size: 13px; }
+  .aa-wind-compass { border-top: 1px solid var(--ov-line); padding-top: 22px; }
+  .aa-wind-compass svg { width: 180px; }
+  .aa-factors { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+  .aa-analysis .aa-factor { padding: 14px 15px; min-height: 118px; }
+  .aa-factor > strong { font-size: 23px; }
+  .aa-plot-heading { flex-direction: column; gap: 13px; }
+  .aa-chart { padding: 18px 10px 10px; }
+  .aa-chart-readout { padding-inline: 6px; }
+  .aa-chart-readout strong { font-size: 19px; }
+  .aa-chart-inner:not(.is-dense) svg text { font-size: 26px; }
+  .aa-chart-dates button { font-size: 10px; }
+  .aa-cold-verdict { align-items: flex-start; padding: 21px 19px; gap: 13px; }
+  .aa-cold-verdict strong { font-size: 19px; }
+  .aa-cold-evidence { grid-template-columns: 1fr; gap: 8px; }
+  .aa-cold-evidence > div { display: grid; grid-template-columns: 1.1fr 1fr; gap: 8px 14px; align-items: center; }
+  .aa-cold-evidence strong { font-size: 23px; }
+  .aa-cold-evidence small { grid-column: 1 / -1; }
+  .aa-cold-meaning { padding: 20px; }
+  .aa-provenance div { gap: 0 18px; }
+}
+@media (prefers-reduced-motion: reduce) { .aa-wind-arrow { animation: none; } }

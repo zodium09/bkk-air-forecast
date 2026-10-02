@@ -173,7 +173,7 @@ export function LayerSwitcher({
         >
           <MapIcon name={item} />
           <span>
-            {item === "air" ? "ฝุ่น PM2.5" : item === "rain" ? "ฝน / น้ำ" : "อุณหภูมิ"}
+            {item === "air" ? "ฝุ่น PM2.5" : item === "rain" ? "ฝน / น้ำ" : "ความร้อน"}
             <small>
               {item === "air" ? "คุณภาพอากาศ" : layerInfo[item].thai}
             </small>

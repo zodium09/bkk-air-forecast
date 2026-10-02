@@ -98,9 +98,9 @@ test("readable rainfall explanations preserve zero, chosen date and hourly accum
   assert.match(placeReading("rain", "primary", 90, day).description, /วันที่เลือก/);
   assert.doesNotMatch(placeReading("rain", "primary", 90, day).description, /วันนี้|น้ำท่วม/);
   assert.match(placeReading("rain", "primary", 90, hour).action, /เตรียมร่ม/);
-  assert.equal(placeReading("rain", "secondary", 90, hour).priority, 1);
+  assert.equal(placeReading("rain", "secondary", 90, hour).priority, -1);
   assert.equal(placeReading("rain", "secondary", 90, day).priority, 2);
-  assert.match(placeReading("rain", "secondary", 0, hour).title, /แบบจำลองยังไม่ให้ฝน/);
+  assert.match(placeReading("rain", "secondary", 0, hour).title, /พยากรณ์ 0 มม/);
   assert.equal(placeReading("rain", "primary", null, hour).priority, -1);
 });
 
@@ -108,7 +108,7 @@ test("place lists order signals first and keep unavailable readings distinct fro
   const points = [null, 0, 37.5, 80, 50].map((value, index) => ({ id: String(index), label: String(index), values: [value], secondary: [] }));
   const readings = sortedPlaceReadings(points, 0, "air", "primary", day);
   assert.deepEqual(readings.map((reading) => reading.value), [80, 50, 37.5, 0, null]);
-  assert.match(readings.at(-1).title, /ยังประมาณค่าไม่ได้/);
+  assert.match(readings.at(-1).title, /ยังไม่มีข้อมูลพยากรณ์/);
   assert.equal(placeReading("heat", "primary", 42, hour).priority, 2);
   assert.match(placeReading("heat", "secondary", 35, hour).description, /อุณหภูมิอากาศ/);
   assert.doesNotMatch(placeReading("heat", "secondary", 35, hour).description, /ดัชนีความร้อน/);

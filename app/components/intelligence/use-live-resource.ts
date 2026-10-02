@@ -31,7 +31,7 @@ export function useLiveResource<T>(url: string | null, refresh = 0, interval = 3
     const controller = new AbortController(); let active = true;
     const timer = window.setTimeout(() => controller.abort(), 20000);
     fetch(url, { signal: controller.signal, cache: refresh || pulse ? "no-cache" : "default" }).then(response => { if (!response.ok) throw new Error("unavailable"); return response.json() as Promise<T>; }).then(data => { if (active) setResult({ url, key, data, error: "" }); }).catch(() => {
-      if (active) setResult(previous => ({ url, key, data: previous.url === url ? previous.data : null, error: "โหลดรอบใหม่ไม่ได้ · ตรวจสอบเวลาในข้อมูลที่แสดง" }));
+      if (active) setResult(previous => ({ url, key, data: previous.url === url ? previous.data : null, error: "โหลดข้อมูลไม่ได้ในครั้งนี้ · ลองอีกครั้งและตรวจสอบเวลาของค่าที่แสดง" }));
     }).finally(() => clearTimeout(timer));
     return () => { active = false; controller.abort(); clearTimeout(timer); };
   }, [url, refresh, pulse, key]);

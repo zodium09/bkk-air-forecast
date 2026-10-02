@@ -20,19 +20,37 @@ const executionContext = {
   passThroughOnException() {},
 };
 
-test("home prioritizes the current briefing and forecast charts before geographic exploration", async () => {
+test("home finishes rain and water before air and heat, keeping each topic's evidence together", async () => {
   const worker = await loadWorker();
   const response = await worker.fetch(new Request("http://localhost/", { headers: { accept: "text/html" } }), environment, executionContext);
   assert.equal(response.status, 200);
   const html = await response.text();
-  for (const label of ["ov-page", "ภาพรวม", "ย่านของฉัน", "มองล่วงหน้า 7 วัน", "พื้นที่ที่ควรติดตาม", "ข้อมูลนี้มาจากไหน?", "ค้นหาถนน เขต หรือพื้นที่", "ข้ามไปที่ข้อมูล"]) assert.ok(html.includes(label), label);
+  for (const label of ["ov-page", "ภาพรวม", "ย่านของฉัน", "ฝนและน้ำ", "ฝนจะมาเมื่อไร", "วางแผนรับความร้อน", "พื้นที่ที่ควรติดตาม", "ที่มาและข้อจำกัด", "ค้นหาถนน เขต หรือพื้นที่", "ข้ามไปที่ข้อมูล"]) assert.ok(html.includes(label), label);
   assert.match(html, /data-theme="light"/);
   assert.ok(html.indexOf('id="overview"') < html.indexOf('id="my-area"'));
-  assert.ok(html.indexOf('id="outlook"') < html.indexOf('id="my-area"'));
-  assert.ok(html.includes("ปริมาณสะสมตลอด 24 ชั่วโมง"));
+  const rainStart = html.indexOf('id="chapter-rain"'), airStart = html.indexOf('id="chapter-air"'), heatStart = html.indexOf('id="chapter-heat"');
+  assert.ok(html.indexOf('id="my-area"') < rainStart && rainStart < airStart && airStart < heatStart);
+  const rain = html.slice(rainStart, airStart), air = html.slice(airStart, heatStart), heat = html.slice(heatStart);
+  for (const id of ["forecast-rain", "watch-rain", "map-rain", "sources-rain", "water-levels"]) assert.ok(rain.includes(`id="${id}"`), id);
+  assert.ok(rain.includes('aria-label="น้ำท่วมถนนจากจุดตรวจวัด กทม."'));
+  assert.ok(rain.indexOf('id="forecast-rain"') < rain.indexOf('aria-label="น้ำท่วมถนนจากจุดตรวจวัด กทม."'));
+  assert.ok(rain.indexOf('aria-label="น้ำท่วมถนนจากจุดตรวจวัด กทม."') < rain.indexOf('id="water-levels"'));
+  assert.doesNotMatch(rain, /id="forecast-air"|id="forecast-heat"|id="current-observations"/);
+  for (const id of ["current-observations", "forecast-air", "air-analysis", "cold-wind", "watch-air", "map-air", "sources-air"]) assert.ok(air.includes(`id="${id}"`), id);
+  assert.ok(air.indexOf('id="forecast-air"') < air.indexOf('id="air-analysis"'));
+  assert.ok(air.indexOf('id="air-analysis"') < air.indexOf('id="cold-wind"'));
+  for (const label of ["ทำไมฝุ่นถึงเปลี่ยน?", "ลมหนาวจะมาหรือยัง?", "เกณฑ์วิเคราะห์ลมหนาวและข้อจำกัด", "เป็นพยากรณ์ระดับกริด", "ความกดอากาศ"]) assert.ok(air.includes(label), label);
+  assert.doesNotMatch(rain + heat, /id="air-analysis"|id="cold-wind"/);
+  assert.ok(air.indexOf('id="current-observations"') < air.indexOf('id="forecast-air"'));
+  assert.doesNotMatch(air, /id="forecast-rain"|id="water-levels"|id="forecast-heat"/);
+  for (const id of ["forecast-heat", "watch-heat", "map-heat", "sources-heat"]) assert.ok(heat.includes(`id="${id}"`), id);
+  assert.doesNotMatch(heat, /id="forecast-air"|id="water-levels"|id="watch-rain"/);
+  assert.equal((html.match(/id="area-map"/g) ?? []).length, 1);
+  assert.doesNotMatch(html, /aria-label="เลือกข้อมูลบนแผนที่"|ov-local-readings|สรุประดับการติดตามจากพยากรณ์ทั้ง 3 เรื่อง/);
+  assert.ok(html.includes("ฝนสะสมตลอดวัน 00:00–24:00"));
   assert.ok(html.includes("ค่าพยากรณ์ / ประมาณเชิงพื้นที่"));
   assert.ok(html.includes("ระดับน้ำในคลองและแม่น้ำ"));
-  assert.ok(html.includes("ค่าตรวจวัดล่าสุดตามเวลาของแต่ละสถานี"));
+  assert.ok(html.includes("ค่าตรวจวัดแต่ละเรื่องคงเวลาของต้นทาง"));
   assert.ok(html.indexOf('id="outlook"') < html.indexOf('id="water-levels"'));
   assert.ok(html.includes("ค่านี้ไม่ใช่ความลึกของน้ำท่วม"));
   assert.match(html, /href="\/rain\?province=metro"/);
@@ -64,6 +82,29 @@ for (const route of ["air", "rain", "heat"]) {
     assert.ok(html.indexOf('id="map-story"') < html.indexOf('class="mf-nav"'));
   });
 }
+test("surveillance route server-renders an explicitly synthetic operational workspace", async () => {
+  const worker = await loadWorker();
+  const response = await worker.fetch(new Request("http://localhost/surveillance", { headers: { accept: "text/html" } }), environment, executionContext);
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  for (const label of ["SHADOW MODE", "ข้อมูลสังเคราะห์สำหรับทดสอบ workflow", "ศูนย์ติดตาม", "คุณภาพข้อมูล", "รายงานสถานการณ์", "แผนที่เหตุที่เลือก", "คิวเหตุการณ์", "รับทราบใน session ทดสอบ"]) assert.ok(html.includes(label), label);
+  assert.match(html, /ยังประเมินไม่ได้/);
+  assert.match(html, /ไม่ใช่หน่วยงานจริง/);
+  assert.doesNotMatch(html, /แจ้งเตือนภายนอกพร้อมใช้งาน/);
+});
+
+test("surveillance APIs expose shadow health and reject durable acknowledgements", async () => {
+  const worker = await loadWorker();
+  const health = await worker.fetch(new Request("http://localhost/api/surveillance/health"), environment, executionContext);
+  assert.equal(health.status, 200);
+  assert.equal(health.headers.get("X-Surveillance-Mode"), "shadow-synthetic");
+  const healthPayload = await health.json();
+  assert.equal(healthPayload.dispatchEnabled, false);
+  assert.equal(healthPayload.persistenceEnabled, false);
+  const acknowledgement = await worker.fetch(new Request("http://localhost/api/surveillance/events/evt-rain-bangkok-demo/acknowledgements", { method: "POST" }), environment, executionContext);
+  assert.equal(acknowledgement.status, 503);
+  assert.equal((await acknowledgement.json()).error, "shadow_mode_persistence_unavailable");
+});
 test("dot-only workspace uses direct rain amounts with supplemental probability and official warning link", async () => {
   const workspace = await readFile(new URL("../app/components/intelligence/map-workspace.tsx", import.meta.url), "utf8");
   const watches = await readFile(new URL("../app/components/intelligence/area-watch-list.tsx", import.meta.url), "utf8");

@@ -33,7 +33,7 @@ export function buildAreaWatch(data: MapDataset | null, date: string, hour?: num
       description = "ค่าพยากรณ์เฉลี่ยรายวันสูงกว่า 37.5 µg/m³ ติดตามคุณภาพอากาศในพื้นที่";
     } else if (data.layer === "rain") {
       // Daily accumulation thresholds must never be applied to a single hour.
-      const heavyDaily = step.window === null && rain !== null && rain > 35.5;
+      const heavyDaily = step.window === null && rain !== null && rain > 35;
       if ((rainMetric === "primary" && value !== null && value >= 60) || heavyDaily) {
         severity = heavyDaily ? rain > 90 ? 3 : 2 : 1;
         title = heavyDaily ? "พยากรณ์ฝนสะสมสูง" : "โอกาสฝนสูง"; unit = heavyDaily ? "mm / วัน" : "%";

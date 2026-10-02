@@ -36,7 +36,7 @@ type Props = {
   metric: Metric;
   province: RegionId;
   selected: { lat: number; lng: number } | null;
-  onSelect: (point: { lat: number; lng: number; label?: string }) => void;
+  onSelect: (point: { id?: string; lat: number; lng: number; label?: string }) => void;
   legend: number | null;
   degraded: boolean;
   satellite: boolean;
@@ -53,10 +53,15 @@ type Props = {
   interactive?: boolean;
   display?: "surface" | "dots";
   displayPoints?: MapPoint[];
+  pointPresentation?: (point: MapPoint) => {
+    color: string;
+    label: string;
+    title: string;
+  };
 };
 type Boundary = MapBoundary;
 export default function EnvironmentMap(props: Props) {
-  const { onBoundary } = props;
+  const { onBoundary, pointPresentation } = props;
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<Leaflet.Map | null>(null);
   const lib = useRef<typeof Leaflet | null>(null);
@@ -434,7 +439,8 @@ export default function EnvironmentMap(props: Props) {
       if (props.display === "dots" && point.place && !placeVisible(point.place, instance.getZoom(), point.id === selectedPoint?.id, props.province)) return;
       const value = pointValue(point, props.index, props.metric);
       if (props.display === "dots" && value === null) return;
-      const color = valueColor(props.layer, props.metric, value);
+      const presentation = pointPresentation?.(point);
+      const color = presentation?.color ?? valueColor(props.layer, props.metric, value);
       const selected = point.id === selectedPoint?.id;
       const screen = instance.latLngToContainerPoint([point.lat, point.lng]);
       const labelFits = !occupied.some(
@@ -449,8 +455,8 @@ export default function EnvironmentMap(props: Props) {
       const element = document.createElement("div");
       element.className = `mi-marker mi-marker-${props.layer} ${props.display === "dots" ? "mi-idw-dot" : ""} ${labeled ? "" : "compact"} ${selected ? "selected" : ""} ${props.degraded ? "degraded" : ""} ${muted ? "muted" : ""}`;
       element.style.setProperty("--marker-color", color);
-      element.textContent = labeled ? formatValue(value) : "";
-      const title = `${point.place ? placeAddress(point.place) : point.label}: ${formatValue(value)} ${props.metric === "secondary" ? layerInfo[props.layer].secondaryUnit : layerInfo[props.layer].unit} · ${interpretation(props.layer, props.metric, value)}${props.display === "dots" ? point.method === "provider" ? " · พยากรณ์จากต้นทาง" : " · ค่าประมาณ IDW" : ""}`;
+      element.textContent = labeled ? (presentation?.label ?? formatValue(value)) : "";
+      const title = presentation?.title ?? `${point.place ? placeAddress(point.place) : point.label}: ${formatValue(value)} ${props.metric === "secondary" ? layerInfo[props.layer].secondaryUnit : layerInfo[props.layer].unit} · ${interpretation(props.layer, props.metric, value)}${props.display === "dots" ? point.method === "provider" ? " · พยากรณ์จากต้นทาง" : " · ค่าประมาณ IDW" : ""}`;
       const marker = L.marker([point.lat, point.lng], {
         icon: L.divIcon({
           html: element,
@@ -468,6 +474,7 @@ export default function EnvironmentMap(props: Props) {
       marker.bindTooltip(tooltip, { direction: "top" });
       marker.on("click", () =>
         latest.current.onSelect({
+          id: point.id,
           lat: point.lat,
           lng: point.lng,
           label: point.label,
@@ -502,6 +509,7 @@ export default function EnvironmentMap(props: Props) {
     props.showValues,
     props.mode,
     props.province,
+    pointPresentation,
     theme,
   ]);
   useEffect(() => {
