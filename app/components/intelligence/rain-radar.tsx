@@ -18,6 +18,7 @@ export default function RainRadar({region,position,onSelect,rainData,refresh=0,s
   const [reload,setReload]=useState(0),[mode,setMode]=useState<TmdRadarMode>("observed"),[frameId,setFrameId]=useState<string|null>(null);
   const [playing,setPlaying]=useState(false),[reduced,setReduced]=useState(false),[opacity,setOpacity]=useState(.8),[watching,setWatching]=useState(false);
   const [imageState,setImageState]=useState<RadarImageState|null>(null);
+  const [imageRetry,setImageRetry]=useState(0);
   const [dismissed,setDismissed]=useState("");
   const localCatalog=useLiveResource<TmdRadarPayload>(sharedResources?null:"/api/tmd-radar",refresh+reload);
   const catalog=sharedResources?.catalog??localCatalog;
@@ -31,6 +32,7 @@ export default function RainRadar({region,position,onSelect,rainData,refresh=0,s
   const frame=frames[index]??null;
   const imageReady=!!frame&&imageState?.id===frame.id&&imageState.status === "ready";
   const imageError=!!frame&&imageState?.id===frame.id&&imageState.status === "error";
+  const displayedFrame=imageState?.displayedFrame??frame;
   const forecast=nearbyRainOutlook(rainData,position,analysis.clock);
   const alertSignature=`${position?.lat}:${position?.lng}:${nearby?.message}`;
   const showAlert=watching&&nearby?.found===true&&dismissed!==alertSignature;
@@ -48,14 +50,16 @@ export default function RainRadar({region,position,onSelect,rainData,refresh=0,s
   },[playing,reduced,imageReady,frames,index]);
   function switchMode(next:TmdRadarMode){setMode(next);setFrameId(null);setPlaying(false);}
   function selectFrame(next:number){setFrameId(frames[next]?.id??null);setPlaying(false);}
+  function imageChanged(state:RadarImageState){setImageState(state);if(state.status === "error")setPlaying(false);}
   const title=!position?"เลือกพื้นที่เพื่อดูแนวโน้มฝน":analysis.loading?"กำลังตรวจฝนรอบพื้นที่…":nearby?.found===true?"พบสัญญาณฝนใกล้พื้นที่ที่เลือก":nearby?.found===false?"ต้นทางยังไม่พบสัญญาณฝนใกล้จุดนี้":"ยังสรุปฝนใกล้พื้นที่นี้ไม่ได้";
   return <section className="rb-section" id="rain-radar" tabIndex={-1} aria-labelledby="rain-radar-heading">
     <div className="rb-heading"><div><p className="rb-source-kicker"><MapIcon name="radar" size={17}/>เรดาร์และแนวโน้มระยะสั้น</p><h2 id="rain-radar-heading">ฝนใกล้พื้นที่ของฉัน</h2><p>ดูภาพเรดาร์จริง แล้วติดตามแนวโน้มรอบจุดที่เลือกในระยะ 8 กม.</p></div><button className="rb-button" disabled={catalog.loading||catalog.refreshing} onClick={()=>onRefresh ? onRefresh() : setReload(v=>v+1)}><MapIcon name="refresh" size={17}/>{catalog.refreshing?"กำลังอัปเดต…":"อัปเดตเรดาร์"}</button></div>
     {showAlert&&<aside className="rb-watch-alert" role="alert"><MapIcon name="bell" size={21}/><div><b>แจ้งเตือนฝนในพื้นที่ที่กำลังติดตาม</b><p>{nearby.message}</p></div><button aria-label="ปิดแจ้งเตือนฝนรอบนี้" onClick={()=>setDismissed(alertSignature)}><MapIcon name="close" size={18}/></button></aside>}
     <div className="rb-layout"><div className="rb-radar">
       <div className="rb-map-toolbar"><div role="group" aria-label="เลือกภาพเรดาร์"><button aria-pressed={mode === "observed"} onClick={()=>switchMode("observed")}>ตรวจพบล่าสุด</button><button aria-pressed={mode === "nowcast"} onClick={()=>switchMode("nowcast")} disabled={!radar?.nowcastFrames.length}>แนวโน้มระยะสั้น</button></div><span className={`rb-data-state${radar?.status === "live"?" is-live":""}`}><i/>{catalog.loading?"กำลังโหลด":radar?radar.status === "live"?"ข้อมูลล่าสุด":"ข้อมูลบางส่วน":"ข้อมูลยังไม่พร้อม"}</span></div>
-      <div className="rb-map-wrap"><RainRadarMap region={region} position={position} frame={frame} opacity={opacity} onSelect={onSelect} onImageState={setImageState}/>
-        {frame&&<div className="rb-frame-badge"><b>{mode === "observed"?"เรดาร์ตรวจจริง":"Nowcast จากเรดาร์"}</b><span>{thaiObservationTime(frame.validAt)} น.{mode === "nowcast"?` · +${frame.leadMinutes} นาทีจากภาพฐาน`:""}</span>{!imageReady&&<small>{imageError?"โหลดภาพไม่ได้":"กำลังโหลดภาพเวลานี้…"}</small>}</div>}
+      <div className="rb-map-wrap"><RainRadarMap region={region} position={position} frame={frame} opacity={opacity} imageRetry={imageRetry} onSelect={onSelect} onImageState={imageChanged}/>
+        {frame&&displayedFrame&&<div className="rb-frame-badge"><b>{displayedFrame.mode === "observed"?"เรดาร์ตรวจจริง":"Nowcast จากเรดาร์"}</b><span>{thaiObservationTime(displayedFrame.validAt)} น.{displayedFrame.mode === "nowcast"?` · +${displayedFrame.leadMinutes} นาทีจากภาพฐาน`:""}</span>{!imageReady&&<small>{imageError?"ภาพที่เลือกโหลดไม่สำเร็จ":`กำลังโหลดภาพ ${thaiObservationTime(frame.validAt)} น.…`}{imageState?.displayedFrame?" · แสดงภาพที่โหลดสำเร็จล่าสุด":""}</small>}</div>}
+        {imageError&&<div className="rb-image-recovery" role="status"><span>{imageState?.displayedFrame?"ภาพบนแผนที่ยังเป็นเวลาที่ระบุด้านบน":"ยังไม่มีภาพฝนบนแผนที่"}</span><button className="rb-button" onClick={()=>setImageRetry(value=>value+1)}><MapIcon name="refresh" size={16}/>ลองโหลดภาพอีกครั้ง</button></div>}
         {!frame&&!catalog.loading&&<div className="rb-map-unavailable" role="status"><MapIcon name="info" size={23}/><p>ยังไม่มีภาพเรดาร์ที่ใช้ได้ในช่วงนี้<br/><small>แผนที่พื้นหลังยังเลือกพื้นที่ได้</small></p></div>}
       </div>
       <div className="rb-timeline"><button aria-label={playing?"หยุดภาพเรดาร์":"เล่นภาพเรดาร์ตามเวลา"} aria-pressed={playing} disabled={frames.length<2||reduced||imageError} onClick={()=>setPlaying(v=>!v)}><MapIcon name={playing?"pause":"play"} size={18}/></button><button aria-label="ภาพเรดาร์ก่อนหน้า" disabled={index<=0||!frame} onClick={()=>selectFrame(index-1)}>‹</button><input type="range" aria-label="เลือกเวลาภาพเรดาร์" min="0" max={Math.max(0,frames.length-1)} value={Math.max(0,index)} disabled={frames.length<2} onChange={event=>selectFrame(Number(event.target.value))}/><button aria-label="ภาพเรดาร์ถัดไป" disabled={index>=frames.length-1||!frame} onClick={()=>selectFrame(index+1)}>›</button><span>{frame?`${index+1} / ${frames.length}`:"—"}</span></div>

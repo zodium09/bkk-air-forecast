@@ -29,7 +29,15 @@ test("home separates rain and water before air and heat, keeping each topic's ev
   assert.ok(html.includes("ดูพื้นที่ของฉัน"));
   assert.ok(html.includes("/illustrations/bangkok-weather.webp"));
   assert.ok(html.includes("เรื่องสำคัญตอนนี้"));
-  assert.ok(html.indexOf('id="important-events"') < html.indexOf('id="overview"'));
+  assert.ok(html.indexOf('id="overview"') < html.indexOf('id="my-area"'));
+  assert.ok(html.indexOf('id="my-area"') < html.indexOf('id="around-you"'));
+  assert.ok(html.indexOf('id="around-you"') < html.indexOf('id="important-events"'));
+  assert.ok(html.indexOf('id="important-events"') < html.indexOf('id="around-you-trend"'));
+  assert.ok(html.includes("รอบตัววันนี้"));
+  assert.ok(html.includes('aria-label="เลือกเรื่องในสรุปรอบตัว"'));
+  assert.equal((html.match(/aria-controls="around-you-trend"/g) ?? []).length, 4);
+  assert.equal((html.match(/<details class="fc-chapter ay-chapter/g) ?? []).length, 4);
+  assert.equal((html.match(/<h1[ >]/g) ?? []).length, 1);
   assert.ok(html.includes("เปิดการแจ้งเตือน"));
   assert.ok(html.includes('id="current-event-area-map"'));
   assert.ok(html.includes('aria-label="เลือกเรื่องบนแผนที่สรุป"'));

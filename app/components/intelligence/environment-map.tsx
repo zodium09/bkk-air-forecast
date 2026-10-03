@@ -4,6 +4,7 @@ import type * as Leaflet from "leaflet";
 import type { GeoJsonObject } from "geojson";
 import { getRegion, type RegionId } from "../../lib/provinces";
 import { installBasemap } from "../../lib/install-basemap";
+import { observeVisibleMap } from "../../lib/visible-map";
 import { boundaryLabels } from "../../lib/map-labels";
 import { placeAddress, placeVisible } from "../../lib/map-places";
 import {
@@ -131,12 +132,18 @@ export default function EnvironmentMap(props: Props) {
   }, []);
   useEffect(() => {
     let active = true;
-    let observer: ResizeObserver | undefined;
-    import("leaflet")
+    let initializing = false;
+    const host = container.current;
+    if (!host) return;
+    const initialize = () => {
+      if (initializing || !active) return;
+      initializing = true;
+      void import("leaflet")
       .then((L) => {
-        if (!active || !container.current) return;
+        if (!active || !host.clientWidth || !host.clientHeight) return;
         lib.current = L;
-        const instance = L.map(container.current, {
+        const instance = L.map(host, {
+          trackResize: false,
           zoomControl: false,
           attributionControl: true,
           preferCanvas: true,
@@ -163,14 +170,15 @@ export default function EnvironmentMap(props: Props) {
             label: nearest ? undefined : "ตำแหน่งนอกจุดข้อมูล",
           });
         });
-        observer = new ResizeObserver(() => instance.invalidateSize());
-        observer.observe(container.current);
         setReady(true);
       })
-      .catch(() => setMapError("เปิดแผนที่ไม่สำเร็จ กรุณาโหลดหน้าใหม่"));
+      .catch(() => { if (active) setMapError("เปิดแผนที่ไม่สำเร็จ กรุณาโหลดหน้าใหม่"); })
+      .finally(() => { initializing = false; });
+    };
+    const stopObserving = observeVisibleMap(host, () => { if (map.current) map.current.invalidateSize(); else initialize(); });
     return () => {
       active = false;
-      observer?.disconnect();
+      stopObserving();
       map.current?.remove();
       map.current = null;
     };

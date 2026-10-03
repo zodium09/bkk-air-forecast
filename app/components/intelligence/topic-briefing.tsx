@@ -9,6 +9,7 @@ import { overviewTimestamp, sourceState } from "../../lib/environment-overview";
 import BriefingChart, { AnimatedNumber } from "./briefing-chart";
 import { MapIcon } from "./map-ui";
 import { RiskMeter } from "./risk-signals";
+import "./topic-color.css";
 
 const copy = {
   air: { title: "ฝุ่น PM2.5 ใกล้คุณ", description: "ค่าตรวจวัดล่าสุดและพยากรณ์รายวัน แยกแหล่งข้อมูลชัดเจน", chart: "แนวโน้มฝุ่น 7 วัน", note: "PM2.5 เป็นพยากรณ์ค่าเฉลี่ยรายวัน แยกจากค่าตรวจวัดด้านบน" },

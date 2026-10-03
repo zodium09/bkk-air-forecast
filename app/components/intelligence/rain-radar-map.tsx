@@ -5,23 +5,29 @@ import type { TmdRadarFrame } from "../../lib/tmd-radar-data";
 import type { RainPosition } from "../../lib/rain-nearby";
 import { getRegion, type RegionId } from "../../lib/provinces";
 import { installBasemap } from "../../lib/install-basemap";
+import { observeVisibleMap } from "../../lib/visible-map";
+import { watchRadarImage } from "../../lib/radar-image";
 import "leaflet/dist/leaflet.css";
 
-export type RadarImageState={id:string;status:"loading"|"ready"|"error"};
-export default function RainRadarMap({region,position,frame,opacity,onSelect,onImageState}:{region:RegionId;position:RainPosition|null;frame:TmdRadarFrame|null;opacity:number;onSelect:(position:RainPosition)=>void;onImageState:(state:RadarImageState)=>void}) {
+export type RadarImageState={id:string;status:"loading"|"ready"|"error";displayedFrame:TmdRadarFrame|null};
+export default function RainRadarMap({region,position,frame,opacity,imageRetry=0,onSelect,onImageState}:{region:RegionId;position:RainPosition|null;frame:TmdRadarFrame|null;opacity:number;imageRetry?:number;onSelect:(position:RainPosition)=>void;onImageState:(state:RadarImageState)=>void}) {
   const container=useRef<HTMLDivElement>(null), map=useRef<Leaflet.Map|null>(null);
   const leaflet=useRef<typeof Leaflet|null>(null), overlay=useRef<Leaflet.ImageOverlay|null>(null);
+  const displayedFrame=useRef<TmdRadarFrame|null>(null);
   const onClick=useRef(onSelect), onImage=useRef(onImageState), alpha=useRef(opacity);
   const [ready,setReady]=useState(false),[error,setError]=useState(false);
   const latitude=position?.lat,longitude=position?.lng;
   useEffect(()=>{onClick.current=onSelect;onImage.current=onImageState;alpha.current=opacity;},[onSelect,onImageState,opacity]);
   useEffect(()=> {
-    let active=true;let removeBase:(()=>void)|undefined;let observer:MutationObserver|null=null;let resize:ResizeObserver|null=null;
-    import("leaflet").then(L=> {
-      if(!active||!container.current)return;
+    let active=true,initializing=false;let removeBase:(()=>void)|undefined;let observer:MutationObserver|null=null;
+    const host=container.current;if(!host)return;
+    const initialize=()=> {
+    if(initializing||!active)return;initializing=true;
+    void import("leaflet").then(L=> {
+      if(!active||!host.clientWidth||!host.clientHeight)return;
       leaflet.current=L;
       // Frames can be replaced while the area changes. Keep their projection synchronous.
-      const m=L.map(container.current,{scrollWheelZoom:false,zoomControl:true,attributionControl:true,zoomAnimation:false,markerZoomAnimation:false}).setView([13.76,100.56],9);
+      const m=L.map(host,{trackResize:false,scrollWheelZoom:false,zoomControl:true,attributionControl:true,zoomAnimation:false,markerZoomAnimation:false}).setView([13.76,100.56],9);
       map.current=m;
       const theme=()=> {
         removeBase?.();
@@ -29,10 +35,11 @@ export default function RainRadarMap({region,position,frame,opacity,onSelect,onI
       };
       theme();observer=new MutationObserver(theme);observer.observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
       m.on("click",event=>onClick.current({lat:event.latlng.lat,lng:event.latlng.lng}));
-      resize=new ResizeObserver(()=>m.invalidateSize());resize.observe(container.current);
       setReady(true);
-    }).catch(()=>{if(active)setError(true);});
-    return ()=>{active=false;observer?.disconnect();resize?.disconnect();removeBase?.();map.current?.remove();map.current=null;};
+    }).catch(()=>{if(active)setError(true);}).finally(()=>{initializing=false;});
+    };
+    const stopObserving=observeVisibleMap(host,()=>{if(map.current)map.current.invalidateSize();else initialize();});
+    return ()=>{active=false;observer?.disconnect();stopObserving();removeBase?.();map.current?.remove();map.current=null;overlay.current=null;displayedFrame.current=null;};
   },[]);
   useEffect(()=> {
     const m=map.current,L=leaflet.current;if(!ready||!m||!L)return;
@@ -45,16 +52,20 @@ export default function RainRadarMap({region,position,frame,opacity,onSelect,onI
     return ()=>{group.remove();};
   },[ready,region,latitude,longitude]);
   useEffect(()=> {
-    const m=map.current,L=leaflet.current;if(!ready||!m||!L||!frame)return;
-    const image=L.imageOverlay(frame.imageUrl,frame.bounds,{opacity:0,interactive:false,alt:`เรดาร์ฝน กรมอุตุนิยมวิทยา ${frame.validAt}`}).addTo(m);
-    overlay.current=image;onImage.current({id:frame.id,status:"loading"});
-    let finished=false;
-    const fail=()=>{if(finished)return;finished=true;image.setOpacity(0);onImage.current({id:frame.id,status:"error"});};
-    const timer=window.setTimeout(fail,15000);
-    const loaded=()=>{if(finished)return;finished=true;clearTimeout(timer);image.setOpacity(alpha.current);onImage.current({id:frame.id,status:"ready"});};
-    image.on("load",loaded);image.on("error",fail);
-    return ()=>{finished=true;clearTimeout(timer);image.off();image.remove();if(overlay.current===image)overlay.current=null;};
-  },[ready,frame]);
+    const m=map.current,L=leaflet.current;if(!ready||!m||!L)return;
+    if(!frame){overlay.current?.remove();overlay.current=null;displayedFrame.current=null;return;}
+    // Keep the previous successful frame while the next one downloads.
+    const url=new URL(frame.imageUrl,window.location.origin);
+    if(imageRetry)url.searchParams.set("_radar_retry",String(imageRetry));
+    const image=L.imageOverlay(url.toString(),frame.bounds,{opacity:0,interactive:false,alt:`เรดาร์ฝน กรมอุตุนิยมวิทยา ${frame.validAt}`});
+    const report=(status:RadarImageState["status"])=>onImage.current({id:frame.id,status,displayedFrame:displayedFrame.current});
+    report("loading");
+    const stop=watchRadarImage(image,()=>{image.addTo(m);},()=>{
+      overlay.current?.remove();overlay.current=image;displayedFrame.current=frame;
+      image.setOpacity(alpha.current);report("ready");
+    },()=>{image.remove();report("error");});
+    return ()=>{stop();if(overlay.current!==image)image.remove();};
+  },[ready,frame,imageRetry]);
   useEffect(()=>{overlay.current?.setOpacity(opacity);},[opacity]);
   return <div className="rb-map-surface" ref={container} role="region" aria-label="แผนที่เรดาร์ฝน กดตำแหน่งเพื่อวิเคราะห์บริเวณใกล้เคียง">{!ready&&<p className="rb-map-placeholder" role="status">{error?"เปิดแผนที่ไม่ได้ ลองโหลดหน้านี้ใหม่":"กำลังเตรียมแผนที่เรดาร์…"}</p>}</div>;
 }

@@ -61,6 +61,9 @@ function navigateForecast(
 
 export function goToStory(id: string) {
   const section = document.getElementById(id);
+  let parent = section?.parentElement;
+  while (parent) { if (parent instanceof HTMLDetailsElement) parent.open = true; parent = parent.parentElement; }
+  if (section instanceof HTMLDetailsElement) section.open = true;
   section?.focus({ preventScroll: true });
   section?.scrollIntoView({
     behavior: matchMedia("(prefers-reduced-motion: reduce)").matches

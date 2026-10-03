@@ -2,6 +2,10 @@
 name: BKK Air Forecast
 description: A public environmental briefing for the Chao Phraya basin and Bangkok metropolitan region.
 colors:
+  personal-blue: "#2859e9"
+  personal-water: "#007969"
+  personal-air: "#743dcc"
+  personal-heat: "#b64b00"
   briefing-emerald: "#007d58"
   briefing-emerald-hover: "#006344"
   rain-blue: "#0862d8"
@@ -542,3 +546,19 @@ Rain owns radar and forecasts, while /water owns current station levels, road ob
 Topic bands, larger Thai headings and readings, taller interactive charts and existing illustrations create a more legible visual hierarchy. Water uses an illustrated introduction and separate high-water, low-water and road summaries. All four topics share navigation, mobile wrapping and dark-theme support. Imagegen quota was unavailable; no new image is claimed. The behavior contract is in [docs/APP_EXPERIENCE_TH.md](docs/APP_EXPERIENCE_TH.md).
 
 Validation: 210 unit checks and 33 rendered-page checks pass (243 total), as do scoped lint, TypeScript, Next.js and Cloudflare builds. Browser checks cover automatic-location failure recovery, explicit public coordinates retained across topic navigation, rain/water content ownership, compact map disclosures, real water/road data, source-precision readings, OpenFreeMap light/dark rendering and zoom, and 1280px/390px layouts without horizontal overflow. Successful location fixes are covered with test providers; the restricted in-app browser did not supply a live location fix. Live precipitation/heat forecast inputs were unavailable during inspection and retain honest missing-data states. The OpenFreeMap dark style emitted one nonfatal missing wood-pattern warning, with no captured browser errors. Final captures: output/playwright/water-page-desktop-final.png, output/playwright/openfreemap-water-desktop-final.png and output/playwright/water-mobile-dark-final.png.
+
+## October 3, 2026 personal briefing: รอบตัววันนี้
+
+The approved direction uses a full topic palette: royal blue for rain, teal for water, violet for air and orange for heat, with large readings and the existing generated river-city illustration. Topic colors communicate navigation; risk colors keep their source meaning. The illustrated introduction and area selector precede the four current summary buttons. Each button opens one large interactive trend panel. Important current events remain near the top, between the summary and trend; source coverage and point maps are disclosed on demand. Longer topic chapters start folded and fragment navigation opens their ancestors.
+
+Summary observations retain their source time and proximity: water is fresh within 60 minutes and 8 km of a reference, air within 90 minutes and 30 km, with station distance shown. Water is never averaged across datums; without a chosen area it shows a station count. Current summary cards stay current while a forecast date or chart point is selected. Water history remains observed history, with no forecast timeline. Missing inputs stay missing. Boundaries load independently of folded maps so spatial values remain available. Mobile, dark mode, keyboard navigation and reduced motion are part of this direction.
+
+Folded map regression: Leaflet and radar renderers now wait for a nonzero container size. A shared ResizeObserver gate ignores hidden dimensions, replacing Leaflet window resize tracking. Risk maps keep their viewport-based lazy load and also avoid resizing while hidden. This prevents the vector bridge from receiving a zero-size transform before an accordion opens.
+
+Validation for the personal briefing: 214 unit checks and 33 rendered-page checks pass (247 total), with scoped lint, TypeScript, Next.js and Cloudflare builds passing. The production browser check covers a fresh load with all chapters folded, opening radar, closing it, resizing to 390px and changing theme while hidden, without captured errors. The four topic palettes were verified on their entry pages; overview, water and map disclosures were checked at desktop, tablet and phone widths without page overflow. Live observations were available; Open-Meteo forecast requests returned HTTP 429 during inspection, so missing forecast cards and charts retain explicit unavailable states. Screenshot: output/playwright/around-you-final.jpg.
+
+## October 3, 2026 radar image recovery
+
+Radar subscribes to image events before mounting and accepts decoded cached images, preventing playback from waiting for an event that has already occurred. The previous successful image stays visible while another frame loads. Its actual observation or nowcast time remains on the map; a failed selection pauses playback and exposes a direct image retry. Frames are still removed when the catalog expires, so retained images do not bypass freshness rules.
+
+The reported failure was not reproduced with live TMD images during inspection. Recovery gaps were confirmed in the loader and corrected. Validation passes 219 unit tests, scoped lint, TypeScript and the Next.js production build. A separate local proxy served real TMD readings and deliberately failed one image: the previous image remained visible, retry loaded the selected image and playback resumed. Live observed and nowcast playback, opening radar in the folded overview and mobile width checks pass without captured browser errors. Capture: output/playwright/radar-fixed-desktop.jpg.

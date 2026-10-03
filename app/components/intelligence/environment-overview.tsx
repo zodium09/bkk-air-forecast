@@ -5,6 +5,7 @@ import EnvironmentMap from "./environment-map";
 import ForecastStory from "./forecast-story";
 import RainRadar from "./rain-radar";
 import WeatherIllustration from "./weather-illustration";
+import AroundYouBrief from "./around-you-brief";
 import ImportantEvents from "./important-events";
 import UpstreamWatch from "./upstream-watch";
 import { useLiveResource } from "./use-live-resource";
@@ -41,6 +42,7 @@ import "./overview.css";
 import "./briefing.css";
 import "./content-flow.css";
 import "./air-atmosphere.css";
+import "./around-you.css";
 
 const topics = [
   { layer: "air", title: "ฝุ่น PM2.5", metric: "primary", unit: "µg/m³", period: "ความเข้มข้นเฉลี่ยรายวัน", method: "ค่าพยากรณ์ / ประมาณเชิงพื้นที่" },
@@ -125,8 +127,33 @@ export default function EnvironmentOverview() {
     return () => { clearInterval(timer); };
   }, [following]);
 
+  // Read the boundary independently of the folded topic maps.
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`/api/province-boundary?province=${region}`, { signal: controller.signal })
+      .then(response => response.ok ? response.json() : null)
+      .then(data => { if (!controller.signal.aborted && data?.type === "FeatureCollection" && Array.isArray(data.features) && data.features.length) setBoundary({ region, data }); })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [region, refresh]);
+
+  useEffect(() => {
+    function revealFragment() {
+      let id = "";
+      try { id = decodeURIComponent(window.location.hash.slice(1)); } catch { return; }
+      if (id) goToStory(id);
+    }
+    revealFragment();
+    window.addEventListener("hashchange", revealFragment);
+    return () => window.removeEventListener("hashchange", revealFragment);
+  }, []);
+
   function chooseDate(next: string) { setDate(next); setSelectedHour(null); setFollowing(false); }
   function followNow() { setFollowing(true); setSelectedHour(null); setDate(bangkokDate()); setClock(Date.now()); }
+  function chooseTime(layer: EnvironmentLayer, index: number) {
+    const step = sources[layer].data?.steps[index];
+    if (step) { setDate(step.date); setSelectedHour(step.window !== null ? step.startHour ?? null : null); setFollowing(false); }
+  }
 
   function selectPlace(place: MapPlace) {
     cancelLocation(); setLocationMessage("");
@@ -190,21 +217,18 @@ export default function EnvironmentOverview() {
     </section>;
   }
   return <main className="ov-page bf-overview">
-    <a className="ov-skip" href="#important-events">ข้ามไปที่ข้อมูล</a>
+    <a className="ov-skip" href="#around-you">ข้ามไปที่ข้อมูล</a>
     <header className="ov-header">
       <a className="ov-brand" href="/" aria-label="BKK Air Forecast หน้าหลัก"><span className="ov-brand-mark"><MapIcon name="air" size={25} /></span><span>BKK <b>Air</b><small>เจ้าพระยาและกรุงเทพฯ–ปริมณฑล</small></span></a>
       <nav aria-label="เมนูหลัก"><a href="/" aria-current="page">ภาพรวม</a><a href={forecastLink("rain", region, "", selected)}>ฝน</a><a href={waterHref}>ระดับน้ำ</a><a href={forecastLink("air", region, "", selected)}>ฝุ่น PM2.5</a><a href={forecastLink("heat", region, "", selected)}>ความร้อน</a><a href="#my-area">พื้นที่ของฉัน</a></nav>
       <ThemeToggle />
     </header>
 
-    <ImportantEvents region={region} position={selected ? { ...selected, label: placeLabel(selected) } : null} roads={roadsNow} water={waterNow} air={airNow} rain={rainNow} heat={heat.data} heatLoading={heat.loading} heatError={heat.error} clock={clock} onRefresh={refreshAll}/>
-
-
     <section className="ov-hero" id="overview" tabIndex={-1}>
       <div className="ov-hero-copy">
         <div className="ov-live" role="status"><i className={ready ? "is-ready" : ""} aria-hidden="true" />{anyLoading ? "กำลังเชื่อมต่อข้อมูลล่าสุด" : `พยากรณ์พร้อม ${ready} จาก 3 ประเภท`}{today && <span>{new Intl.DateTimeFormat("th-TH", { day: "numeric", month: "short", timeZone: "Asia/Bangkok" }).format(new Date(`${today}T12:00:00+07:00`))} · เวลาไทย</span>}</div>
-        <h1>อากาศและน้ำ<br /><span>ใกล้ตัวคุณ</span></h1>
-        <p className="ov-hero-description">เลือกพื้นที่ที่คุณจะไป ดูค่าตรวจวัดล่าสุด<br className="ov-desktop-break" /> และพยากรณ์ เพื่อวางแผนก่อนออกจากบ้าน</p>
+        <h1>รอบตัววันนี้<br /><span>รู้ก่อนออกจากบ้าน</span></h1>
+        <p className="ov-hero-description">ฝน น้ำ ฝุ่น และความร้อน — เห็นภาพรอบพื้นที่คุณในหน้าเดียว แล้วแตะกราฟดูช่วงเวลาที่สนใจ</p>
         <div ref={searchGroup} className="ov-search" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setSearchOpen(false); }}>
           <label className="ov-sr-only" htmlFor="overview-search">ค้นหาถนน เขต หรือพื้นที่</label>
           <MapIcon name="search" size={21} />
@@ -220,7 +244,7 @@ export default function EnvironmentOverview() {
           }}><MapIcon name="pin" size={17} /><span>{placeLabel(place)}<small>{placeArea(place)}</small></span><MapIcon name="arrow" size={15} /></button></li>)}{!matches.length && <li className="ov-search-empty">{geography.loading ? "กำลังโหลดรายชื่อพื้นที่…" : geography.error || "ไม่พบพื้นที่ ลองชื่อเขตหรือจังหวัดอื่น"}</li>}</ul>}
         </div>
         <div className="ov-hero-actions"><a className="ov-button" href="#my-area">ดูพื้นที่ของฉัน<MapIcon name="arrow" size={19} /></a><a className="ov-text-link" href={forecastLink(previewLayer, region, linkDate, selected, selectedHour)}><MapIcon name="map" size={18} />เปิดแผนที่เต็ม</a></div>
-        <p className="ov-coverage">ขอบเขตลุ่มน้ำเจ้าพระยาจริง + กรุงเทพฯ–ปริมณฑลเดิม · เลือกพื้นที่ด้านล่าง</p>
+        <p className="ov-coverage">เจ้าพระยาและกรุงเทพฯ–ปริมณฑล · เริ่มจากพื้นที่ของคุณ</p>
       </div>
       <WeatherIllustration/>
     </section>
@@ -232,24 +256,27 @@ export default function EnvironmentOverview() {
     </section>
 
     <div className="bf-overview-time"><div><span className={following ? "bf-live-dot" : ""} />{following ? "พยากรณ์ช่วงที่ใกล้เวลาปัจจุบัน" : "กำลังดูพยากรณ์ · " + relativeDay(date, today) + (selectedHour !== null ? " " + String(selectedHour).padStart(2, "0") + ":00 น." : " · ทั้งวัน")}<small>{today && following ? new Intl.DateTimeFormat("th-TH", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" }).format(new Date(clock)) + " น. · เวลาไทย" : ""}</small></div><button onClick={followNow} aria-pressed={following}><MapIcon name="refresh" size={16} />{following ? "ตามเวลาปัจจุบัน" : "กลับเวลาปัจจุบัน"}</button></div>
+    <AroundYouBrief region={region} place={selected} boundary={currentBoundary} sources={sources} air={airNow} water={waterNow} rain={rainNow} clock={clock} today={today} dates={dates} date={date} indices={{rain:activeIndex("rain"),air:activeIndex("air"),heat:activeIndex("heat")}} following={following} refresh={refresh} onTime={chooseTime} onDate={chooseDate}>
+      <ImportantEvents compact region={region} position={selected ? { ...selected, label: placeLabel(selected) } : null} roads={roadsNow} water={waterNow} air={airNow} rain={rainNow} heat={heat.data} heatLoading={heat.loading} heatError={heat.error} clock={clock} onRefresh={refreshAll}/>
+    </AroundYouBrief>
     <div className="fc-refresh-row"><p>วันพยากรณ์ใช้ร่วมกัน · ค่าตรวจวัดแต่ละเรื่องคงเวลาของต้นทาง</p><button className="ov-location-button" disabled={anyLoading} onClick={() => setRefresh(value => value + 1)}><MapIcon name="refresh" size={17}/>{anyLoading ? "กำลังโหลด…" : "โหลดข้อมูลล่าสุด"}</button></div>
     <div id="outlook" className="fc-chapters">
-      <section className="fc-chapter bf-rain" id="chapter-rain" aria-labelledby="chapter-rain-heading" tabIndex={-1}>
-        <header className="fc-chapter-heading"><MapIcon name="rain" size={31}/><div><h2 id="chapter-rain-heading">ฝน</h2><p>เรดาร์ฝนใกล้พื้นที่ โอกาสฝน และปริมาณสะสมตามช่วงเวลา</p></div><img className="ex-chapter-art" src="/home-rain.png" width="146" height="94" alt="" loading="lazy"/></header>
+      <details className="fc-chapter ay-chapter bf-rain" id="chapter-rain" aria-labelledby="chapter-rain-heading" tabIndex={-1}>
+        <summary className="fc-chapter-heading"><MapIcon name="rain" size={31}/><div><h2 id="chapter-rain-heading">ฝน</h2><p>เรดาร์ฝนใกล้พื้นที่ โอกาสฝน และปริมาณสะสมตามช่วงเวลา</p></div><img className="ex-chapter-art" src="/home-rain.png" width="146" height="94" alt="" loading="lazy"/><MapIcon name="chevron" size={24}/></summary>
         <RainRadar region={region} position={selected ? { ...selected, label: placeLabel(selected) } : null} onSelect={selectRadarPosition} rainData={rain.data} refresh={refresh} sharedResources={{catalog:radarNow,analysis:rainNow}} onRefresh={refreshAll}/>
         {renderForecast("rain")}
         {renderWatch("rain")}
         {renderMap("rain")}
         {renderSource("rain")}
-      </section>
-      <section className="fc-chapter bf-water" id="chapter-water" aria-labelledby="chapter-water-heading" tabIndex={-1}>
-        <header className="fc-chapter-heading"><MapIcon name="water" size={31}/><div><h2 id="chapter-water-heading">ระดับน้ำ</h2><p>สถานีน้ำ คลอง แม่น้ำ และน้ำบนถนน · ค่าตรวจวัดล่าสุด</p></div><a className="ov-text-link" href={waterHref}>เปิดหน้าระดับน้ำ<MapIcon name="arrow" size={17}/></a></header>
+      </details>
+      <details className="fc-chapter ay-chapter bf-water" id="chapter-water" aria-labelledby="chapter-water-heading" tabIndex={-1}>
+        <summary className="fc-chapter-heading"><MapIcon name="water" size={31}/><div><h2 id="chapter-water-heading">ระดับน้ำ</h2><p>สถานีน้ำ คลอง แม่น้ำ และน้ำบนถนน · ค่าตรวจวัดล่าสุด</p></div><a className="ov-text-link" href={waterHref}>เปิดหน้าระดับน้ำ<MapIcon name="arrow" size={17}/></a><MapIcon name="chevron" size={24}/></summary>
         <RoadFloodOverview compact region={region} place={selected} refresh={refresh} sharedResource={roadsNow}/>
         <WaterOverview region={region} place={selected} refresh={refresh} sharedResource={waterNow} onRefresh={refreshAll}/>
         <details className="ex-upstream-preview"><summary>ดูต้นน้ำและการระบายจากอ่าง<MapIcon name="chevron" size={18}/></summary><UpstreamWatch refresh={refresh}/></details>
-      </section>
-      <section className="fc-chapter bf-air" id="chapter-air" aria-labelledby="chapter-air-heading" tabIndex={-1}>
-        <header className="fc-chapter-heading"><MapIcon name="air" size={31}/><div><h2 id="chapter-air-heading">ฝุ่น PM2.5</h2><p>ค่าตรวจวัด พยากรณ์ฝุ่น ปัจจัยอากาศ และแนวโน้มลมหนาวในพื้นที่ของคุณ</p></div><img className="ex-chapter-art" src="/home-air.png" width="146" height="94" alt="" loading="lazy"/></header>
+      </details>
+      <details className="fc-chapter ay-chapter bf-air" id="chapter-air" aria-labelledby="chapter-air-heading" tabIndex={-1}>
+        <summary className="fc-chapter-heading"><MapIcon name="air" size={31}/><div><h2 id="chapter-air-heading">ฝุ่น PM2.5</h2><p>ค่าตรวจวัด พยากรณ์ฝุ่น ปัจจัยอากาศ และแนวโน้มลมหนาวในพื้นที่ของคุณ</p></div><img className="ex-chapter-art" src="/home-air.png" width="146" height="94" alt="" loading="lazy"/><MapIcon name="chevron" size={24}/></summary>
         <nav className="aa-chapter-links" aria-label="ข้ามไปข้อมูลเรื่องฝุ่น"><a href="#current-observations">ค่าตรวจวัด</a><a href="#forecast-air">พยากรณ์ฝุ่น</a><a href="#air-analysis">ปัจจัยที่เกี่ยวกับฝุ่น</a><a href="#cold-wind">ลมหนาว</a></nav>
         <div className="fc-current" id="current-observations" tabIndex={-1}><CurrentAir region={region} place={selected} refresh={refresh} sharedResource={airNow} onRefresh={refreshAll}/></div>
         {renderForecast("air")}
@@ -257,14 +284,14 @@ export default function EnvironmentOverview() {
         {renderWatch("air")}
         {renderMap("air")}
         {renderSource("air")}
-      </section>
-      <section className="fc-chapter bf-heat" id="chapter-heat" aria-labelledby="chapter-heat-heading" tabIndex={-1}>
-        <header className="fc-chapter-heading"><MapIcon name="heat" size={31}/><div><h2 id="chapter-heat-heading">ความร้อน</h2><p>เทียบดัชนีความร้อนกับอุณหภูมิ และเลือกช่วงเวลาทำกิจกรรม</p></div><img className="ex-chapter-art" src="/home-heat.png" width="146" height="94" alt="" loading="lazy"/></header>
+      </details>
+      <details className="fc-chapter ay-chapter bf-heat" id="chapter-heat" aria-labelledby="chapter-heat-heading" tabIndex={-1}>
+        <summary className="fc-chapter-heading"><MapIcon name="heat" size={31}/><div><h2 id="chapter-heat-heading">ความร้อน</h2><p>เทียบดัชนีความร้อนกับอุณหภูมิ และเลือกช่วงเวลาทำกิจกรรม</p></div><img className="ex-chapter-art" src="/home-heat.png" width="146" height="94" alt="" loading="lazy"/><MapIcon name="chevron" size={24}/></summary>
         {renderForecast("heat")}
         {renderWatch("heat")}
         {renderMap("heat")}
         {renderSource("heat")}
-      </section>
+      </details>
     </div>
     <footer className="ov-footer"><a className="ov-brand" href="/"><MapIcon name="air" size={24} /><span>BKK <b>Air</b></span></a><p>เข้าใจอากาศใกล้ตัว วางแผนทุกวัน</p><div><a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a><a href="https://airbkk.com/" target="_blank" rel="noreferrer">AirBKK</a><a href="https://www.tmd.go.th/" target="_blank" rel="noreferrer">ประกาศกรมอุตุนิยมวิทยา</a></div></footer>
   </main>;

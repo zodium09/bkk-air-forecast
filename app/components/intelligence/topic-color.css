@@ -1,0 +1,37 @@
+/* Match the public topic pages to the personal overview, without changing risk bands. */
+.mi-map-first.mi-layer-air .mf-header { --mi-accent:#743dcc; }
+.mi-map-first.mi-layer-rain .mf-header { --mi-accent:#2859e9; }
+.mi-map-first.mi-layer-heat .mf-header { --mi-accent:#b64b00; }
+.mi-workspace .bf-topic.bf-air { --bf-color:#743dcc; --bf-tint:#efe2ff; }
+.mi-workspace .bf-topic.bf-rain { --bf-color:#2859e9; --bf-tint:#e4edff; }
+.mi-workspace .bf-topic.bf-heat { --bf-color:#b64b00; --bf-tint:#ffe9ce; }
+.mi-workspace .bf-topic .bf-topic-intro { padding:28px; border-radius:20px; background:var(--bf-tint); margin-bottom:20px; }
+.mi-workspace .bf-topic .bf-topic-intro h1 { font-size:clamp(32px,3.8vw,48px); color:var(--bf-color); }
+.mi-workspace .bf-topic .ex-briefing-art { width:230px; height:150px; border-radius:14px; }
+.mi-workspace .bf-topic .bf-main-number { font-size:52px; }
+.mi-workspace .bf-topic .bf-topic-trend { background:var(--bf-tint); padding:24px; border-radius:18px; }
+.mi-workspace .bf-topic .bf-chart.bf-air { --bf-color:#743dcc; }
+.mi-workspace .bf-topic .bf-chart.bf-rain { --bf-color:#2859e9; }
+.mi-workspace .bf-topic .bf-chart.bf-heat { --bf-color:#b64b00; }
+.ov-page.ex-water-page { --ov-paper:#f1fbf8; --ov-accent:#007969; --ov-soft:#d4f5ec; }
+.ex-water-page .ex-water-hero { padding:32px; border-radius:24px; background:#d4f5ec; margin-top:16px; }
+.ex-water-page .ex-water-hero h1 span { color:#00715e; }
+.ex-water-page .ex-water-metrics { border-radius:16px; border:1px solid #a5d8cc; background:var(--ov-surface); }
+[data-theme="dark"] .mi-workspace .bf-topic.bf-air { --bf-color:#d5b4ff; --bf-tint:#3a2857; }
+[data-theme="dark"] .mi-workspace .bf-topic.bf-rain { --bf-color:#a3c2ff; --bf-tint:#223e65; }
+[data-theme="dark"] .mi-workspace .bf-topic.bf-heat { --bf-color:#ffbe82; --bf-tint:#493023; }
+[data-theme="dark"] .mi-workspace .bf-topic .bf-chart.bf-air { --bf-color:#d5b4ff; }
+[data-theme="dark"] .mi-workspace .bf-topic .bf-chart.bf-rain { --bf-color:#a3c2ff; }
+[data-theme="dark"] .mi-workspace .bf-topic .bf-chart.bf-heat { --bf-color:#ffbe82; }
+[data-theme="dark"] .ov-page.ex-water-page { --ov-paper:#0f2427; --ov-accent:#79e4c4; --ov-soft:#173e38; }
+[data-theme="dark"] .ex-water-page .ex-water-hero { background:#173e38; }
+[data-theme="dark"] .ex-water-page .ex-water-hero h1 span { color:#79e4c4; }
+[data-theme="dark"] .ex-water-page .ex-water-metrics { border-color:#356056; }
+@media(max-width:700px) {
+  .mi-workspace .bf-topic .bf-topic-intro { padding:20px 16px; }
+  .mi-workspace .bf-topic .bf-topic-intro h1 { font-size:32px; }
+  .mi-workspace .bf-topic .ex-briefing-art { width:100%; height:145px; max-width:360px; }
+  .mi-workspace .bf-topic .bf-topic-trend { padding:18px 12px; }
+  .mi-workspace .bf-topic .bf-main-number { font-size:44px; }
+  .ex-water-page .ex-water-hero { padding:24px 18px; }
+}

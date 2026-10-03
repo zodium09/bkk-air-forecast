@@ -20,6 +20,7 @@ import "./overview.css";
 import "./briefing.css";
 import "./night-theme.css";
 import "./experience.css";
+import "./topic-color.css";
 
 export default function WaterDashboard() {
   const [region,setRegion]=useState<RegionId>(DEFAULT_REGION_ID), [position,setPosition]=useState<RainPosition|null>(null);

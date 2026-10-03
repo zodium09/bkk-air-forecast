@@ -4,6 +4,7 @@ import type * as Leaflet from "leaflet";
 import type { GeoJsonObject } from "geojson";
 import { getRegion, type RegionId } from "../../lib/provinces";
 import { installBasemap } from "../../lib/install-basemap";
+import { observeVisibleMap } from "../../lib/visible-map";
 import { riskBands, type RiskAreaPoint } from "../../lib/risk-area-data";
 import type { MapBoundary } from "../../lib/map-surface";
 import "leaflet/dist/leaflet.css";
@@ -17,28 +18,30 @@ export default function RiskAreaMap({ region, points, selectedId, focusId, viewK
   const [ready,setReady] = useState(false), [error,setError] = useState(false), [tilesMissing,setTilesMissing] = useState(false);
   useEffect(() => { select.current = onSelect; }, [onSelect]);
   useEffect(() => {
-    let active = true, observer: MutationObserver | null = null, resize: ResizeObserver | null = null, removeBase: (()=>void) | undefined;
+    let active = true, seen = false, initializing = false, observer: MutationObserver | null = null, removeBase: (()=>void) | undefined;
     const host = container.current;
     if (!host) return;
     const initialize = async () => {
+      if (initializing || !active || !host.clientWidth || !host.clientHeight) return;
+      initializing = true;
       try {
         const L = await import("leaflet");
-        if (!active) return;
+        if (!active || !host.clientWidth || !host.clientHeight) return;
         library.current = L;
-        const m = L.map(host,{ scrollWheelZoom:false, zoomAnimation:false, markerZoomAnimation:false, fadeAnimation:false }).setView([14.6,100.5],8);
+        const m = L.map(host,{ trackResize:false, scrollWheelZoom:false, zoomAnimation:false, markerZoomAnimation:false, fadeAnimation:false }).setView([14.6,100.5],8);
         map.current = m;
         const theme = () => {
           removeBase?.(); setTilesMissing(false);
           removeBase = installBasemap(L,m,"street",document.documentElement.dataset.theme === "dark" ? "dark" : "light",message => { if(active) setTilesMissing(!!message); });
         };
         theme(); observer = new MutationObserver(theme); observer.observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
-        resize = new ResizeObserver(() => m.invalidateSize()); resize.observe(host);
         setReady(true);
-      } catch { if(active) setError(true); }
+      } catch { if(active) setError(true); } finally { initializing = false; }
     };
-    const visible = new IntersectionObserver(entries => { if(entries.some(e => e.isIntersecting)) { visible.disconnect(); void initialize(); } },{rootMargin:"240px"});
+    const stopResize = observeVisibleMap(host, () => { if(map.current) map.current.invalidateSize(); else if(seen) void initialize(); });
+    const visible = new IntersectionObserver(entries => { if(entries.some(e => e.isIntersecting)) { seen = true; visible.disconnect(); void initialize(); } },{rootMargin:"240px"});
     visible.observe(host);
-    return () => { active=false; visible.disconnect(); observer?.disconnect(); resize?.disconnect(); removeBase?.(); map.current?.remove(); map.current=null; markers.current.clear(); };
+    return () => { active=false; visible.disconnect(); observer?.disconnect(); stopResize(); removeBase?.(); map.current?.remove(); map.current=null; markers.current.clear(); };
   },[]);
   useEffect(() => {
     const m = map.current, L = library.current;
