@@ -1,6 +1,6 @@
 import { addDays, bangkokDateKey } from "./forecast/timestamps.ts";
 import { FORECAST_DAYS } from "./forecast-horizon.ts";
-import { METRO_REGION_ID, metroRegion, provinces, type RegionId } from "./provinces.ts";
+import { METRO_REGION_ID, getRegion, getRegionProvinces, type RegionId } from "./provinces.ts";
 
 export type ForecastStatus = "live" | "degraded" | "unavailable";
 export type UpstreamStatus = "ok" | "timeout" | "error";
@@ -38,18 +38,19 @@ export type ForecastPayload = {
   stations: ForecastStation[];
 };
 
-export function aggregateMetroForecast(payloads: ForecastPayload[]): ForecastPayload {
+export function aggregateMetroForecast(payloads: ForecastPayload[], regionId: RegionId = METRO_REGION_ID): ForecastPayload {
+  const region = getRegion(regionId);
   const usable = payloads.filter((payload) => payload.status !== "unavailable");
   const primary = usable[0] ?? payloads[0];
   if (!primary) throw new Error("metropolitan forecast unavailable");
   return {
     ...primary,
-    province: metroRegion,
+    province: region,
     status: usable.length
-      ? (payloads.length === provinces.length && payloads.every((payload) => payload.status === "live") ? "live" : "degraded")
+      ? (payloads.length === getRegionProvinces(regionId).length && payloads.every((payload) => payload.status === "live") ? "live" : "degraded")
       : "unavailable",
-    model: "AirBKK + Air4Thai + CAMS Global · ภาพรวมกรุงเทพฯ และปริมณฑล 6 จังหวัด",
-    disclaimer: "ภาพรวมรวมสถานีและกริดแบบจำลองจากทั้ง 6 จังหวัด ค่าบนแผนที่เป็นค่าพยากรณ์และการประมาณเชิงพื้นที่",
+    model: `AirBKK + Air4Thai + CAMS Global · ${region.nameTh}`,
+    disclaimer: "ภาพรวมรวมสถานีและกริดแบบจำลองในขอบเขตที่เลือก ค่าบนแผนที่เป็นค่าพยากรณ์และการประมาณเชิงพื้นที่",
     sources: [...new Set(usable.flatMap((payload) => payload.sources ?? []))],
     degradedReasons: [...new Set(payloads.flatMap((payload) => payload.degradedReasons ?? []))],
     dataQuality: {

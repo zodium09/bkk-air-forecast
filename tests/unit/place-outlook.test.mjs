@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { createPlacePoints, placeReading, sortedPlaceReadings } from "../../app/lib/place-outlook.ts";
+import { createPlacePoints, searchPlacePoints, placeReading, sortedPlaceReadings } from "../../app/lib/place-outlook.ts";
 import { boundaryContains, interpolateMapValue } from "../../app/lib/map-surface.ts";
 import { placeAddress, placeArea, placeLabel, placeVisible, regionPlaces } from "../../app/lib/map-places.ts";
 import { buildAreaWatch } from "../../app/lib/area-watch.ts";
-import { getProvincePoints, provinces } from "../../app/lib/provinces.ts";
+import { getProvincePoints, metroProvinces as provinces } from "../../app/lib/provinces.ts";
 
 const bangkok = JSON.parse(await readFile(new URL("../../app/data/bangkok-districts.json", import.meta.url), "utf8"));
 const surrounding = JSON.parse(await readFile(new URL("../../app/data/metro-provinces.json", import.meta.url), "utf8"));
@@ -15,6 +15,33 @@ const places = catalog.places;
 const day = { key: "2026-09-27:day", date: "2026-09-27", day: 1, label: "ตลอดวัน", window: null, cadence: "day" };
 const hour = { ...day, key: "2026-09-27:h06", label: "06:00–07:00", window: 2, cadence: "hour", startHour: 6, endHour: 7 };
 const data = { layer: "rain", status: "live", model: "Test source", steps: [day, hour, { ...hour, key: "2026-09-27:h07", startHour: 7 }], points: provinces.flatMap((province) => getProvincePoints(province.id).map((point, index) => ({ ...point, values: [20 + index * 7, 0, null], secondary: [50, 0, 2] }))) };
+
+test("wide rain overview displays requested references while selected locality gains its own provider point", () => {
+  const overview = places.find(p => p.overview), detail = places.find(p => !p.overview);
+  const providerPoint = p => ({ ...p, place: p, values: [0,0,null], secondary: [2,0,null] });
+  const wide = { ...data, quality: { referenceScope: "overview" }, valueMethod: "provider", points: [providerPoint(overview)] };
+  const initial = createPlacePoints(wide, boundary, [overview, detail]);
+  assert.equal(initial.length, 1);
+  assert.equal(initial[0].place.id, overview.id);
+  const selected = createPlacePoints({ ...wide, points: [...wide.points, providerPoint(detail)] }, boundary, [overview, detail]);
+  assert.equal(selected.length, 2);
+  assert.equal(selected.find(p => p.place.id === detail.id).secondary[1], 0);
+});
+
+test("unrequested localities remain searchable with no fabricated reading while loaded zero values stay attached", () => {
+  const overview = places.find(p => p.overview), detail = places.find(p => !p.overview);
+  const loaded = { id: `place-${overview.id}`, label: placeLabel(overview), area: placeArea(overview), lat: overview.lat, lng: overview.lng, place: overview, values: [0], secondary: [0] };
+  const matches = searchPlacePoints([overview, detail], [loaded], placeLabel(detail));
+  const found = matches.find(p => p.place.id === detail.id);
+  assert.ok(found);
+  assert.equal(found.lat, detail.lat);
+  assert.equal(found.lng, detail.lng);
+  assert.deepEqual(found.values, []);
+  assert.deepEqual(found.secondary, []);
+  assert.equal(searchPlacePoints([overview, detail], [loaded], placeLabel(overview)).find(p => p.place.id === overview.id).secondary[0], 0);
+  assert.deepEqual(searchPlacePoints([overview, detail], [loaded], "ชื่อที่ไม่มีในข้อมูล"), []);
+  assert.equal(searchPlacePoints([overview, detail], [loaded], "", 1).length, 1);
+});
 
 test("real road/locality positions and readable addresses share IDW values across actual source periods", () => {
   const points = createPlacePoints(data, boundary, places);

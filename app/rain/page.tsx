@@ -12,9 +12,9 @@ export async function generateMetadata(): Promise<Metadata> {
     requestHeaders.get("x-forwarded-proto") ??
     (host.startsWith("localhost") ? "http" : "https");
   const origin = `${protocol}://${host}`;
-  const title = "BKK Air Forecast — พยากรณ์ฝนกรุงเทพฯ และปริมณฑล 1–7 วัน";
+  const title = "BKK Air Forecast — พยากรณ์ฝนเจ้าพระยาและกรุงเทพฯ–ปริมณฑล 1–7 วัน";
   const description =
-    "แผนที่พยากรณ์โอกาสฝนและปริมาณฝนสะสมกรุงเทพฯ และ 5 จังหวัดปริมณฑล ล่วงหน้า 1–7 วัน พร้อมช่วงเวลาที่ควรเฝ้าระวัง";
+    "แผนที่พยากรณ์โอกาสฝนและปริมาณฝนสะสมลุ่มน้ำเจ้าพระยาและกรุงเทพฯ–ปริมณฑล ล่วงหน้า 1–7 วัน พร้อมช่วงเวลาที่ควรเฝ้าระวัง";
 
   return {
     title,

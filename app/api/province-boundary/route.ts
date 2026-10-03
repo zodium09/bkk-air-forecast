@@ -1,4 +1,4 @@
-import { METRO_REGION_ID, getProvince, provinces } from "../../lib/provinces.ts";
+import { CHAO_PHRAYA_REGION_ID, METRO_REGION_ID, getProvince, metroProvinces, getVerifiedRiverBoundary } from "../../lib/provinces.ts";
 import bangkokBoundarySnapshot from "../../data/bangkok-districts.json";
 import metroProvinceSnapshot from "../../data/metro-provinces.json";
 
@@ -58,9 +58,12 @@ async function fetchBoundary(url: URL | string) {
 
 export async function GET(request: Request) {
   const provinceId = new URL(request.url).searchParams.get("province");
+  if (provinceId === CHAO_PHRAYA_REGION_ID || getProvince(provinceId).scopeNote) {
+    return Response.json(getVerifiedRiverBoundary(provinceId), { headers: { "Cache-Control": "public, max-age=86400", "X-Boundary-Source": "DWR T22Basin + DMR + BMA verified snapshot", "X-Boundary-State": "snapshot", "X-Province": provinceId ?? CHAO_PHRAYA_REGION_ID } });
+  }
   try {
     if (provinceId === METRO_REGION_ID) {
-      const surroundingCodes = provinces.filter((province) => province.id !== "bangkok").map((province) => `'${province.code}'`).join(",");
+      const surroundingCodes = metroProvinces.filter((province) => province.id !== "bangkok").map((province) => `'${province.code}'`).join(",");
       const [bangkok, surrounding] = await Promise.all([
         fetchBoundary(DISTRICT_GEOJSON_URL),
         fetchBoundary(buildProvinceBoundaryUrl(`PROV_CODE IN (${surroundingCodes})`)),

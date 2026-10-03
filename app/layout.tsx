@@ -9,8 +9,8 @@ export async function generateMetadata(): Promise<Metadata> {
   const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "localhost:5173";
   const protocol = requestHeaders.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
   const origin = `${protocol}://${host}`;
-  const title = "BKK Air Forecast — พยากรณ์ฝุ่น ฝน และความร้อนกรุงเทพฯ–ปริมณฑล";
-  const description = "ดูค่าฝุ่นตรวจวัด น้ำบนถนน และระดับน้ำคลอง–แม่น้ำ พร้อมกราฟพยากรณ์ฝุ่น ฝน และความร้อน 7 วัน สำหรับกรุงเทพฯ กับ 5 จังหวัดปริมณฑล";
+  const title = "BKK Air Forecast — ฝน ฝุ่น และความร้อนเจ้าพระยา–กรุงเทพฯ";
+  const description = "ดูฝน ฝุ่น และความร้อน 7 วันในลุ่มน้ำเจ้าพระยาและกรุงเทพฯ–ปริมณฑล พร้อมค่าตรวจวัดน้ำและการติดตามต้นน้ำ 6 ลุ่มน้ำ";
 
   return {
     metadataBase: new URL(origin),

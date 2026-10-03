@@ -29,6 +29,46 @@ function tmdHeatRaw() {
   })) };
 }
 
+test("expanded heat scope aggregates adaptive points inside the same basin geometry", async () => {
+  let active = 0, peak = 0;
+  const payload = await (await createMetroHeatForecastResponse({ regionId: "chao-phraya", forecastSource: "open-meteo", fetchImpl: async input => {
+    active++; peak = Math.max(peak, active);
+    await new Promise(resolve => setTimeout(resolve, 2));
+    const url = new URL(String(input));
+    const count = url.searchParams.get("latitude").split(",").length;
+    active--;
+    return json(heatRaw(count));
+  } })).json();
+  assert.equal(payload.province.id, "chao-phraya");
+  assert.equal(payload.points.length, 149);
+  assert.equal(payload.dataQuality.acceptedPoints, 149);
+  assert.equal(payload.dataQuality.expectedPoints, 149);
+  assert.ok(peak <= 4);
+});
+
+test("partial heat coverage keeps the expected count for unavailable provinces", async () => {
+  const payload = await (await createMetroHeatForecastResponse({ regionId: "chao-phraya", forecastSource: "open-meteo", fetchImpl: async input => {
+    const url = new URL(String(input)), latitudes = url.searchParams.get("latitude").split(",").map(Number);
+    if (Math.min(...latitudes) > 14.5) throw new Error("source unavailable");
+    return json(heatRaw(latitudes.length));
+  } })).json();
+  assert.equal(payload.status, "degraded");
+  assert.equal(payload.dataQuality.expectedPoints, 149);
+  assert.ok(payload.dataQuality.acceptedPoints < 149);
+  assert.equal(payload.dataQuality.rejectedPoints, 149 - payload.dataQuality.acceptedPoints);
+});
+
+test("unavailable expanded heat scope reports all missing points and avoids caching the failure", async () => {
+  const response = await createMetroHeatForecastResponse({ regionId: "chao-phraya", forecastSource: "open-meteo", fetchImpl: async () => { throw new Error("offline"); } });
+  const payload = await response.json();
+  assert.equal(response.headers.get("Cache-Control"), "no-store");
+  assert.equal(payload.status, "unavailable");
+  assert.equal(payload.province.id, "chao-phraya");
+  assert.equal(payload.dataQuality.expectedPoints, 149);
+  assert.equal(payload.dataQuality.rejectedPoints, 149);
+  assert.equal(payload.dataQuality.acceptedPoints, 0);
+});
+
 test("Rothfusz Heat Index calculation uses same-hour temperature and humidity", () => {
   assert.ok(Math.abs(calculateHeatIndexC(32.2, 70) - 41.1) < 0.4);
   assert.ok(Math.abs(calculateHeatIndexC(35, 60) - 45.1) < 0.6);

@@ -4,7 +4,7 @@ import Image from "next/image";
 import { MapIcon } from "./map-ui";
 import "./rain-radar.css";
 
-const topics=[{id:"rain",label:"ฝนและน้ำ",target:"chapter-rain",hint:"ดูเรดาร์และฝนใกล้พื้นที่ของคุณ"},{id:"air",label:"ฝุ่น PM2.5",target:"chapter-air",hint:"ดูค่าตรวจวัดและแนวโน้มฝุ่น"},{id:"heat",label:"ความร้อน",target:"chapter-heat",hint:"เลือกช่วงเวลาทำกิจกรรมกลางแจ้ง"}] as const;
+const topics=[{id:"rain",label:"ฝน",target:"chapter-rain",hint:"ดูเรดาร์และฝนใกล้พื้นที่ของคุณ"},{id:"air",label:"ฝุ่น PM2.5",target:"chapter-air",hint:"ดูค่าตรวจวัดและแนวโน้มฝุ่น"},{id:"heat",label:"ความร้อน",target:"chapter-heat",hint:"เลือกช่วงเวลาทำกิจกรรมกลางแจ้ง"}] as const;
 export default function WeatherIllustration() {
   const [active,setActive]=useState<(typeof topics)[number]["id"]>("rain");
   const topic=topics.find(t=>t.id===active)!;

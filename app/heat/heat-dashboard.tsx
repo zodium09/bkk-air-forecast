@@ -11,7 +11,8 @@ import {
   getHeatForecastSource,
   type HeatForecastSource,
 } from "../lib/heat-forecast-provider";
-import { getBasemapConfig, getCurrentBasemapTheme, type BasemapKind, type BasemapTheme } from "../lib/basemap";
+import { getCurrentBasemapTheme, type BasemapKind, type BasemapTheme } from "../lib/basemap";
+import { installBasemap } from "../lib/install-basemap";
 import { spatialIdw } from "../lib/forecast/interpolation";
 import { buildFallbackBoundary, getRegion, METRO_REGION_ID, type RegionId } from "../lib/provinces";
 import "leaflet/dist/leaflet.css";
@@ -177,7 +178,6 @@ export default function HeatDashboard() {
   const [selectedLocation, setSelectedLocation] = useState<LocationSelection | null>(null);
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<import("leaflet").Map | null>(null);
-  const tileRef = useRef<import("leaflet").TileLayer | null>(null);
   const boundaryRef = useRef<import("leaflet").GeoJSON | null>(null);
   const surfaceRef = useRef<import("leaflet").ImageOverlay | null>(null);
   const valuesRef = useRef<import("leaflet").LayerGroup | null>(null);
@@ -278,7 +278,6 @@ export default function HeatDashboard() {
       disposed = true;
       mapRef.current?.remove();
       mapRef.current = null;
-      tileRef.current = null;
       boundaryRef.current = null;
       surfaceRef.current = null;
       valuesRef.current = null;
@@ -289,12 +288,13 @@ export default function HeatDashboard() {
   useEffect(() => {
     const map = mapRef.current;
     if (!mapReady || !map) return;
+    let cancelled = false, removeBase: (()=>void) | undefined;
     import("leaflet").then((module) => {
+      if (cancelled) return;
       const L = module.default;
-      if (tileRef.current) map.removeLayer(tileRef.current);
-      const config = getBasemapConfig(basemap, mapTheme);
-      tileRef.current = L.tileLayer(config.url, { attribution: config.attribution, maxZoom: config.maxZoom }).addTo(map);
+      removeBase = installBasemap(L,map,basemap,mapTheme);
     });
+    return () => { cancelled=true; removeBase?.(); };
   }, [basemap, mapReady, mapTheme]);
 
   useEffect(() => {

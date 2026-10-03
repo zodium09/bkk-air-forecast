@@ -1,6 +1,6 @@
 import { FORECAST_DAYS } from "./forecast-horizon.ts";
 import type { HeatForecastSource } from "./heat-forecast-provider.ts";
-import { metroRegion, provinces, type RegionId } from "./provinces.ts";
+import { METRO_REGION_ID, getRegion, getRegionProvinces, getProvincePoints, type RegionId } from "./provinces.ts";
 
 export type HeatStatus = "live" | "degraded" | "unavailable";
 
@@ -153,11 +153,14 @@ function max(values: Array<number | null | undefined>) {
   return valid.length ? rounded(Math.max(...valid)) : null;
 }
 
-export function aggregateMetroHeat(payloads: HeatForecastPayload[]): HeatForecastPayload {
+export function aggregateMetroHeat(payloads: HeatForecastPayload[], regionId: RegionId = METRO_REGION_ID): HeatForecastPayload {
+  const region = getRegion(regionId), expected = getRegionProvinces(regionId).length;
+  const expectedPoints = getRegionProvinces(regionId).reduce((sum, province) => sum + getProvincePoints(province.id).length, 0);
+  const sampleCount = payloads.reduce((sum, p) => sum + p.points.length, 0);
   const usable = payloads.filter((payload) => payload.status !== "unavailable");
   const primary = usable[0] ?? payloads[0];
   if (!primary) throw new Error("metropolitan heat forecast unavailable");
-  if (!usable.length) return { ...primary, province: metroRegion, points: [], windows: [] };
+  if (!usable.length) return { ...primary, province: region, points: [], windows: [], dataQuality: { ...primary.dataQuality, expectedPoints, acceptedPoints: 0, rejectedPoints: expectedPoints, coverageHours: 0 } };
   const windows = primary.windows.map((baseWindow) => {
     const matches = usable.map((payload) => payload.windows.find((window) =>
       window.dayIndex === baseWindow.dayIndex && window.windowIndex === baseWindow.windowIndex,
@@ -194,17 +197,17 @@ export function aggregateMetroHeat(payloads: HeatForecastPayload[]): HeatForecas
         ? "unavailable"
         : "not-configured";
   const model = requestedSource === "open-meteo"
-    ? "Open-Meteo Best Match / GFS · 54 boundary-aware metropolitan samples"
+    ? `Open-Meteo Best Match / GFS · ${sampleCount} samples · ${region.nameEn}`
     : tmdStatus === "live"
-      ? "TMD NWP 3 km (0–48h) + Open-Meteo (days 3–7) · 54 boundary-aware metropolitan samples"
-      : "Open-Meteo Best Match / GFS (temporary TMD fallback) · 54 boundary-aware metropolitan samples";
+      ? `TMD NWP 3 km (0–48h) + Open-Meteo (days 3–7) · ${sampleCount} samples · ${region.nameEn}`
+      : `Open-Meteo Best Match / GFS (temporary TMD fallback) · ${sampleCount} samples · ${region.nameEn}`;
   return {
     ...primary,
-    province: metroRegion,
-    status: payloads.length === provinces.length && payloads.every((payload) => payload.status === "live") ? "live" : "degraded",
+    province: region,
+    status: payloads.length === expected && payloads.every((payload) => payload.status === "live") ? "live" : "degraded",
     fetchedAt: usable.map((payload) => payload.fetchedAt).sort().at(-1) ?? primary.fetchedAt,
     model,
-    disclaimer: "อุณหภูมิสูงสุดและ Heat Index เป็นค่าประมาณจากแบบจำลอง 54 จุดใน 6 จังหวัด ใช้เพื่อวางแผนเบื้องต้น ไม่ใช่ประกาศเตือนภัยทางการ",
+    disclaimer: "อุณหภูมิสูงสุดและ Heat Index เป็นค่าประมาณจากแบบจำลอง จุดที่มีข้อมูลในขอบเขตที่เลือก ใช้เพื่อวางแผนเบื้องต้น ไม่ใช่ประกาศเตือนภัยทางการ",
     sources: [...new Set(usable.flatMap((payload) => payload.sources))],
     dataQuality: {
       ...primary.dataQuality,
@@ -214,9 +217,9 @@ export function aggregateMetroHeat(payloads: HeatForecastPayload[]): HeatForecas
       tmdStatus,
       tmdAcceptedPoints: usable.reduce((sum, payload) => sum + (payload.dataQuality.tmdAcceptedPoints ?? 0), 0),
       tmdForecastValues: usable.reduce((sum, payload) => sum + (payload.dataQuality.tmdForecastValues ?? 0), 0),
-      expectedPoints: usable.reduce((sum, payload) => sum + payload.dataQuality.expectedPoints, 0),
+      expectedPoints,
       acceptedPoints: usable.reduce((sum, payload) => sum + payload.dataQuality.acceptedPoints, 0),
-      rejectedPoints: usable.reduce((sum, payload) => sum + (payload.dataQuality.rejectedPoints ?? 0), 0),
+      rejectedPoints: expectedPoints - usable.reduce((sum, payload) => sum + payload.dataQuality.acceptedPoints, 0),
       coverageHours: Math.min(...usable.map((payload) => payload.dataQuality.coverageHours)),
     },
     days,

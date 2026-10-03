@@ -1,4 +1,4 @@
-import { provinces, type ProvinceId, type RegionId } from "./provinces.ts";
+import { regionContains, provinces, type ProvinceId, type RegionId } from "./provinces.ts";
 import { observationAge } from "./observation-time.ts";
 
 export const WATER_SOURCE_PAGE = "https://www.thaiwater.net/water";
@@ -44,6 +44,7 @@ export function normalizeWaterLevels(raw: unknown, now = Date.now()): WaterPaylo
     const lat = number(station.tele_station_lat), lng = number(station.tele_station_long);
     const name = thai(station.tele_station_name), id = typeof station.id === "number" || typeof station.id === "string" ? String(station.id) : "";
     if (!province || !id || !name || lat === null || lng === null || lat < 5 || lat > 21 || lng < 97 || lng > 106) continue;
+    if (province.scopeNote && !regionContains(province.id, lat, lng, province.id)) continue;
     const observed = localTime(row.waterlevel_datetime);
     const validTime = observed !== null && observed <= now + 5 * 60000;
     const ageMinutes = validTime ? Math.max(0, Math.floor((now - observed!) / 60000)) : null;
@@ -72,7 +73,7 @@ export function normalizeWaterLevels(raw: unknown, now = Date.now()): WaterPaylo
 }
 
 export function waterStationsForArea(stations: WaterStation[], region: RegionId, place: { lat: number; lng: number } | null = null) {
-  return stations.filter((station) => region === "metro" || station.provinceId === region).map((station) => ({ ...station, distanceKm: place ? Math.hypot((station.lat - place.lat) * 111, (station.lng - place.lng) * 108) : null })).sort((a, b) => {
+  return stations.filter((station) => regionContains(region, station.lat, station.lng, station.provinceId)).map((station) => ({ ...station, distanceKm: place ? Math.hypot((station.lat - place.lat) * 111, (station.lng - place.lng) * 108) : null })).sort((a, b) => {
     const rank = { fresh: 0, stale: 1, unavailable: 2 };
     return rank[a.status] - rank[b.status] || (place ? a.distanceKm! - b.distanceKm! : a.name.localeCompare(b.name, "th"));
   });

@@ -1,4 +1,4 @@
-import catalog from "../../data/map-places.json";
+import { mapPlaceCatalog as catalog } from "../../lib/map-place-catalog";
 
 // Static public geography: no upstream geocoder or user coordinates are needed.
 export function GET() {

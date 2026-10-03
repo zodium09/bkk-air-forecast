@@ -1,11 +1,12 @@
 "use client";
-/* eslint-disable @next/next/no-html-link-for-pages */
+/* eslint-disable @next/next/no-html-link-for-pages, @next/next/no-img-element */
 import { useEffect, useMemo, useRef, useState } from "react";
 import EnvironmentMap from "./environment-map";
 import ForecastStory from "./forecast-story";
 import RainRadar from "./rain-radar";
 import WeatherIllustration from "./weather-illustration";
 import ImportantEvents from "./important-events";
+import UpstreamWatch from "./upstream-watch";
 import { useLiveResource } from "./use-live-resource";
 import type { RoadFloodPayload } from "../../lib/road-floods";
 import type { WaterPayload } from "../../lib/water-levels";
@@ -24,10 +25,13 @@ import { MapIcon, goToStory } from "./map-ui";
 import { useEnvironmentData } from "./use-environment-data";
 import { useMapPlaces } from "./use-map-places";
 import { bangkokDate, formatValue, getLegend, relativeDay, type EnvironmentLayer, type MapDataset, type Metric } from "../../lib/map-intelligence";
-import { getRegion, provinces, type RegionId } from "../../lib/provinces";
+import { DEFAULT_REGION_ID, CHAO_PHRAYA_REGION_ID, getRegion, getProvince, isCombinedRegion, regionOptionLabel, provinces, type RegionId } from "../../lib/provinces";
 import { placeAddress, placeArea, placeLabel, type MapPlace } from "../../lib/map-places";
 import { type MapBoundary } from "../../lib/map-surface";
-import { buildAreaWatch } from "../../lib/area-watch";
+import { forecastRiskAreas } from "../../lib/risk-area-data";
+import RiskAreaSummary from "./risk-area-summary";
+import { useAutoLocation } from "./use-auto-location";
+import "./experience.css";
 import { createPlacePoints } from "../../lib/place-outlook";
 import { dailyIndex, overviewDates, overviewTimestamp, overviewStepValue, sourceState } from "../../lib/environment-overview";
 import { currentForecastIndex } from "../../lib/dashboard-controls";
@@ -56,7 +60,7 @@ function forecastLink(layer: EnvironmentLayer, region: RegionId, date: string, p
 }
 
 export default function EnvironmentOverview() {
-  const [region, setRegion] = useState<RegionId>("metro");
+  const [region, setRegion] = useState<RegionId>(DEFAULT_REGION_ID);
   const [date, setDate] = useState("");
   const [today, setToday] = useState("");
   const [following, setFollowing] = useState(true);
@@ -69,16 +73,18 @@ export default function EnvironmentOverview() {
   const [refresh, setRefresh] = useState(0);
   const [focus, setFocus] = useState(0);
   const [boundary, setBoundary] = useState<{ region: RegionId; data: MapBoundary } | null>(null);
-  const [locating, setLocating] = useState(false);
   const [locationMessage, setLocationMessage] = useState("");
   const search = useRef<HTMLInputElement>(null);
-  const geoRequest = useRef({ id: 0 });
   const lastToday = useRef("");
   const searchGroup = useRef<HTMLDivElement>(null);
   const air = useEnvironmentData("air", region, "forecast", refresh);
-  const rain = useEnvironmentData("rain", region, "forecast", refresh, "open-meteo", "secondary", true);
+  const rain = useEnvironmentData("rain", region, "forecast", refresh, "open-meteo", "secondary", true, selected?.id);
   const heat = useEnvironmentData("heat", region, "forecast", refresh);
   const geography = useMapPlaces(region, refresh);
+  const {locating, message:autoLocationMessage, cancel:cancelLocation, locate} = useAutoLocation(geography.catalog?.places, place => {
+    setRegion(place.provinceId); setSelected(place); setFocus(value=>value+1);
+  });
+  const waterHref = `/water?${new URLSearchParams({province:region,...(selected ? {lat:String(selected.lat),lng:String(selected.lng)} : {})})}`;
   const roadsNow = useLiveResource<RoadFloodPayload>("/api/road-floods", refresh);
   const waterNow = useLiveResource<WaterPayload>("/api/water-levels", refresh);
   const airNow = useLiveResource<AirObservationPayload>("/api/air-observations", refresh);
@@ -113,47 +119,31 @@ export default function EnvironmentOverview() {
   const ready = topics.filter((topic) => sources[topic.layer].data && sources[topic.layer].data?.status !== "unavailable" && !sources[topic.layer].error).length;
 
   useEffect(() => {
-    const requestState = geoRequest.current;
     const updateDay = () => { const next = bangkokDate(); const previousToday = lastToday.current; setToday(next); setClock(Date.now()); setDate((previous) => !previous || following && previous === previousToday ? next : previous); lastToday.current = next; };
     updateDay();
     const timer = window.setInterval(updateDay, 60_000);
-    return () => { clearInterval(timer); requestState.id++; };
+    return () => { clearInterval(timer); };
   }, [following]);
 
   function chooseDate(next: string) { setDate(next); setSelectedHour(null); setFollowing(false); }
   function followNow() { setFollowing(true); setSelectedHour(null); setDate(bangkokDate()); setClock(Date.now()); }
 
   function selectPlace(place: MapPlace) {
+    cancelLocation(); setLocationMessage("");
     setSelected(place); setQuery(""); setSearchOpen(false); setFocus((value) => value + 1);
     goToStory("my-area");
   }
   function changeRegion(next: RegionId) {
-    geoRequest.current.id++; setLocating(false); setLocationMessage("");
+    cancelLocation(); setLocationMessage("");
     setRegion(next); setSelected(null); setQuery(""); setSearchOpen(false);
   }
   function selectRadarPosition(position: RainPosition) {
+    cancelLocation();
     const nearby = (geography.catalog?.places ?? []).map(place => ({ place, km: rainDistanceKm(position, place) })).sort((a,b) => a.km-b.km)[0];
-    if (!nearby || nearby.km > 20) { setLocationMessage("จุดที่เลือกอยู่นอกพื้นที่ข้อมูล เลือกพื้นที่ในกรุงเทพฯ หรือปริมณฑล"); return; }
-    if (region !== "metro") setRegion(nearby.place.provinceId);
+    if (!nearby || nearby.km > 20) { setLocationMessage("จุดที่เลือกอยู่นอกพื้นที่ข้อมูล เลือกพื้นที่ในเจ้าพระยาหรือกรุงเทพฯ–ปริมณฑล"); return; }
+    if (!isCombinedRegion(region)) setRegion(nearby.place.provinceId);
     setSelected(nearby.place); setFocus(value => value+1);
     setLocationMessage(`วิเคราะห์รอบจุดอ้างอิง ${placeLabel(nearby.place)} ใกล้จุดที่เลือก ${formatValue(nearby.km)} กม.`);
-  }
-  function useLocation() {
-    const places = geography.catalog?.places ?? [];
-    if (!navigator.geolocation) { setLocationMessage("เบราว์เซอร์นี้ไม่รองรับตำแหน่ง เลือกพื้นที่จากรายชื่อได้เลย"); return; }
-    const request = ++geoRequest.current.id;
-    setLocating(true); setLocationMessage("กำลังค้นหาจุดอ้างอิงใกล้คุณ…");
-    navigator.geolocation.getCurrentPosition(({ coords }) => {
-      if (request !== geoRequest.current.id) return;
-      const nearby = places.map((place) => ({ place, km: Math.hypot((place.lat - coords.latitude) * 111, (place.lng - coords.longitude) * 108) })).sort((a, b) => a.km - b.km)[0];
-      setLocating(false);
-      if (!nearby || nearby.km > 20) { setLocationMessage("ตำแหน่งอยู่นอกพื้นที่ข้อมูล ลองเลือกจังหวัดหรือค้นหาย่าน"); return; }
-      setRegion(nearby.place.provinceId); selectPlace(nearby.place);
-      setLocationMessage(`แสดงจุดอ้างอิงใกล้คุณประมาณ ${formatValue(nearby.km)} กม. ไม่ใช่ค่าตรวจวัด ณ ตำแหน่งของคุณ`);
-    }, () => {
-      if (request !== geoRequest.current.id) return;
-      setLocating(false); setLocationMessage("เข้าถึงตำแหน่งไม่ได้ เลือกพื้นที่จากรายชื่อหรือค้นหาแทนได้");
-    }, { timeout: 10_000, maximumAge: 300_000 });
   }
 
   function renderForecast(layer: EnvironmentLayer) {
@@ -167,13 +157,10 @@ export default function EnvironmentOverview() {
   function renderWatch(layer: EnvironmentLayer) {
     const source = sources[layer], topic = topics.find(item => item.layer === layer)!;
     const watchDate = source.data?.steps[activeIndex(layer)]?.date ?? date;
-    const watches = buildAreaWatch(source.data, watchDate, undefined, undefined, topic.metric).slice(0, 2);
-    const hasDay = dailyIndex(source.data, watchDate) >= 0;
+    const watchTopic = forecastRiskAreas(source.data,dailyIndex(source.data,watchDate),region,topic.metric,layer);
     return <section className="ov-watch fc-topic-watch" id={`watch-${layer}`} aria-label={`พื้นที่ที่ควรติดตาม · ${topic.title}`}>
       <div className="ov-section-heading"><div><h3>พื้นที่ที่ควรติดตาม · {topic.title}</h3><p>พยากรณ์รายวัน · {watchDate ? relativeDay(watchDate, today) : "รอวันที่"} · {getRegion(region).shortNameTh}</p></div><a className="ov-text-link" href={forecastLink(layer, region, watchDate)}>ดูทุกพื้นที่<MapIcon name="arrow" size={17} /></a></div>
-      <div className="ov-watch-list">{watches.map(watch => <a key={watch.point.id} href={forecastLink(layer, region, watch.step.date, watch.point)}><span className={`ov-watch-symbol ov-${layer}`}><MapIcon name={layer} size={21} /></span><div><span className={`ov-watch-kind ov-priority-${watch.severity}`}>{watch.title}</span><h4>{watch.point.label}</h4><p>{watch.area} · {watch.degraded ? "ข้อมูลบางส่วน" : "พยากรณ์"}</p></div><b>{formatValue(watch.value)}<small>{watch.unit}</small></b><MapIcon name="arrow" size={18} /></a>)}</div>
-      {!watches.length && <div className="ov-empty">{source.loading ? "กำลังตรวจสอบสัญญาณจากแบบจำลอง…" : !hasDay || source.error ? "ยังไม่มีข้อมูลรายวันที่ใช้ประเมินได้สำหรับวันที่เลือก" : "ยังไม่พบจุดที่เข้าเกณฑ์ติดตามในข้อมูลรายวันของวันที่เลือก"}</div>}
-      <p className="ov-section-note">แสดงไม่เกิน 2 จุดจากข้อมูลพยากรณ์ ไม่ใช่เหตุการณ์ที่ยืนยันหรือประกาศเตือนภัย</p>
+      <RiskAreaSummary title={`พื้นที่พยากรณ์${topic.title}และระดับติดตาม`} topics={[{...watchTopic,loading:source.loading}]} region={region} boundary={currentBoundary}/>
     </section>;
   }
 
@@ -193,7 +180,7 @@ export default function EnvironmentOverview() {
         <div className="ov-map-canvas"><EnvironmentMap layer={layer} mode="estimate" points={mapIndex < 0 ? [] : preview.data?.points ?? []} displayPoints={mapIndex < 0 ? [] : mapPoints} display="dots" index={Math.max(0, mapIndex)} metric={previewMetric} province={region} selected={selected} onSelect={position => {
           const place = geography.places.find(item => item.lat === position.lat && item.lng === position.lng);
           if (place) selectPlace(place);
-        }} legend={null} degraded={!!preview.data && preview.data.status !== "live"} satellite={false} showValues={false} showPlaceNames focus={focus} onBoundary={setBoundary} motionDisabled />
+        }} onLocate={locate} legend={null} degraded={!!preview.data && preview.data.status !== "live"} satellite={false} showValues={false} showPlaceNames focus={focus} onBoundary={setBoundary} motionDisabled />
           {(preview.loading || mapIndex < 0) && <div className="ov-map-message" role="status">{preview.loading ? "กำลังโหลดพยากรณ์…" : "ยังไม่มีค่าพยากรณ์ในวันที่เลือก"}</div>}
         </div>
         {!!dates.length && <div className="ov-map-dates" aria-label="เลือกวันบนแผนที่">{dates.map(day => <button key={day} aria-pressed={date === day} onClick={() => chooseDate(day)}>{relativeDay(day, today)}</button>)}</div>}
@@ -205,12 +192,13 @@ export default function EnvironmentOverview() {
   return <main className="ov-page bf-overview">
     <a className="ov-skip" href="#important-events">ข้ามไปที่ข้อมูล</a>
     <header className="ov-header">
-      <a className="ov-brand" href="/" aria-label="BKK Air Forecast หน้าหลัก"><span className="ov-brand-mark"><MapIcon name="air" size={25} /></span><span>BKK <b>Air</b><small>กรุงเทพฯ และปริมณฑล</small></span></a>
-      <nav aria-label="เมนูหลัก"><a href="/" aria-current="page">ภาพรวม</a><a href="/rain">ฝน / น้ำ</a><a href="/air">ฝุ่น PM2.5</a><a href="/heat">ความร้อน</a><a href="#water-levels">ระดับน้ำ</a><a href="#my-area">พื้นที่ของฉัน</a></nav>
+      <a className="ov-brand" href="/" aria-label="BKK Air Forecast หน้าหลัก"><span className="ov-brand-mark"><MapIcon name="air" size={25} /></span><span>BKK <b>Air</b><small>เจ้าพระยาและกรุงเทพฯ–ปริมณฑล</small></span></a>
+      <nav aria-label="เมนูหลัก"><a href="/" aria-current="page">ภาพรวม</a><a href={forecastLink("rain", region, "", selected)}>ฝน</a><a href={waterHref}>ระดับน้ำ</a><a href={forecastLink("air", region, "", selected)}>ฝุ่น PM2.5</a><a href={forecastLink("heat", region, "", selected)}>ความร้อน</a><a href="#my-area">พื้นที่ของฉัน</a></nav>
       <ThemeToggle />
     </header>
 
     <ImportantEvents region={region} position={selected ? { ...selected, label: placeLabel(selected) } : null} roads={roadsNow} water={waterNow} air={airNow} rain={rainNow} heat={heat.data} heatLoading={heat.loading} heatError={heat.error} clock={clock} onRefresh={refreshAll}/>
+
 
     <section className="ov-hero" id="overview" tabIndex={-1}>
       <div className="ov-hero-copy">
@@ -232,32 +220,36 @@ export default function EnvironmentOverview() {
           }}><MapIcon name="pin" size={17} /><span>{placeLabel(place)}<small>{placeArea(place)}</small></span><MapIcon name="arrow" size={15} /></button></li>)}{!matches.length && <li className="ov-search-empty">{geography.loading ? "กำลังโหลดรายชื่อพื้นที่…" : geography.error || "ไม่พบพื้นที่ ลองชื่อเขตหรือจังหวัดอื่น"}</li>}</ul>}
         </div>
         <div className="ov-hero-actions"><a className="ov-button" href="#my-area">ดูพื้นที่ของฉัน<MapIcon name="arrow" size={19} /></a><a className="ov-text-link" href={forecastLink(previewLayer, region, linkDate, selected, selectedHour)}><MapIcon name="map" size={18} />เปิดแผนที่เต็ม</a></div>
-        <p className="ov-coverage">ครอบคลุมกรุงเทพฯ และ 5 จังหวัดปริมณฑล</p>
+        <p className="ov-coverage">ขอบเขตลุ่มน้ำเจ้าพระยาจริง + กรุงเทพฯ–ปริมณฑลเดิม · เลือกพื้นที่ด้านล่าง</p>
       </div>
       <WeatherIllustration/>
     </section>
 
     <section className="ov-area ov-section" id="my-area" tabIndex={-1}>
-      <div className="ov-section-heading"><div><h2>พื้นที่ของฉัน</h2><p>เลือกพื้นที่ครั้งเดียว แล้วอ่านข้อมูลของพื้นที่นี้ต่อทีละเรื่อง</p></div><button className="ov-location-button" onClick={useLocation} disabled={locating || geography.loading || !geography.catalog}><MapIcon name="location" size={18} />{locating ? "กำลังหาตำแหน่ง…" : "ใช้ตำแหน่งของฉัน"}</button></div>
-      <div className="ov-area-layout"><div className="ov-area-picker"><label htmlFor="overview-province">จังหวัด<select id="overview-province" value={region} onChange={(event) => changeRegion(event.target.value as RegionId)}><option value="metro">กรุงเทพฯ–ปริมณฑลทั้งหมด</option>{provinces.map((province) => <option key={province.id} value={province.id}>{province.nameTh}</option>)}</select></label><label htmlFor="overview-district">เขต / อำเภอ<select id="overview-district" value={selected?.id ?? ""} disabled={geography.loading || !districts.length} onChange={(event) => { const place = geography.places.find((item) => item.id === event.target.value); if (place) selectPlace(place); else setSelected(null); }}><option value="">เลือกพื้นที่ที่ต้องการดู</option>{selected && !selected.overview && <option value={selected.id}>{placeLabel(selected)}</option>}{districts.map((place) => <option value={place.id} key={place.id}>{place.districtType}{place.district}{region === "metro" ? ` · ${place.province}` : ""}</option>)}</select></label><p className="ov-picker-note"><MapIcon name="info" size={16} />ชื่อพื้นที่ใช้ระบุจุดอ้างอิง ไม่ใช่ค่าของทั้งเขต</p></div>
-      <div className="ov-area-detail">{selected ? <><div className="ov-selected-heading"><MapIcon name="pin" size={22} /><div><h3>{selected.districtType}{selected.district}</h3><p>{placeLabel(selected)} · {selected.province}</p></div><button aria-label="ล้างพื้นที่ที่เลือก" onClick={() => setSelected(null)}><MapIcon name="close" size={19} /></button></div><p className="fc-area-context">ใช้พื้นที่นี้กับข้อมูลฝนและน้ำ ฝุ่น และความร้อนด้านล่าง</p><a className="ov-text-link" href="#chapter-rain">เริ่มอ่านฝนและน้ำในพื้นที่นี้<MapIcon name="arrow" size={17} /></a></> : <><h3>วันนี้คุณจะไปแถวไหน?</h3><p>เริ่มจากเลือกเขต / อำเภอ หรือค้นหาชื่อถนนด้านบน</p><div className="ov-district-chips">{districts.slice(0, 6).map((place) => <button key={place.id} onClick={() => selectPlace(place)}><MapIcon name="pin" size={15} />{place.district}</button>)}</div>{geography.error && <p role="alert">{geography.error}<button className="ov-text-link" onClick={() => setRefresh((value) => value + 1)}>ลองโหลดอีกครั้ง</button></p>}</>}{locationMessage && <p className="ov-location-message" role="status">{locationMessage}</p>}</div></div>
+      <div className="ov-section-heading"><div><h2>พื้นที่ของฉัน</h2><p>เลือกพื้นที่ครั้งเดียว แล้วอ่านข้อมูลของพื้นที่นี้ต่อทีละเรื่อง</p></div><button className="ov-location-button" onClick={()=>{setLocationMessage("");locate();}} disabled={locating || geography.loading || !geography.catalog}><MapIcon name="location" size={18} />{locating ? "กำลังหาตำแหน่ง…" : "ใช้ตำแหน่งของฉัน"}</button></div>
+      <div className="ov-area-layout"><div className="ov-area-picker"><label htmlFor="overview-province">จังหวัด<select id="overview-province" value={region} onChange={(event) => changeRegion(event.target.value as RegionId)}><option value={CHAO_PHRAYA_REGION_ID}>เจ้าพระยาและกรุงเทพฯ–ปริมณฑล</option><option value="metro">กรุงเทพฯ–ปริมณฑลเดิม</option>{provinces.map((province) => <option key={province.id} value={province.id}>{regionOptionLabel(province)}</option>)}</select></label><label htmlFor="overview-district">เขต / อำเภอ<select id="overview-district" value={selected?.id ?? ""} disabled={geography.loading || !districts.length} onChange={(event) => { const place = geography.places.find((item) => item.id === event.target.value); if (place) selectPlace(place); else { cancelLocation(); setSelected(null); } }}><option value="">เลือกพื้นที่ที่ต้องการดู</option>{selected && !selected.overview && <option value={selected.id}>{placeLabel(selected)}</option>}{districts.map((place) => <option value={place.id} key={place.id}>{place.districtType}{place.district}{isCombinedRegion(region) ? ` · ${place.province}` : ""}</option>)}</select></label><p className="ov-picker-note"><MapIcon name="info" size={16} />ชื่อพื้นที่ใช้ระบุจุดอ้างอิง ไม่ใช่ค่าของทั้งเขต{getProvince(region).scopeNote && ` · ${getProvince(region).scopeNote}`}</p></div>
+      <div className="ov-area-detail">{selected ? <><div className="ov-selected-heading"><MapIcon name="pin" size={22} /><div><h3>{selected.districtType}{selected.district}</h3><p>{placeLabel(selected)} · {selected.province}</p></div><button aria-label="ล้างพื้นที่ที่เลือก" onClick={() => { cancelLocation(); setSelected(null); }}><MapIcon name="close" size={19} /></button></div><p className="fc-area-context">ใช้พื้นที่นี้กับฝน ระดับน้ำ ฝุ่น และความร้อนด้านล่าง</p><a className="ov-text-link" href="#chapter-rain">เริ่มอ่านฝนในพื้นที่นี้<MapIcon name="arrow" size={17} /></a></> : <><h3>วันนี้คุณจะไปแถวไหน?</h3><p>เริ่มจากเลือกเขต / อำเภอ หรือค้นหาชื่อถนนด้านบน</p><div className="ov-district-chips">{districts.slice(0, 6).map((place) => <button key={place.id} onClick={() => selectPlace(place)}><MapIcon name="pin" size={15} />{place.district}</button>)}</div>{geography.error && <p role="alert">{geography.error}<button className="ov-text-link" onClick={() => setRefresh((value) => value + 1)}>ลองโหลดอีกครั้ง</button></p>}</>}{(locationMessage || autoLocationMessage) && <p className="ov-location-message" role="status">{locationMessage || autoLocationMessage}</p>}</div></div>
     </section>
 
     <div className="bf-overview-time"><div><span className={following ? "bf-live-dot" : ""} />{following ? "พยากรณ์ช่วงที่ใกล้เวลาปัจจุบัน" : "กำลังดูพยากรณ์ · " + relativeDay(date, today) + (selectedHour !== null ? " " + String(selectedHour).padStart(2, "0") + ":00 น." : " · ทั้งวัน")}<small>{today && following ? new Intl.DateTimeFormat("th-TH", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" }).format(new Date(clock)) + " น. · เวลาไทย" : ""}</small></div><button onClick={followNow} aria-pressed={following}><MapIcon name="refresh" size={16} />{following ? "ตามเวลาปัจจุบัน" : "กลับเวลาปัจจุบัน"}</button></div>
     <div className="fc-refresh-row"><p>วันพยากรณ์ใช้ร่วมกัน · ค่าตรวจวัดแต่ละเรื่องคงเวลาของต้นทาง</p><button className="ov-location-button" disabled={anyLoading} onClick={() => setRefresh(value => value + 1)}><MapIcon name="refresh" size={17}/>{anyLoading ? "กำลังโหลด…" : "โหลดข้อมูลล่าสุด"}</button></div>
     <div id="outlook" className="fc-chapters">
       <section className="fc-chapter bf-rain" id="chapter-rain" aria-labelledby="chapter-rain-heading" tabIndex={-1}>
-        <header className="fc-chapter-heading"><MapIcon name="rain" size={31}/><div><h2 id="chapter-rain-heading">ฝนและน้ำ</h2><p>ดูเรดาร์ฝนใกล้พื้นที่ แล้วอ่านพยากรณ์และระดับน้ำต่อ</p></div></header>
+        <header className="fc-chapter-heading"><MapIcon name="rain" size={31}/><div><h2 id="chapter-rain-heading">ฝน</h2><p>เรดาร์ฝนใกล้พื้นที่ โอกาสฝน และปริมาณสะสมตามช่วงเวลา</p></div><img className="ex-chapter-art" src="/home-rain.png" width="146" height="94" alt="" loading="lazy"/></header>
         <RainRadar region={region} position={selected ? { ...selected, label: placeLabel(selected) } : null} onSelect={selectRadarPosition} rainData={rain.data} refresh={refresh} sharedResources={{catalog:radarNow,analysis:rainNow}} onRefresh={refreshAll}/>
         {renderForecast("rain")}
         {renderWatch("rain")}
         {renderMap("rain")}
         {renderSource("rain")}
-        <RoadFloodOverview region={region} place={selected} refresh={refresh} sharedResource={roadsNow}/>
+      </section>
+      <section className="fc-chapter bf-water" id="chapter-water" aria-labelledby="chapter-water-heading" tabIndex={-1}>
+        <header className="fc-chapter-heading"><MapIcon name="water" size={31}/><div><h2 id="chapter-water-heading">ระดับน้ำ</h2><p>สถานีน้ำ คลอง แม่น้ำ และน้ำบนถนน · ค่าตรวจวัดล่าสุด</p></div><a className="ov-text-link" href={waterHref}>เปิดหน้าระดับน้ำ<MapIcon name="arrow" size={17}/></a></header>
+        <RoadFloodOverview compact region={region} place={selected} refresh={refresh} sharedResource={roadsNow}/>
         <WaterOverview region={region} place={selected} refresh={refresh} sharedResource={waterNow} onRefresh={refreshAll}/>
+        <details className="ex-upstream-preview"><summary>ดูต้นน้ำและการระบายจากอ่าง<MapIcon name="chevron" size={18}/></summary><UpstreamWatch refresh={refresh}/></details>
       </section>
       <section className="fc-chapter bf-air" id="chapter-air" aria-labelledby="chapter-air-heading" tabIndex={-1}>
-        <header className="fc-chapter-heading"><MapIcon name="air" size={31}/><div><h2 id="chapter-air-heading">ฝุ่น PM2.5</h2><p>ค่าตรวจวัด พยากรณ์ฝุ่น ปัจจัยอากาศ และแนวโน้มลมหนาวในพื้นที่ของคุณ</p></div></header>
+        <header className="fc-chapter-heading"><MapIcon name="air" size={31}/><div><h2 id="chapter-air-heading">ฝุ่น PM2.5</h2><p>ค่าตรวจวัด พยากรณ์ฝุ่น ปัจจัยอากาศ และแนวโน้มลมหนาวในพื้นที่ของคุณ</p></div><img className="ex-chapter-art" src="/home-air.png" width="146" height="94" alt="" loading="lazy"/></header>
         <nav className="aa-chapter-links" aria-label="ข้ามไปข้อมูลเรื่องฝุ่น"><a href="#current-observations">ค่าตรวจวัด</a><a href="#forecast-air">พยากรณ์ฝุ่น</a><a href="#air-analysis">ปัจจัยที่เกี่ยวกับฝุ่น</a><a href="#cold-wind">ลมหนาว</a></nav>
         <div className="fc-current" id="current-observations" tabIndex={-1}><CurrentAir region={region} place={selected} refresh={refresh} sharedResource={airNow} onRefresh={refreshAll}/></div>
         {renderForecast("air")}
@@ -267,7 +259,7 @@ export default function EnvironmentOverview() {
         {renderSource("air")}
       </section>
       <section className="fc-chapter bf-heat" id="chapter-heat" aria-labelledby="chapter-heat-heading" tabIndex={-1}>
-        <header className="fc-chapter-heading"><MapIcon name="heat" size={31}/><div><h2 id="chapter-heat-heading">ความร้อน</h2><p>เทียบดัชนีความร้อนกับอุณหภูมิ และเลือกช่วงเวลาทำกิจกรรม</p></div></header>
+        <header className="fc-chapter-heading"><MapIcon name="heat" size={31}/><div><h2 id="chapter-heat-heading">ความร้อน</h2><p>เทียบดัชนีความร้อนกับอุณหภูมิ และเลือกช่วงเวลาทำกิจกรรม</p></div><img className="ex-chapter-art" src="/home-heat.png" width="146" height="94" alt="" loading="lazy"/></header>
         {renderForecast("heat")}
         {renderWatch("heat")}
         {renderMap("heat")}

@@ -1,6 +1,6 @@
 import { FORECAST_DAYS } from "./forecast-horizon.ts";
 import type { RainForecastMode, RainForecastSource } from "./rain-forecast-provider.ts";
-import { metroRegion, provinces, type RegionId } from "./provinces.ts";
+import { METRO_REGION_ID, getRegion, getRegionProvinces, getProvincePoints, type RegionId } from "./provinces.ts";
 
 export type RainStatus = "live" | "degraded" | "unavailable";
 
@@ -176,11 +176,14 @@ export function getCorroboratedRainMm(points: RainPoint[], dayIndex: number, max
   return corroborated === null ? null : Math.round(corroborated * 10) / 10;
 }
 
-export function aggregateMetroRain(payloads: RainForecastPayload[]): RainForecastPayload {
+export function aggregateMetroRain(payloads: RainForecastPayload[], regionId: RegionId = METRO_REGION_ID): RainForecastPayload {
+  const region = getRegion(regionId), expected = getRegionProvinces(regionId).length;
+  const expectedPoints = getRegionProvinces(regionId).reduce((sum, province) => sum + getProvincePoints(province.id).length, 0);
+  const sampleCount = payloads.reduce((sum, p) => sum + p.points.length, 0);
   const usable = payloads.filter((payload) => payload.status !== "unavailable");
   const primary = usable[0] ?? payloads[0];
   if (!primary) throw new Error("metropolitan rain forecast unavailable");
-  if (!usable.length) return { ...primary, province: metroRegion, points: [], windows: [] };
+  if (!usable.length) return { ...primary, province: region, points: [], windows: [], dataQuality: { ...primary.dataQuality, expectedPoints, acceptedPoints: 0, rejectedPoints: expectedPoints, coverageHours: 0 } };
 
   const requestedSource = primary.dataQuality.requestedSource ?? "tmd";
   const requestedMode = primary.dataQuality.requestedMode ?? "chance";
@@ -236,19 +239,19 @@ export function aggregateMetroRain(payloads: RainForecastPayload[]): RainForecas
         ? "unavailable"
         : "not-configured";
   const model = requestedSource === "open-meteo"
-    ? "Open-Meteo Best Match / GFS · 54 boundary-aware metropolitan samples"
+    ? `Open-Meteo Best Match / GFS · ${sampleCount} samples · ${region.nameEn}`
     : tmdStatus === "live"
       ? requestedMode === "accumulation"
-        ? "TMD NWP Daily (7 days) + Open-Meteo supporting fields · 54 boundary-aware metropolitan samples"
-        : "TMD NWP 3 km (0–48h) + Open-Meteo probability / days 3–7 · 54 boundary-aware metropolitan samples"
-      : "Open-Meteo Best Match / GFS (temporary TMD fallback) · 54 boundary-aware metropolitan samples";
+        ? `TMD NWP Daily (7 days) + Open-Meteo supporting fields · ${sampleCount} samples · ${region.nameEn}`
+        : `TMD NWP 3 km (0–48h) + Open-Meteo probability / days 3–7 · ${sampleCount} samples · ${region.nameEn}`
+      : `Open-Meteo Best Match / GFS (temporary TMD fallback) · ${sampleCount} samples · ${region.nameEn}`;
   return {
     ...primary,
-    province: metroRegion,
-    status: payloads.length === provinces.length && payloads.every((payload) => payload.status === "live") ? "live" : "degraded",
+    province: region,
+    status: payloads.length === expected && payloads.every((payload) => payload.status === "live") ? "live" : "degraded",
     fetchedAt: usable.map((payload) => payload.fetchedAt).sort().at(-1) ?? primary.fetchedAt,
     model,
-    disclaimer: "โอกาสฝนรายวันใช้ค่าสูงสุดตามเวลาของแต่ละจุด แล้วหาค่าเฉลี่ยจาก 54 จุดใน 6 จังหวัด ส่วนระดับเฝ้าระวังต้องมีจุดใกล้กันสนับสนุน ไม่ใช้ค่าสูงสุดโดดเดี่ยวแทนทั้งพื้นที่",
+    disclaimer: "โอกาสฝนรายวันใช้ค่าสูงสุดตามเวลาของแต่ละจุด แล้วหาค่าเฉลี่ยจาก จุดที่มีข้อมูลในขอบเขตที่เลือก ส่วนระดับเฝ้าระวังต้องมีจุดใกล้กันสนับสนุน ไม่ใช้ค่าสูงสุดโดดเดี่ยวแทนทั้งพื้นที่",
     sources: [...new Set(usable.flatMap((payload) => payload.sources))],
     dataQuality: {
       ...primary.dataQuality,
@@ -265,9 +268,9 @@ export function aggregateMetroRain(payloads: RainForecastPayload[]): RainForecas
         ? Math.max(...liveTmdPayloads.map((payload) => payload.dataQuality.tmdCadenceHours ?? 0)) || null
         : null,
       tmdProduct: liveTmdPayloads[0]?.dataQuality.tmdProduct,
-      expectedPoints: usable.reduce((sum, payload) => sum + payload.dataQuality.expectedPoints, 0),
+      expectedPoints,
       acceptedPoints: usable.reduce((sum, payload) => sum + payload.dataQuality.acceptedPoints, 0),
-      rejectedPoints: usable.reduce((sum, payload) => sum + (payload.dataQuality.rejectedPoints ?? 0), 0),
+      rejectedPoints: expectedPoints - usable.reduce((sum, payload) => sum + payload.dataQuality.acceptedPoints, 0),
       coverageHours: Math.min(...usable.map((payload) => payload.dataQuality.coverageHours)),
     },
     days,

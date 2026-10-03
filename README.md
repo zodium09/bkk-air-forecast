@@ -1,6 +1,6 @@
 # BKK Air Forecast
 
-BKK Air Forecast is a Bangkok-metropolitan web application for viewing seven-day PM2.5 and rain outlooks across Bangkok, Nonthaburi, Pathum Thani, Samut Prakan, Samut Sakhon, and Nakhon Pathom. It is designed for planning and data exploration; it is not an official warning or health-advisory system.
+BKK Air Forecast presents rain, PM2.5 and heat outlooks for the Chao Phraya basin plus the original six-province Bangkok metropolitan area. The 13 added provinces are clipped to the actual basin polygon. Independent upstream monitoring covers Ping, Wang, Yom, Nan, Sakae Krang and Pasak. See [the geographic and upstream data contract](docs/CHAO_PHRAYA_COVERAGE_TH.md). It is designed for planning and data exploration; it is not an official warning or health-advisory system.
 
 ## Features
 
@@ -16,7 +16,8 @@ BKK Air Forecast is a Bangkok-metropolitan web application for viewing seven-day
 - Seven-day PM2.5 outlook with Bangkok station observations, province model grids, and spatial IDW surfaces
 - Rain outlook split into a chance mode (TMD-assisted 0–48 hours or Open-Meteo 7 days) and a 24-hour accumulation mode (TMD Daily or Open-Meteo 7 days)
 - Seven-day heat outlook with 3-hour windows and a user-selectable TMD/Open-Meteo source mode
-- Province selector shared across air and rain views, defaulting to the six-province metropolitan overview
+- Shared area selection across rain, air and heat, defaulting to Chao Phraya plus Greater Bangkok; the original metropolitan scope remains available
+- Interactive upstream briefing with observed 24-hour station rainfall, current water stations and dated daily reservoir inflow/release
 - Optional TMD RadarGIS observed and 0–3 hour nowcast layers
 - Optional authenticated TMD NWP rain and heat mode (`TMD_NWP_TOKEN`) for the first 48 hours, with an explicit Open-Meteo/GFS seven-day mode and transparent fallback status
 - Explicit `live`, `degraded`, and `unavailable` data states

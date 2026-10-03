@@ -11,8 +11,9 @@ import {
   type RainForecastPayload,
 } from "../../lib/rain-forecast-data.ts";
 import { FORECAST_DAYS } from "../../lib/forecast-horizon.ts";
-import { METRO_REGION_ID, provinces } from "../../lib/provinces.ts";
+import { METRO_REGION_ID, getRegionProvinces, isCombinedRegion, type RegionId } from "../../lib/provinces.ts";
 import { fetchWithTimeout } from "../../lib/fetch-with-timeout.ts";
+import { concurrentMap } from "../../lib/concurrent-map.ts";
 import {
   buildRainForecastUrl,
   getRainForecastProvider,
@@ -295,7 +296,7 @@ function normalizedResponse(
     province: { id: province.id, nameTh: province.nameTh, shortNameTh: province.shortNameTh, nameEn: province.nameEn },
     status,
     fetchedAt: new Date().toISOString(),
-    model: `${model} · 9 boundary-aware ${province.nameEn} samples`,
+    model: `${model} · ${points.length} boundary-aware ${province.nameEn} samples`,
     disclaimer: requestedMode === "accumulation"
       ? "ปริมาณฝนสะสมเป็นค่ารวม 24 ชั่วโมงจากแบบจำลองรายวัน แต่ละพื้นที่อาจได้รับฝนต่างกัน และไม่ใช่ค่าตรวจวัดหรือประกาศเตือนภัย"
       : "โอกาสฝนรายวันใช้ค่าสูงสุดตามเวลาของแต่ละจุด แล้วเฉลี่ยจากจุดแบบจำลอง ส่วนไทม์ไลน์ 3 ชั่วโมงแสดงค่าเฉลี่ยจากจุดแบบจำลองของสัญญาณสูงสุดในช่วงนั้น และไม่ยืนยันว่าจะตกทุกแห่ง",
@@ -415,7 +416,7 @@ export async function createRainForecastResponse(options: {
   return unavailableResponse(new Error(failures.join("; ")), province.id, forecastSource, forecastMode);
 }
 
-export async function createMetroRainForecastResponse(options: {
+export async function createMetroRainForecastResponse(options: { regionId?: RegionId;
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
   tmdToken?: string | null;
@@ -423,27 +424,29 @@ export async function createMetroRainForecastResponse(options: {
   forecastSource?: unknown;
   forecastMode?: unknown;
 } = {}) {
-  const results = await Promise.allSettled(provinces.map(async (province) => {
-    const response = await createRainForecastResponse({ ...options, provinceId: province.id });
-    if (!response.ok) throw new Error(`${province.id} rain forecast unavailable`);
-    return response.json() as Promise<RainForecastPayload>;
-  }));
-  const payloads = results
-    .filter((result): result is PromiseFulfilledResult<RainForecastPayload> => result.status === "fulfilled")
-    .map((result) => result.value);
+  const deadline = Date.now() + 18000;
+  const results = await concurrentMap(getRegionProvinces(options.regionId ?? METRO_REGION_ID), 4, async province => {
+    try {
+      const remaining = deadline - Date.now();
+      if (remaining < 250) return null;
+      const response = await createRainForecastResponse({ ...options, provinceId: province.id, timeoutMs: Math.min(options.timeoutMs ?? 9000, Math.max(1, Math.floor(remaining / 3))) });
+      return response.ok ? await response.json() as RainForecastPayload : null;
+    } catch { return null; }
+  });
+  const payloads = results.filter((result): result is RainForecastPayload => result !== null);
   if (!payloads.length) {
     return Response.json({ error: "metropolitan rain forecast unavailable" }, {
       status: 503,
       headers: { "Cache-Control": "no-store", "X-Rain-Forecast-Status": "unavailable" },
     });
   }
-  const payload = aggregateMetroRain(payloads);
+  const payload = aggregateMetroRain(payloads, options.regionId ?? METRO_REGION_ID);
   return Response.json(payload, {
     headers: {
       "Cache-Control": "public, max-age=60, stale-while-revalidate=7200",
       "CDN-Cache-Control": "public, max-age=1800, stale-while-revalidate=7200",
       "X-Rain-Forecast-Status": payload.status,
-      "X-Province": METRO_REGION_ID,
+      "X-Province": options.regionId ?? METRO_REGION_ID,
     },
   });
 }
@@ -453,8 +456,8 @@ export async function GET(request: Request) {
   const provinceId = searchParams.get("province");
   const forecastSource = getRainForecastSource(searchParams.get("source"));
   const forecastMode = getRainForecastMode(searchParams.get("mode"));
-  return provinceId === METRO_REGION_ID
-    ? createMetroRainForecastResponse({ forecastSource, forecastMode })
+  return isCombinedRegion(provinceId)
+    ? createMetroRainForecastResponse({ regionId: provinceId!, forecastSource, forecastMode })
     : createRainForecastResponse({ provinceId, forecastSource, forecastMode });
 }
 export async function POST(request: Request) {

@@ -1,4 +1,4 @@
-import { provinces, type ProvinceId, type RegionId } from "./provinces.ts";
+import { regionContains, provinces, type ProvinceId, type RegionId } from "./provinces.ts";
 import { observationAge, observationNumber, observationTime } from "./observation-time.ts";
 import { fetchWithTimeout } from "./fetch-with-timeout.ts";
 
@@ -22,14 +22,14 @@ export function normalizeAirObservations(airbkk: unknown, air4thai: unknown, now
   const stations = new Map<string, AirObservation>();
   function accept(raw: unknown, source: AirObservation["source"]) {
     const row = object(raw), last = object(row.AQILast), pm25 = object(last.PM25);
-    const lat = observationNumber(source === "AirBKK" ? row.Lat : row.lat, 13.3, 14.5);
-    const lng = observationNumber(source === "AirBKK" ? row.Long : row.long, 99.5, 101.2);
+    const lat = observationNumber(source === "AirBKK" ? row.Lat : row.lat, 12, 18);
+    const lng = observationNumber(source === "AirBKK" ? row.Long : row.long, 98, 102);
     const area = string(source === "AirBKK" ? row.District : row.areaTH);
     const province = source === "AirBKK" ? provinces[0] : provinces.find(p => area.includes(p.id === "bangkok" ? "กรุงเทพ" : p.nameTh));
     const id = row[source === "AirBKK" ? "MeasIndex" : "stationID"];
     if (!province || id === null || id === undefined || !String(id).trim() || lat === null || lng === null) return;
     const { bounds } = province;
-    if (lat < bounds.minLat || lat > bounds.maxLat || lng < bounds.minLng || lng > bounds.maxLng) return;
+    if (lat < bounds.minLat || lat > bounds.maxLat || lng < bounds.minLng || lng > bounds.maxLng || !regionContains(province.id, lat, lng, province.id)) return;
     const time = observationTime(source === "AirBKK" ? row.DateTime : `${string(last.date)} ${string(last.time)}`);
     const observedAt = time === null ? null : new Date(time).toISOString();
     const age = observationAge(observedAt, now);
@@ -68,7 +68,7 @@ export async function fetchAirObservations(options: { fetchImpl?: typeof fetch; 
 }
 
 export function selectAirObservation(stations: AirObservation[], region: RegionId, place: { lat: number; lng: number } | null, now = Date.now()) {
-  const inArea = stations.filter(station => region === "metro" || station.provinceId === region);
+  const inArea = stations.filter(station => regionContains(region, station.lat, station.lng, station.provinceId));
   const usable = inArea.filter(station => station.value !== null && observationAge(station.observedAt, now) !== null && observationAge(station.observedAt, now)! <= 90);
   const distance = (s: AirObservation) => place ? Math.hypot((s.lat - place.lat) * 111, (s.lng - place.lng) * 108) : 0;
   const nearest = place ? [...usable].sort((a,b) => distance(a) - distance(b))[0] : null;

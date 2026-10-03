@@ -26,7 +26,8 @@ import {
   type RainForecastSource,
 } from "../lib/rain-forecast-provider";
 import { FORECAST_DAYS } from "../lib/forecast-horizon";
-import { getBasemapConfig, getCurrentBasemapTheme, type BasemapTheme } from "../lib/basemap";
+import { getCurrentBasemapTheme, type BasemapTheme } from "../lib/basemap";
+import { installBasemap } from "../lib/install-basemap";
 import { spatialIdw } from "../lib/forecast/interpolation";
 import { selectMapLabelLocations } from "../lib/forecast/map-labels";
 import type { TmdRadarMode, TmdRadarPayload } from "../lib/tmd-radar-data";
@@ -453,7 +454,6 @@ export default function RainDashboard() {
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const layerMenuRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<import("leaflet").Map | null>(null);
-  const tileLayerRef = useRef<import("leaflet").TileLayer | null>(null);
   const surfaceLayerRef = useRef<import("leaflet").ImageOverlay | null>(null);
   const radarLayerRef = useRef<import("leaflet").ImageOverlay | null>(null);
   const boundaryLayerRef = useRef<import("leaflet").GeoJSON | null>(null);
@@ -619,11 +619,6 @@ export default function RainDashboard() {
         minZoom: 8,
         maxZoom: 15,
       }).setView([13.765, 100.595], 10);
-      const initialBasemap = getBasemapConfig("street", getCurrentBasemapTheme());
-      tileLayerRef.current = L.tileLayer(initialBasemap.url, {
-        attribution: initialBasemap.attribution,
-        maxZoom: initialBasemap.maxZoom,
-      }).addTo(map);
       map.createPane("rainSurfacePane").style.zIndex = "350";
       map.getPane("rainSurfacePane")!.style.pointerEvents = "none";
       map.createPane("tmdRadarPane").style.zIndex = "390";
@@ -642,7 +637,6 @@ export default function RainDashboard() {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
-        tileLayerRef.current = null;
         surfaceLayerRef.current = null;
         radarLayerRef.current = null;
         boundaryLayerRef.current = null;
@@ -658,20 +652,13 @@ export default function RainDashboard() {
     if (!mapReady || !mapInstanceRef.current) return;
     const map = mapInstanceRef.current;
     let cancelled = false;
-    if (tileLayerRef.current) {
-      map.removeLayer(tileLayerRef.current);
-      tileLayerRef.current = null;
-    }
+    let removeBase: (()=>void) | undefined;
     import("leaflet").then((leafletModule) => {
       if (cancelled || !mapInstanceRef.current) return;
       const L = leafletModule.default;
-      const config = getBasemapConfig(basemap, mapTheme);
-      tileLayerRef.current = L.tileLayer(config.url, {
-        attribution: config.attribution,
-        maxZoom: config.maxZoom,
-      }).addTo(map);
+      removeBase = installBasemap(L,map,basemap,mapTheme);
     });
-    return () => { cancelled = true; };
+    return () => { cancelled = true; removeBase?.(); };
   }, [basemap, mapReady, mapTheme]);
 
   useEffect(() => {

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { CHAO_PHRAYA_REGION_ID, regionContains } from "../../lib/provinces";
 
 type ArcGisResponse = {
   features?: Array<{ attributes?: Record<string, unknown> }>;
@@ -46,7 +47,7 @@ async function queryArcGis(url: string, lat: number, lng: number, fields: string
 export async function GET(request: NextRequest) {
   const lat = Number(request.nextUrl.searchParams.get("lat"));
   const lng = Number(request.nextUrl.searchParams.get("lng"));
-  if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < 13 || lat > 15 || lng < 99.5 || lng > 101.8) {
+  if (!request.nextUrl.searchParams.get("lat")?.trim() || !request.nextUrl.searchParams.get("lng")?.trim() || !regionContains(CHAO_PHRAYA_REGION_ID, lat, lng)) {
     return NextResponse.json({ error: "invalid coordinates" }, { status: 400 });
   }
 

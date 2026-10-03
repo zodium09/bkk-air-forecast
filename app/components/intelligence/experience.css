@@ -1,0 +1,130 @@
+/* Topic color identifies the story; source risk colors identify its measurements. */
+.bf-water { --bf-color:#087f92; --bf-tint:#e7f8fa; }
+.ex-water-page { --ov-accent:#087a89; --ov-soft:#e7f8fa; }
+.ex-water-hero { display:grid; grid-template-columns:1fr 1fr; align-items:center; gap:32px; padding:48px 0 32px; }
+.ex-eyebrow { display:flex; align-items:center; gap:9px; color:var(--ov-accent); font-size:15px; font-weight:500; }
+.ex-water-hero h1 { font-size:clamp(40px,4.5vw,64px); font-weight:600; line-height:1.3; margin:14px 0 18px; letter-spacing:-.025em; }
+.ex-water-hero h1 span { color:var(--ov-accent); }
+.ex-water-hero p { color:var(--ov-muted); font-size:18px; line-height:1.8; }
+.ex-water-hero small { display:block; color:var(--ov-muted); margin-top:16px; }
+.ex-water-hero figure { margin:0; min-width:0; }
+.ex-water-hero img { display:block; width:100%; height:auto; filter:drop-shadow(0 18px 18px #087f9212); animation:ex-arrive .65s ease-out both; }
+.ex-water-hero figcaption { color:var(--ov-muted); font-size:12px; text-align:center; }
+.ex-jump-links { display:flex; flex-wrap:wrap; align-items:center; gap:14px; margin-top:20px; }
+.ex-jump-links a { display:flex; align-items:center; gap:8px; min-height:44px; color:var(--ov-accent); font-weight:500; }
+.ex-water-context { display:flex; gap:14px; align-items:center; padding:22px; background:var(--ov-soft); border-radius:14px; }
+.ex-water-context > label { display:flex; align-items:center; gap:10px; font-size:14px; min-width:0; flex:1; }
+.ex-water-context :is(select,input) { background:var(--ov-paper); color:var(--ov-ink); min-height:48px; border:1px solid var(--ov-line); border-radius:8px; font:inherit; padding:10px 12px; width:100%; }
+.ex-water-search { position:relative; flex:1; min-width:0; }
+.ex-water-search ul { position:absolute; inset:50px 0 auto; margin:0; padding:8px; list-style:none; background:var(--ov-paper); border:1px solid var(--ov-line); box-shadow:0 8px 24px #17324915; border-radius:9px; z-index:10; }
+.ex-water-search li button { display:block; width:100%; text-align:left; padding:10px; min-height:48px; }
+.ex-water-search li small { display:block; color:var(--ov-muted); }
+.ex-water-scope { display:flex; align-items:center; flex-wrap:wrap; gap:16px; padding:22px 0; }
+.ex-water-scope p { display:flex; align-items:center; gap:8px; font-size:16px; }
+.ex-water-scope > button:last-child { margin-left:auto; }
+.ex-water-metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); border-block:1px solid var(--ov-line); }
+.ex-water-metrics > a { padding:26px 28px; min-width:0; border-right:1px solid var(--ov-line); background:var(--ov-sky); }
+.ex-water-metrics > a:nth-child(2) { background:var(--ov-soft); }
+.ex-water-metrics > a:last-child { background:var(--ov-heat-tint); border:0; }
+.ex-water-metrics > a > svg { color:var(--ov-accent); margin-bottom:12px; }
+.ex-water-metrics span { display:block; font-size:16px; }
+.ex-water-metrics b { display:block; font-size:48px; line-height:1.5; font-weight:600; font-variant-numeric:tabular-nums; }
+.ex-water-metrics b small { font-size:14px; font-weight:400; margin-left:9px; }
+.ex-water-metrics p { color:var(--ov-muted); font-size:14px; line-height:1.7; }
+.ex-water-readiness { display:flex; flex-wrap:wrap; gap:8px 24px; padding:16px 0; font-size:13px; color:var(--ov-muted); }
+.ex-water-readiness small { flex-basis:100%; font-size:12px; }
+.ex-location-status { padding:12px 24px; font-size:14px; color:var(--ov-muted,var(--mi-muted)); background:var(--ov-soft,var(--mi-soft)); margin:0; line-height:1.7; }
+.ex-water-nav { display:flex; align-items:center; justify-content:center; gap:8px; min-height:44px; color:var(--mi-muted); white-space:nowrap; font-size:14px; text-decoration:none; }
+.ex-water-nav:hover { color:var(--mi-accent); }
+.mi-map-first .mi-layer-switch .ex-water-nav { padding:5px 20px; border-radius:6px; min-height:42px; text-decoration:none; }
+.ex-topic-link { margin:24px max(24px,calc((100% - 1180px)/2)); display:flex; align-items:center; gap:18px; padding:24px 28px; background:var(--mi-soft,var(--ov-soft)); color:var(--mi-ink,var(--ov-ink)); border-radius:12px; font-size:16px; }
+.ex-water-page .ex-topic-link { margin:24px 0; }
+.ex-topic-link > svg { color:#087f92; flex:none; }
+.ex-topic-link p { margin-top:4px; color:var(--mi-muted,var(--ov-muted)); font-size:14px; line-height:1.7; }
+.ex-topic-link a { display:flex; align-items:center; gap:8px; margin-left:auto; min-height:44px; white-space:nowrap; color:var(--mi-accent,var(--ov-accent)); }
+.ex-upstream-preview { border-block:1px solid var(--ov-line); margin:24px 0; }
+.ex-upstream-preview > summary { min-height:56px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; font-size:16px; color:var(--ov-accent); }
+.ov-page .ra-map-toggle { display:flex; align-items:center; gap:10px; width:100%; min-height:56px; padding:12px 16px; margin-top:18px; border:1px solid var(--ov-line); border-radius:9px; background:var(--ov-sky); color:var(--ov-blue); text-align:left; font-size:15px; }
+.ra-map-toggle span { margin-left:auto; font-size:13px; color:var(--ov-muted); }
+.ra-preview-empty { color:var(--ov-muted); font-size:14px; padding:14px 0; }
+.ra-preview-empty button { display:inline-flex; align-items:center; gap:7px; min-height:44px; margin-left:12px; color:var(--ov-blue); }
+.ov-page .ra-heading h3 { font-size:26px; }
+.ov-page :is(.ra-heading p,.ra-count,.ra-controls,.ra-detail p,.ra-selected-status,.ra-area summary,.ra-area li button,.ra-note) { font-size:14px; }
+.ov-page .ra-count strong { font-size:36px; }
+.ov-page .ra-section .ra-legend button { font-size:13px; }
+.ov-page .ra-detail h4 { font-size:22px; }
+.ov-page .ra-detail-link { font-size:14px; min-height:44px; }
+.ov-page .ra-expand { min-height:44px; font-size:14px; }
+.ov-page .ra-area-list { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+.ov-page .ra-area { min-width:0; align-self:start; }
+.ov-page .ra-area summary { gap:8px; padding:12px 10px; }
+.ov-page .ra-area li button { align-items:flex-start; flex-wrap:wrap; }
+.ov-page .ra-area li button > b { margin-left:17px; font-size:13px; }
+.ov-page .ra-area li button small { font-size:12px; }
+.bf-overview .ie-heading h2 { font-size:34px; }
+.bf-overview .ie-event h3 { font-size:21px; }
+.bf-overview .ie-event p { font-size:15px; }
+.bf-overview .ie-event small,.bf-overview .ie-coverage p { font-size:13px; }
+.bf-overview .ie-coverage a { padding-block:15px; }
+.bf-overview .fc-chapter-heading { padding:24px; border-radius:12px; background:var(--bf-tint); border:0; position:relative; overflow:hidden; }
+.bf-overview .fc-chapter-heading > div { flex:1; min-width:0; }
+.bf-overview .fc-chapter-heading h2 { font-size:34px; }
+.bf-overview .fc-chapter-heading p { font-size:15px; }
+.ex-chapter-art { display:block; width:146px; height:94px; object-fit:cover; border-radius:8px; flex:none; }
+.bf-topic .bf-topic-intro { align-items:center; }
+.bf-topic .ex-briefing-art { width:190px; height:110px; object-fit:cover; border-radius:10px; margin-left:auto; }
+.bf-topic .bf-topic-intro h1 { font-size:clamp(30px,3.3vw,44px); }
+.bf-topic .bf-topic-intro > div > p:last-child { font-size:16px; max-width:48ch; }
+.bf-chart .bf-chart-canvas { height:218px; }
+.bf-chart .bf-chart-labels,.bf-chart .bf-axis { font-size:12px; }
+.bf-chart .bf-chart-readout { font-size:14px; padding-block:12px; }
+.bf-chart .bf-grid-line { stroke-opacity:.75; }
+.bf-chart :is(.bf-chart-line,.bf-rain-bar) { filter:drop-shadow(0 3px 3px color-mix(in srgb,var(--bf-color),transparent 80%)); }
+.mi-map-first .mi-geography { border-radius:12px; overflow:hidden; }
+.mi-map-first .mf-reading-main b { font-size:36px; }
+.ra-map .maplibregl-canvas { outline:none; }
+.maplibregl-map { font-family:"IBM Plex Sans Thai",sans-serif; }
+@keyframes ex-arrive { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+[data-theme="dark"] .bf-water { --bf-color:#80d5df; --bf-tint:#14363d; }
+[data-theme="dark"] .ex-water-page { --ov-accent:#80d5df; --ov-soft:#14363d; }
+@media(max-width:900px) {
+  .ov-page .ra-area-list { grid-template-columns:1fr; }
+  .ex-water-context { flex-wrap:wrap; }
+  .ex-water-context > label { flex-basis:100%; }
+  .ex-water-hero { gap:12px; }
+  .ex-water-metrics > a { padding:20px; }
+  .mf-header { flex-wrap:wrap; height:auto!important; min-height:76px; padding-block:10px; }
+  .mf-header .ex-water-nav { margin-left:auto; }
+  .bf-topic .ex-briefing-art { width:120px; height:90px; }
+}
+@media(max-width:600px) {
+  .ex-water-hero { grid-template-columns:1fr; padding-top:28px; gap:12px; }
+  .ex-water-hero figure { max-width:380px; justify-self:center; }
+  .ex-water-hero h1 { font-size:42px; }
+  .ex-water-hero p { font-size:16px; }
+  .ex-water-context { padding:16px; }
+  .ex-water-search { flex-basis:100%; }
+  .ex-water-metrics { grid-template-columns:1fr; }
+  .ex-water-metrics > a { border:0; border-bottom:1px solid var(--ov-line); display:grid; grid-template-columns:1fr auto; gap:6px 12px; }
+  .ex-water-metrics > a > svg { display:none; }
+  .ex-water-metrics b { grid-row:1/3; grid-column:2; font-size:38px; }
+  .ex-water-metrics p { grid-column:1; }
+  .bf-overview .fc-chapter-heading { padding:20px 16px; gap:10px; flex-wrap:wrap; }
+  .bf-overview .fc-chapter-heading h2 { font-size:28px; }
+  .ex-chapter-art { width:90px; height:72px; }
+  .bf-overview .ie-heading h2 { font-size:28px; }
+  .ov-page .ra-heading h3 { font-size:22px; }
+  .ra-map-toggle span { display:none; }
+  .bf-topic .bf-topic-intro { flex-wrap:wrap; gap:12px; }
+  .bf-topic .ex-briefing-art { order:3; width:100%; height:120px; object-position:center 40%; }
+  .ex-topic-link { margin-inline:16px; padding:20px; flex-wrap:wrap; gap:12px; }
+  .ex-topic-link > div { flex:1; min-width:180px; }
+  .ex-topic-link a { margin-left:36px; }
+  .ex-water-nav { font-size:13px; }
+  .mi-map-first .mi-layer-switch button span { font-size:14px; }
+  .mi-map-first .mi-layer-switch .ex-water-nav { padding:4px 6px; flex:1; font-size:14px; }
+  .mi-map-first .mi-layer-switch .ex-water-nav svg { width:17px; }
+  .mf-header .mi-layer-switch { order:4; flex-basis:100%; }
+  .ov-header nav a { font-size:14px; }
+}
+@media(prefers-reduced-motion:reduce) { .ex-water-hero img { animation:none; } }

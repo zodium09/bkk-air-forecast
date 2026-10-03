@@ -72,13 +72,15 @@ export function windAwareResidual(
   let weighted = 0;
   let weightSum = 0;
   for (const candidate of candidates) {
-    const temporalDecay = Math.exp(-(Math.max(0, candidate.sample.ageHours) + Math.max(0, leadHours)) / 48);
+    const temporalDecay = Math.exp(-Math.max(0, candidate.sample.ageHours) / 48);
     const weight = candidate.directionalFactor * temporalDecay / Math.pow(candidate.distance, 2);
     weighted += clamp(candidate.sample.residual, -60, 60) * weight;
     weightSum += weight;
   }
   return {
-    correction: weightSum ? clamp(weighted / weightSum, -60, 60) : 0,
+    // Lead-time attenuation must be outside normalized weights; a common
+    // factor inside both numerator and denominator would cancel entirely.
+    correction: weightSum ? clamp(weighted / weightSum, -60, 60) * Math.exp(-Math.max(0, leadHours) / 48) : 0,
     usedSamples: candidates.length,
     influenceDistanceKm,
   };

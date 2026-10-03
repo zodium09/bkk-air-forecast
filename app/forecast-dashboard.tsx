@@ -10,7 +10,8 @@ import {
   type ForecastStation,
 } from "./lib/forecast-data";
 import { FORECAST_DAYS } from "./lib/forecast-horizon";
-import { getBasemapConfig, getCurrentBasemapTheme, type BasemapTheme } from "./lib/basemap";
+import { getCurrentBasemapTheme, type BasemapTheme } from "./lib/basemap";
+import { installBasemap } from "./lib/install-basemap";
 import { spatialIdw } from "./lib/forecast/interpolation";
 import { selectMapLabelLocations } from "./lib/forecast/map-labels";
 import OutlookNav from "./components/outlook-nav";
@@ -240,7 +241,6 @@ export default function ForecastDashboard() {
   const [locationError, setLocationError] = useState("");
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<import("leaflet").Map | null>(null);
-  const tileLayerRef = useRef<import("leaflet").TileLayer | null>(null);
   const surfaceLayerRef = useRef<import("leaflet").ImageOverlay | null>(null);
   const boundaryLayerRef = useRef<import("leaflet").GeoJSON | null>(null);
   const labelsLayerRef = useRef<import("leaflet").LayerGroup | null>(null);
@@ -312,12 +312,6 @@ export default function ForecastDashboard() {
         maxZoom: 15,
       }).setView([13.765, 100.595], 10);
 
-      const initialBasemap = getBasemapConfig("street", getCurrentBasemapTheme());
-      tileLayerRef.current = L.tileLayer(initialBasemap.url, {
-        attribution: initialBasemap.attribution,
-        maxZoom: initialBasemap.maxZoom,
-      }).addTo(map);
-
       map.createPane("surfacePane").style.zIndex = "350";
       map.getPane("surfacePane")!.style.pointerEvents = "none";
       map.createPane("boundaryPane").style.zIndex = "420";
@@ -333,7 +327,6 @@ export default function ForecastDashboard() {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
-        tileLayerRef.current = null;
         surfaceLayerRef.current = null;
         boundaryLayerRef.current = null;
         labelsLayerRef.current = null;
@@ -381,20 +374,13 @@ export default function ForecastDashboard() {
     if (!mapReady || !mapInstanceRef.current) return;
     const map = mapInstanceRef.current;
     let cancelled = false;
-    if (tileLayerRef.current) {
-      map.removeLayer(tileLayerRef.current);
-      tileLayerRef.current = null;
-    }
+    let removeBase: (()=>void) | undefined;
     import("leaflet").then((leafletModule) => {
       if (cancelled || !mapInstanceRef.current) return;
       const L = leafletModule.default;
-      const config = getBasemapConfig(basemap, mapTheme);
-      tileLayerRef.current = L.tileLayer(config.url, {
-        attribution: config.attribution,
-        maxZoom: config.maxZoom,
-      }).addTo(map);
+      removeBase = installBasemap(L,map,basemap,mapTheme);
     });
-    return () => { cancelled = true; };
+    return () => { cancelled = true; removeBase?.(); };
   }, [basemap, mapReady, mapTheme]);
 
   useEffect(() => {

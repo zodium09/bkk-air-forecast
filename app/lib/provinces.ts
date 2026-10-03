@@ -1,8 +1,12 @@
+import riverGeography from "../data/chao-phraya-geography.json" with { type: "json" };
+import { coverageContains } from "./geographic-coverage.ts";
+
 export const DEFAULT_PROVINCE_ID = "bangkok";
 export const METRO_REGION_ID = "metro";
-export const DEFAULT_REGION_ID = METRO_REGION_ID;
+export const CHAO_PHRAYA_REGION_ID = "chao-phraya";
+export const DEFAULT_REGION_ID = CHAO_PHRAYA_REGION_ID;
 
-export const provinces = [
+export const metroProvinces = [
   {
     id: "bangkok",
     code: "10",
@@ -59,10 +63,11 @@ export const provinces = [
   },
 ] as const;
 
-export type ProvinceId = (typeof provinces)[number]["id"];
-export type Province = (typeof provinces)[number];
+export type ProvinceId = string;
+export type Province = { id: ProvinceId; code: string; nameTh: string; shortNameTh: string; nameEn: string; center: { lat: number; lng: number }; bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number }; scopeNote?: string };
+export const provinces: readonly Province[] = [...metroProvinces, ...riverGeography.provinces];
 export type ProvincePoint = { id: string; label: string; lat: number; lng: number };
-export type RegionId = ProvinceId | typeof METRO_REGION_ID;
+export type RegionId = ProvinceId | typeof METRO_REGION_ID | typeof CHAO_PHRAYA_REGION_ID;
 
 type ProvinceSamplePoint = Omit<ProvincePoint, "id">;
 
@@ -146,18 +151,38 @@ export const metroRegion = {
   bounds: { minLat: 13.42, maxLat: 14.29, minLng: 99.80, maxLng: 100.96 },
 } as const;
 
+export const chaoPhrayaRegion = { id: CHAO_PHRAYA_REGION_ID, nameTh: "เจ้าพระยาและกรุงเทพฯ–ปริมณฑล", shortNameTh: "เจ้าพระยา–กรุงเทพฯ", nameEn: "Chao Phraya and Bangkok Metropolitan Region", bounds: riverGeography.bounds } as const;
+export const chaoPhrayaBoundary = riverGeography.coverage;
+export const chaoPhrayaCoreBoundary = riverGeography.core;
+
+export function isCombinedRegion(value: unknown) { return value === METRO_REGION_ID || value === CHAO_PHRAYA_REGION_ID; }
+export function getRegionProvinces(value: unknown): readonly Province[] { return value === METRO_REGION_ID ? metroProvinces : value === CHAO_PHRAYA_REGION_ID ? provinces : [getProvince(value)]; }
+export function getVerifiedRiverBoundary(value: unknown) {
+  return value === CHAO_PHRAYA_REGION_ID ? chaoPhrayaBoundary : { type: "FeatureCollection" as const, features: riverGeography.clipped.features.filter(f => String(f.properties.PROV_CODE) === getProvince(value).code) };
+}
+export function regionContains(region: RegionId, lat: number, lng: number, provinceId?: string) {
+  if (region === CHAO_PHRAYA_REGION_ID) return coverageContains(chaoPhrayaBoundary, lat, lng);
+  if (region === METRO_REGION_ID) return metroProvinces.some(p => provinceId ? provinceId === p.id : lat >= p.bounds.minLat && lat <= p.bounds.maxLat && lng >= p.bounds.minLng && lng <= p.bounds.maxLng);
+  const p = getProvince(region);
+  if (provinceId && provinceId !== p.id) return false;
+  return p.scopeNote ? coverageContains(getVerifiedRiverBoundary(region), lat, lng) : provinceId ? true : lat >= p.bounds.minLat && lat <= p.bounds.maxLat && lng >= p.bounds.minLng && lng <= p.bounds.maxLng;
+}
+export function regionOptionLabel(province: Province) { return province.nameTh + (province.scopeNote ? " · ส่วนในลุ่มน้ำ" : ""); }
+
 export function getProvince(value: unknown): Province {
   return provinces.find((province) => province.id === value) ?? provinces[0];
 }
 
 export function getRegion(value: unknown) {
   if (value === METRO_REGION_ID) return metroRegion;
-  return provinces.find((province) => province.id === value) ?? metroRegion;
+  if (value === CHAO_PHRAYA_REGION_ID) return chaoPhrayaRegion;
+  return provinces.find((province) => province.id === value) ?? chaoPhrayaRegion;
 }
 
 export function getProvincePoints(value: unknown): ProvincePoint[] {
   const province = getProvince(value);
-  return provinceSamplePoints[province.id].map((point, index) => ({
+  const points = provinceSamplePoints[province.id] ?? riverGeography.provinces.find(p => p.id === province.id)?.points ?? [];
+  return points.map((point, index) => ({
     ...point,
     id: `${province.id}-sample-${index + 1}`,
   }));
@@ -173,10 +198,11 @@ type FallbackBoundaryCollection = {
 };
 
 export function buildFallbackBoundary(value: unknown): FallbackBoundaryCollection {
+  if (value === CHAO_PHRAYA_REGION_ID || getProvince(value).scopeNote) return getVerifiedRiverBoundary(value) as unknown as FallbackBoundaryCollection;
   if (value === METRO_REGION_ID) {
     return {
       type: "FeatureCollection" as const,
-      features: provinces.flatMap((province) => buildFallbackBoundary(province.id).features),
+      features: metroProvinces.flatMap((province) => buildFallbackBoundary(province.id).features),
     };
   }
   const province = getProvince(value);

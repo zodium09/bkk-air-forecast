@@ -4,7 +4,7 @@ import { spatialIdw } from "../../lib/forecast/interpolation.ts";
 import { deduplicateStations, filterFreshStations, filterOutliers, isValidStation, type RejectedStations } from "../../lib/forecast/quality-control.ts";
 import { addDays, parseBangkokTimestamp } from "../../lib/forecast/timestamps.ts";
 import { FORECAST_DAYS } from "../../lib/forecast-horizon.ts";
-import { METRO_REGION_ID, metroRegion, getProvince, getProvincePoints, provinces, type ProvinceId } from "../../lib/provinces.ts";
+import { METRO_REGION_ID, CHAO_PHRAYA_REGION_ID, getRegion, getRegionProvinces, regionContains, isCombinedRegion, getProvince, getProvincePoints, type ProvinceId, type RegionId } from "../../lib/provinces.ts";
 import { getMetroAnalysisTargets, getRegionalCamsPoints, isInsideRegionalInfluenceDomain, REGIONAL_INFLUENCE_AREAS } from "../../lib/forecast/influence-domain.ts";
 import { estimateWindAwarePm25, type ResidualSample } from "../../lib/forecast/wind-aware-interpolation.ts";
 import { fetchWithTimeout } from "../../lib/fetch-with-timeout.ts";
@@ -26,7 +26,7 @@ type Air4ThaiStation = {
   AQILast?: { date?: unknown; time?: unknown; PM25?: { value?: unknown } };
 };
 type Air4ThaiResponse = { stations?: unknown };type CamsLocation = { latitude: number; longitude: number; current?: { time: string; pm2_5: number | null }; hourly: { time: string[]; pm2_5: Array<number | null> } };
-type WeatherResponse = { daily: { time: string[]; wind_speed_10m_max: Array<number | null>; wind_direction_10m_dominant: Array<number | null>; precipitation_probability_max: Array<number | null> } };
+type WeatherResponse = { latitude?: number; longitude?: number; daily: { time: string[]; wind_speed_10m_max: Array<number | null>; wind_direction_10m_dominant: Array<number | null>; precipitation_probability_max: Array<number | null> } };
 type SourceResult = { status: UpstreamStatus; data?: unknown };
 export type ForecastHandlerOptions = { fetchImpl?: typeof fetch; now?: () => number; timeouts?: Partial<typeof DEFAULT_TIMEOUTS>; provinceId?: unknown; air4ThaiFallbackUrl?: string };
 
@@ -42,16 +42,17 @@ const AIR4THAI_PROVINCE_NAMES: Record<ProvinceId, string> = {
 function normalizeAir4ThaiRecords(raw: Air4ThaiResponse | undefined, provinceId: ProvinceId): AirBkkRecord[] {
   if (!Array.isArray(raw?.stations)) return [];
   const province = getProvince(provinceId);
-  const provinceName = AIR4THAI_PROVINCE_NAMES[province.id];
+  const provinceName = AIR4THAI_PROVINCE_NAMES[province.id] ?? province.nameTh;
   return (raw.stations as Air4ThaiStation[]).flatMap((station) => {
     const area = typeof station.areaTH === "string" ? station.areaTH.trim() : "";
     const lat = Number(station.lat);
     const lng = Number(station.long);
-    const value = Number(station.AQILast?.PM25?.value);
+    const input = station.AQILast?.PM25?.value;
+    const value = input === null || input === undefined || input === "" ? NaN : Number(input);
     const date = station.AQILast?.date;
     const time = station.AQILast?.time;
     if (!area.includes(provinceName) || !Number.isFinite(lat) || !Number.isFinite(lng) || !Number.isFinite(value) || value < 0) return [];
-    if (lat < province.bounds.minLat || lat > province.bounds.maxLat || lng < province.bounds.minLng || lng > province.bounds.maxLng) return [];
+    if (!regionContains(province.id, lat, lng, province.id)) return [];
     if (typeof date !== "string" || typeof time !== "string") return [];
     const dateTime = `${date} ${time.length === 5 ? `${time}:00` : time}`;
     return [{
@@ -67,16 +68,17 @@ function normalizeAir4ThaiRecords(raw: Air4ThaiResponse | undefined, provinceId:
   });
 }
 
-function normalizeRegionalAir4ThaiRecords(raw: Air4ThaiResponse | undefined): AirBkkRecord[] {
+function normalizeRegionalAir4ThaiRecords(raw: Air4ThaiResponse | undefined, regionId: RegionId = METRO_REGION_ID): AirBkkRecord[] {
   if (!Array.isArray(raw?.stations)) return [];
   return (raw.stations as Air4ThaiStation[]).flatMap((station) => {
     const lat = Number(station.lat);
     const lng = Number(station.long);
-    const value = Number(station.AQILast?.PM25?.value);
+    const input = station.AQILast?.PM25?.value;
+    const value = input === null || input === undefined || input === "" ? NaN : Number(input);
     const date = station.AQILast?.date;
     const time = station.AQILast?.time;
     if (!Number.isFinite(lat) || !Number.isFinite(lng) || !Number.isFinite(value) || value < 0) return [];
-    if (!isInsideRegionalInfluenceDomain(lat, lng) || typeof date !== "string" || typeof time !== "string") return [];
+    if (!isInsideRegionalInfluenceDomain(lat, lng, regionId) || typeof date !== "string" || typeof time !== "string") return [];
     const area = typeof station.areaTH === "string" ? station.areaTH.trim() : "";
     return [{
       MeasIndex: `air4thai-${String(station.stationID ?? `${lat},${lng}`)}`,
@@ -135,8 +137,8 @@ function buildCamsUrl(provinceId: unknown) {
   return url;
 }
 
-function buildRegionalCamsUrl() {
-  const points = getRegionalCamsPoints();
+function buildRegionalCamsUrl(regionId: RegionId = METRO_REGION_ID) {
+  const points = getRegionalCamsPoints(regionId);
   const url = new URL(CAMS_URL);
   url.searchParams.set("latitude", points.map((point) => point.lat).join(","));
   url.searchParams.set("longitude", points.map((point) => point.lng).join(","));
@@ -154,6 +156,14 @@ function buildWeatherUrl(provinceId: unknown) {
   url.searchParams.set("latitude", String(province.center.lat)); url.searchParams.set("longitude", String(province.center.lng));
   url.searchParams.set("daily", "wind_speed_10m_max,wind_direction_10m_dominant,precipitation_probability_max");
   url.searchParams.set("timezone", "Asia/Bangkok"); url.searchParams.set("forecast_days", String(FORECAST_DAYS + 1));
+  return url;
+}
+
+function buildRegionalWeatherUrl(regionId: RegionId) {
+  const points = getRegionProvinces(regionId);
+  const url = buildWeatherUrl("bangkok");
+  url.searchParams.set("latitude", points.map(p=>p.center.lat).join(","));
+  url.searchParams.set("longitude", points.map(p=>p.center.lng).join(","));
   return url;
 }
 
@@ -383,7 +393,8 @@ export async function createForecastResponse(options: ForecastHandlerOptions = {
   }, { headers: { "Cache-Control": "public, max-age=60, stale-while-revalidate=3600", "CDN-Cache-Control": "public, max-age=600, stale-while-revalidate=3600", "X-Forecast-Status": status } });
 }
 
-export async function createMetroForecastResponse(options: Omit<ForecastHandlerOptions, "provinceId"> = {}) {
+export async function createMetroForecastResponse(options: Omit<ForecastHandlerOptions, "provinceId"> & { regionId?: RegionId } = {}) {
+  const regionId = options.regionId ?? METRO_REGION_ID, region = getRegion(regionId);
   const fetchImpl = options.fetchImpl ?? fetch;
   const now = options.now?.() ?? Date.now();
   const timeouts = { ...DEFAULT_TIMEOUTS, ...options.timeouts };
@@ -394,8 +405,8 @@ export async function createMetroForecastResponse(options: Omit<ForecastHandlerO
       body: "{}",
     }, timeouts.airbkk),
     requestJsonWithFallback(fetchImpl, AIR4THAI_URL, options.air4ThaiFallbackUrl, { headers: { Accept: "application/json" } }, timeouts.air4thai),
-    requestJson(fetchImpl, buildRegionalCamsUrl(), { headers: { Accept: "application/json" } }, timeouts.cams),
-    requestJson(fetchImpl, buildWeatherUrl("bangkok"), { headers: { Accept: "application/json" } }, timeouts.weather),
+    requestJson(fetchImpl, buildRegionalCamsUrl(regionId), { headers: { Accept: "application/json" } }, timeouts.cams),
+    requestJson(fetchImpl, regionId === CHAO_PHRAYA_REGION_ID ? buildRegionalWeatherUrl(regionId) : buildWeatherUrl("bangkok"), { headers: { Accept: "application/json" } }, timeouts.weather),
   ]);
   const upstream = {
     airbkk: airResult.status,
@@ -406,7 +417,11 @@ export async function createMetroForecastResponse(options: Omit<ForecastHandlerO
   const airbkk = airResult.data as AirBkkResponse | undefined;
   const air4thai = air4ThaiResult.data as Air4ThaiResponse | undefined;
   const camsRaw = camsResult.data as CamsLocation[] | CamsLocation | undefined;
-  const weather = weatherResult.data as WeatherResponse | undefined;
+  const weatherRows = (Array.isArray(weatherResult.data) ? weatherResult.data : [weatherResult.data]).filter((r): r is WeatherResponse => {
+    const daily = (r as WeatherResponse | undefined)?.daily;
+    return !!daily && Array.isArray(daily.time) && Array.isArray(daily.wind_speed_10m_max) && Array.isArray(daily.wind_direction_10m_dominant) && Array.isArray(daily.precipitation_probability_max);
+  });
+  const weather = weatherRows[0];
   if (upstream.airbkk === "ok" && (airbkk?.status !== "Success" || !Array.isArray(airbkk.message))) upstream.airbkk = "error";
   if (upstream.air4thai === "ok" && !Array.isArray(air4thai?.stations)) upstream.air4thai = "error";
 
@@ -420,7 +435,7 @@ export async function createMetroForecastResponse(options: Omit<ForecastHandlerO
   if (upstream.weather === "ok" && !weatherAvailable) upstream.weather = "error";
   if (upstream.cams !== "ok") {
     return Response.json({
-      province: metroRegion,
+      province: region,
       dataMode: "cams-only",
       status: "unavailable" satisfies ForecastStatus,
       issuedAt: "ไม่พบข้อมูลล่าสุด",
@@ -428,14 +443,14 @@ export async function createMetroForecastResponse(options: Omit<ForecastHandlerO
       disclaimer: "ไม่สามารถสร้างพื้นผิวภูมิภาคที่น่าเชื่อถือได้ จึงปิดค่าบนแผนที่",
       sources: ["CAMS Global via Open-Meteo", "Open-Meteo Weather Forecast"],
       degradedReasons: [`cams_${upstream.cams}`],
-      dataQuality: { upstream, analysisDomain: REGIONAL_INFLUENCE_AREAS, windMethod: "anisotropic residual interpolation" },
+      dataQuality: { upstream, analysisDomain: regionId === METRO_REGION_ID ? REGIONAL_INFLUENCE_AREAS : [region.nameTh, "บริเวณรอบขอบเขตประมาณ 130 กม. เพื่อวิเคราะห์สถานีเหนือลม"], windMethod: "anisotropic residual interpolation" },
       days: buildForecastDayShells(now),
       stations: [],
-    }, { headers: { "Cache-Control": "no-store", "X-Forecast-Status": "unavailable", "X-Province": METRO_REGION_ID } });
+    }, { headers: { "Cache-Control": "no-store", "X-Forecast-Status": "unavailable", "X-Province": regionId } });
   }
 
   const airbkkRecords = upstream.airbkk === "ok" ? airbkk!.message : [];
-  const air4thaiRecords = upstream.air4thai === "ok" ? normalizeRegionalAir4ThaiRecords(air4thai) : [];
+  const air4thaiRecords = upstream.air4thai === "ok" ? normalizeRegionalAir4ThaiRecords(air4thai, regionId) : [];
   const regionalRecords = mergeObservationRecords(airbkkRecords, air4thaiRecords);
   const rawRecords = regionalRecords.map((record) => ({
     record,
@@ -445,7 +460,7 @@ export async function createMetroForecastResponse(options: Omit<ForecastHandlerO
     pm25: Number(record["PM2.5"]),
     timestamp: parseBangkokTimestamp(record.DateTime),
   }));
-  const valid = rawRecords.filter(isValidStation);
+  const valid = rawRecords.filter(r => Boolean(r.id) && [r.lat,r.lng,r.pm25,r.timestamp].every(Number.isFinite) && r.pm25 >= 0 && r.pm25 <= 500 && isInsideRegionalInfluenceDomain(r.lat,r.lng,regionId) && r.record["PM2.5"] !== null);
   const fresh = filterFreshStations(valid, now);
   const deduplicated = deduplicateStations(fresh.records);
   const accepted = filterOutliers(deduplicated.records).records;
@@ -497,10 +512,11 @@ export async function createMetroForecastResponse(options: Omit<ForecastHandlerO
     ...(upstream.air4thai !== "ok" ? [`air4thai_${upstream.air4thai}`] : []),
     ...(upstream.weather !== "ok" ? ["weather_unavailable"] : []),
     ...(residualSamples.length < 6 ? ["insufficient_regional_observations"] : []),
+    ...(regionId === CHAO_PHRAYA_REGION_ID && weatherRows.length < getRegionProvinces(regionId).length ? ["regional_weather_partial_coverage"] : []),
     ...(coverageByDay.some((coverage) => coverage < 6) ? ["cams_partial_coverage"] : []),
     ...(observationAgeHours > 3 ? ["observations_older_than_3h"] : []),
   ];
-  const status: ForecastStatus = degradedReasons.length ? "degraded" : "live";
+  let status: ForecastStatus = degradedReasons.length ? "degraded" : "live";
   const uncertainty = [7, 9, 12, 16, 20, 25, 31];
   const sourceAvailability = (1 + (residualSamples.length >= 6 ? 1 : 0) + (weatherAvailable ? 1 : 0)) / 3;
   const days: ForecastDay[] = targetDates.map((dateKey, index) => {
@@ -517,12 +533,12 @@ export async function createMetroForecastResponse(options: Omit<ForecastHandlerO
       forecastReliabilityScore: score,
       confidence: score,
       uncertainty: uncertainty[index],
-      windSpeedKmh: weatherDay?.windSpeed ?? null,
-      windDirectionDeg: weatherDay?.windDirection ?? null,
-      wind: weatherDay
+      windSpeedKmh: regionId === METRO_REGION_ID ? weatherDay?.windSpeed ?? null : null,
+      windDirectionDeg: regionId === METRO_REGION_ID ? weatherDay?.windDirection ?? null : null,
+      wind: regionId !== METRO_REGION_ID ? weatherAvailable ? `ใช้ลมตามพื้นที่จาก ${weatherRows.length} จุดแบบจำลอง` : "ไม่มีข้อมูลลมประกอบ" : weatherDay
         ? `ลมจาก${windDirectionLabel(weatherDay.windDirection)} สูงสุด ${weatherDay.windSpeed === null ? "—" : Math.round(weatherDay.windSpeed)} กม./ชม.`
         : "ไม่มีข้อมูลลมประกอบ",
-      weather: weatherDay
+      weather: regionId === CHAO_PHRAYA_REGION_ID ? "ดูโอกาสฝนตามจุดในหน้าฝน" : weatherDay
         ? `โอกาสฝนสูงสุด ${weatherDay.rainProbability === null ? "—" : Math.round(weatherDay.rainProbability)}%`
         : "Weather source ไม่พร้อมใช้งาน",
       note: `CAMS ภูมิภาค ${anchorForecasts.length} จุด · residual สถานี ${residualSamples.length} จุด · ถ่วงตามแนวลมก่อนสร้างพื้นผิว`,
@@ -530,7 +546,7 @@ export async function createMetroForecastResponse(options: Omit<ForecastHandlerO
       coverageHours: coverageByDay[index],
     };
   });
-  const targets = getMetroAnalysisTargets();
+  const targets = getMetroAnalysisTargets(regionId);
   const influenceDistances: number[] = [];
   const stations: ForecastStation[] = targets.map((point) => ({
     id: point.id,
@@ -539,7 +555,9 @@ export async function createMetroForecastResponse(options: Omit<ForecastHandlerO
     lat: point.lat,
     lng: point.lng,
     values: targetDates.map((dateKey, index) => {
-      const weatherDay = weatherByDate.get(dateKey);
+      const localWeather = regionId === METRO_REGION_ID ? weather : [...weatherRows].filter(w=>Number.isFinite(w.latitude) && Number.isFinite(w.longitude)).sort((a,b)=>Math.hypot(a.latitude!-point.lat,a.longitude!-point.lng)-Math.hypot(b.latitude!-point.lat,b.longitude!-point.lng))[0];
+      const wi = localWeather?.daily.time.indexOf(dateKey) ?? -1;
+      const weatherDay = localWeather && wi >= 0 ? { windSpeed: localWeather.daily.wind_speed_10m_max[wi] ?? null, windDirection: localWeather.daily.wind_direction_10m_dominant[wi] ?? null } : undefined;
       const estimate = estimateWindAwarePm25({
         lat: point.lat,
         lng: point.lng,
@@ -556,17 +574,18 @@ export async function createMetroForecastResponse(options: Omit<ForecastHandlerO
         leadHours: (index + 1) * 24,
       });
       if (estimate) influenceDistances.push(estimate.influenceDistanceKm);
-      return estimate?.value ?? 0;
+      return estimate?.value ?? NaN;
     }),
     sourceType: "CAMS regional + wind-aware station residual",
-  }));
+  })).filter(point => point.values.every(Number.isFinite));
+  if (stations.length < targets.length) { degradedReasons.push("unsupported_display_points"); status = "degraded"; }
   return Response.json({
-    province: metroRegion,
+    province: region,
     dataMode: residualSamples.length ? (upstream.airbkk === "ok" ? "airbkk-air4thai-cams" : "air4thai-cams") : "cams-only",
     status,
     issuedAt: formatIssuedAt(latestObservation),
     model: "CAMS Global regional background + wind-aware anisotropic station residual",
-    disclaimer: "คำนวณโดเมนภูมิภาคก่อนตัดแสดงกรุงเทพฯ–ปริมณฑล ลมกำหนดน้ำหนักเชิงทิศทางของ residual จากสถานี แต่ไม่ใช่แบบจำลองการแพร่กระจายหรือการยืนยันแหล่งกำเนิด",
+    disclaimer: `คำนวณโดเมนภูมิภาคก่อนตัดแสดง${region.nameTh} ลมกำหนดน้ำหนักเชิงทิศทางจากสถานี ค่าพยากรณ์ไม่ใช้ยืนยันแหล่งกำเนิดฝุ่น`,
     sources: [
       ...(upstream.airbkk === "ok" ? ["AirBKK observations"] : []),
       ...(upstream.air4thai === "ok" ? ["Air4Thai PCD regional observations"] : []),
@@ -586,8 +605,10 @@ export async function createMetroForecastResponse(options: Omit<ForecastHandlerO
       camsMinimumCoverageHours: Math.min(...coverageByDay),
       camsCoverageHoursByDay: coverageByDay,
       observationAgeHours: Math.round(observationAgeHours * 10) / 10,
-      provinceCoverage: provinces.length,
-      analysisDomain: REGIONAL_INFLUENCE_AREAS,
+      provinceCoverage: getRegionProvinces(regionId).filter(p => stations.some(s => s.id.startsWith(`${p.id}-`))).length,
+      expectedProvinces: getRegionProvinces(regionId).length,
+      expectedDisplayPoints: targets.length,
+      analysisDomain: regionId === METRO_REGION_ID ? REGIONAL_INFLUENCE_AREAS : [region.nameTh, "บริเวณรอบขอบเขตประมาณ 130 กม. เพื่อวิเคราะห์สถานีเหนือลม"],
       windMethod: "anisotropic upwind residual interpolation",
       influenceDistanceKm: influenceDistances.length ? [Math.min(...influenceDistances), Math.max(...influenceDistances)] : [50, 50],
       qualityControl: "validation + freshness + deduplication + outlier screening; CAMS background retained where station influence is unsupported",
@@ -599,7 +620,7 @@ export async function createMetroForecastResponse(options: Omit<ForecastHandlerO
       "Cache-Control": "public, max-age=60, stale-while-revalidate=3600",
       "CDN-Cache-Control": "public, max-age=600, stale-while-revalidate=3600",
       "X-Forecast-Status": status,
-      "X-Province": METRO_REGION_ID,
+      "X-Province": regionId,
     },
   });
 }
@@ -611,7 +632,7 @@ export async function GET(request: Request) {
   const options = {
     air4ThaiFallbackUrl: isLocalPreview ? `${url.origin}/__air4thai` : undefined,
   };
-  return provinceId === METRO_REGION_ID
-    ? createMetroForecastResponse(options)
+  return isCombinedRegion(provinceId)
+    ? createMetroForecastResponse({ ...options, regionId: provinceId! })
     : createForecastResponse({ ...options, provinceId });
 }

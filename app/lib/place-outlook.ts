@@ -7,7 +7,7 @@ export function createPlacePoints(data: MapDataset | null, boundary: MapBoundary
   if (data?.valueMethod === "provider") {
     if (!boundary) return [];
     const sources = new Map(data.points.map((point) => [point.place?.id, point]));
-    return places.filter((place) => boundaryContains(boundary, place.lat, place.lng)).map((place) => {
+    return places.filter((place) => boundaryContains(boundary, place.lat, place.lng) && (data.quality?.referenceScope !== "overview" || place.overview || sources.has(place.id))).map((place) => {
       const candidate = sources.get(place.id);
       const source = candidate?.lat === place.lat && candidate.lng === place.lng ? candidate : undefined;
       return { id: `place-${place.id}`, label: placeLabel(place), area: placeArea(place), lat: place.lat, lng: place.lng, place,
@@ -25,6 +25,16 @@ export function createPlacePoints(data: MapDataset | null, boundary: MapBoundary
       secondary: data.steps.map((_, index) => interpolate(index, "secondary")),
       source: data.model, method: "idw",
     };
+  });
+}
+
+/** Search geography even when the overview has not requested a locality's forecast. */
+export function searchPlacePoints(places: MapPlace[], points: MapPoint[], query: string, limit = 40): MapPoint[] {
+  const readings = new Map(points.filter(point => point.place).map(point => [point.place!.id, point]));
+  const term = query.trim().toLocaleLowerCase();
+  return places.filter(place => `${placeLabel(place)} ${placeArea(place)}`.toLocaleLowerCase().includes(term)).slice(0, limit).map(place => {
+    const reading = readings.get(place.id);
+    return reading ?? { id: `place-${place.id}`, label: placeLabel(place), area: placeArea(place), lat: place.lat, lng: place.lng, place, values: [], secondary: [] };
   });
 }
 

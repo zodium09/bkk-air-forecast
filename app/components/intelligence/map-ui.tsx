@@ -162,13 +162,15 @@ export function MapIcon({ name, size = 20 }: { name: string; size?: number }) {
 export function LayerSwitcher({
   layer,
   onChange,
+  waterHref="/water",
 }: {
   layer: EnvironmentLayer;
   onChange: (layer: EnvironmentLayer) => void;
+  waterHref?: string;
 }) {
   return (
     <div className="mi-layer-switch" aria-label="เลือกชั้นข้อมูลสิ่งแวดล้อม">
-      {(["air", "rain", "heat"] as const).map((item) => (
+      {(["rain", "water", "air", "heat"] as const).map((item) => item === "water" ? <a key={item} className="ex-water-nav" href={waterHref}><MapIcon name="water"/><span>ระดับน้ำ</span></a> : (
         <button
           key={item}
           aria-pressed={layer === item}
@@ -176,7 +178,7 @@ export function LayerSwitcher({
         >
           <MapIcon name={item} />
           <span>
-            {item === "air" ? "ฝุ่น PM2.5" : item === "rain" ? "ฝน / น้ำ" : "ความร้อน"}
+            {item === "air" ? "ฝุ่น PM2.5" : item === "rain" ? "ฝน" : "ความร้อน"}
             <small>
               {item === "air" ? "คุณภาพอากาศ" : layerInfo[item].thai}
             </small>

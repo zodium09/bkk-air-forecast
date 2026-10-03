@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { coldWindSignal, windDirectionLabel, type AtmosphereDay, type AtmospherePayload } from "../../lib/air-atmosphere";
 import { addDays } from "../../lib/forecast/timestamps";
 import { formatValue, relativeDay } from "../../lib/map-intelligence";
-import { getProvince, getRegion, type RegionId } from "../../lib/provinces";
+import { getProvince, getRegion, isCombinedRegion, type RegionId } from "../../lib/provinces";
 import { placeLabel, type MapPlace } from "../../lib/map-places";
 import { useLiveResource } from "./use-live-resource";
 import { MapIcon } from "./map-ui";
@@ -80,7 +80,7 @@ export default function AirAtmosphereAnalysis({ region, selected, date, today, r
   const [coldMetric, setColdMetric] = useState<ColdMetric>("morningMinC");
   const center = selected ?? getProvince(region).center;
   const params = new URLSearchParams({ province: region });
-  if (selected) { params.set("lat", String(Math.round(center.lat * 50) / 50)); params.set("lng", String(Math.round(center.lng * 50) / 50)); }
+  if (selected) { params.set("lat", String(center.lat)); params.set("lng", String(center.lng)); }
   const weather = useLiveResource<AtmospherePayload>(`/api/air-atmosphere?${params}`, refresh, 900000);
   const data = weather.data;
   const day = data?.days.find(d => d.date === date);
@@ -95,7 +95,7 @@ export default function AirAtmosphereAnalysis({ region, selected, date, today, r
   const points: PlotPoint[] = hourly ? dayHours.map(h => ({ key: h.time, label: `${h.time.slice(11, 16)}`, value: h[factor] })) : upcoming.map(d => ({ key: d.date, label: relativeDay(d.date, today), value: d[factor] }));
   const trend = pmValue === null || previousPm === null ? null : pmValue - previousPm;
   const forecastDate = date ? relativeDay(date, today) : "รอวันที่พยากรณ์";
-  const scope = selected ? `${placeLabel(selected)} · กริดแบบจำลองใกล้จุดอ้างอิง` : `${getRegion(region).shortNameTh} · จุดอ้างอิงกลาง${region === "metro" ? "กรุงเทพฯ" : "จังหวัด"}`;
+  const scope = selected ? `${placeLabel(selected)} · กริดแบบจำลองใกล้จุดอ้างอิง` : `${getRegion(region).shortNameTh} · ${isCombinedRegion(region) ? "จุดอ้างอิงกรุงเทพฯ · เลือกพื้นที่เพื่อดูสภาพอากาศใกล้จุดนั้น" : "จุดอ้างอิงภายในพื้นที่จังหวัด"}`;
   const limited = data?.status === "unavailable" || weather.error;
   const ventilation = !day || day.stagnantHours === null ? "ข้อมูลยังไม่พออ่านการกระจายฝุ่น" : day.stagnantHours >= 6 ? "มีช่วงลมอ่อนและชั้นอากาศตื้น" : day.windKmh !== null && day.windKmh >= 18 ? "ลมค่อนข้างแรง ช่วยพัดพาอากาศ" : "สภาพลมและชั้นอากาศเปลี่ยนระหว่างวัน";
   const coldTitle = coldMetric === "morningMinC" ? "อุณหภูมิต่ำสุดช่วงเช้า 00:00–08:00" : coldMetric === "pressureHpa" ? "ความกดอากาศระดับน้ำทะเลเฉลี่ยรายวัน" : "ความเร็วลมเฉลี่ยรายวัน";

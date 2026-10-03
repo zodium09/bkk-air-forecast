@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type * as Leaflet from "leaflet";
 import type { GeoJsonObject } from "geojson";
 import { getRegion, type RegionId } from "../../lib/provinces";
-import { getBasemapConfig } from "../../lib/basemap";
+import { installBasemap } from "../../lib/install-basemap";
 import { boundaryLabels } from "../../lib/map-labels";
 import { placeAddress, placeVisible } from "../../lib/map-places";
 import {
@@ -37,6 +37,7 @@ type Props = {
   province: RegionId;
   selected: { lat: number; lng: number } | null;
   onSelect: (point: { id?: string; lat: number; lng: number; label?: string }) => void;
+  onLocate?: () => void;
   legend: number | null;
   degraded: boolean;
   satellite: boolean;
@@ -176,28 +177,7 @@ export default function EnvironmentMap(props: Props) {
   }, []);
   useEffect(() => {
     if (!ready || !map.current || !lib.current) return;
-    const config = getBasemapConfig(
-      props.satellite ? "satellite" : "street",
-      theme,
-    );
-    const tile = lib.current.tileLayer(config.url, {
-      attribution: config.attribution,
-      maxZoom: config.maxZoom,
-    });
-    let errors = 0;
-    tile.on("tileerror", () => {
-      errors++;
-      if (errors >= 4)
-        setMapError("แผนที่พื้นหลังโหลดไม่ครบ ยังเลือกจุดข้อมูลได้");
-    });
-    tile.on("tileload", () => {
-      errors = 0;
-      setMapError("");
-    });
-    tile.addTo(map.current);
-    return () => {
-      tile.remove();
-    };
+    return installBasemap(lib.current, map.current, props.satellite ? "satellite" : "street", theme, setMapError);
   }, [ready, props.satellite, theme]);
   useEffect(() => {
     const controller = new AbortController();
@@ -561,6 +541,7 @@ export default function EnvironmentMap(props: Props) {
     }
   }, [ready, props.focus]);
   function locate() {
+    if (props.onLocate) { props.onLocate(); return; }
     if (!navigator.geolocation) {
       setLocationMessage("อุปกรณ์นี้ไม่รองรับตำแหน่ง");
       return;
@@ -585,7 +566,7 @@ export default function EnvironmentMap(props: Props) {
       <div
         className={`mi-map-canvas ${props.satellite ? "mi-satellite-map" : "mi-street-map"}`}
         ref={container}
-        aria-label="แผนที่สิ่งแวดล้อมกรุงเทพฯ ใช้ปุ่มลูกศรเลื่อน และบวกหรือลบเพื่อซูม"
+        aria-label="แผนที่สิ่งแวดล้อม ใช้ปุ่มลูกศรเลื่อน และบวกหรือลบเพื่อซูม"
       />
       <div className="mi-map-tools" aria-label="เครื่องมือแผนที่">
         <button

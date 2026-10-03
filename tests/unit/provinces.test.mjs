@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { DEFAULT_PROVINCE_ID, DEFAULT_REGION_ID, buildFallbackBoundary, getProvince, getProvincePoints, getRegion, provinces } from "../../app/lib/provinces.ts";
+import { DEFAULT_PROVINCE_ID, DEFAULT_REGION_ID, buildFallbackBoundary, getProvince, getProvincePoints, getRegion, metroProvinces as provinces } from "../../app/lib/provinces.ts";
 import { getMetroAnalysisTargets, getRegionalCamsPoints, isInsideRegionalInfluenceDomain } from "../../app/lib/forecast/influence-domain.ts";
 
 const bangkokBoundary = JSON.parse(readFileSync(new URL("../../app/data/bangkok-districts.json", import.meta.url), "utf8"));
@@ -48,8 +48,9 @@ test("every province supplies nine irregular samples inside its verified boundar
   }
 });
 
-test("metropolitan overview is the default region and covers all six provinces", () => {
-  assert.equal(DEFAULT_REGION_ID, "metro");
+test("expanded overview is the default while metro retains all six provinces", () => {
+  assert.equal(DEFAULT_REGION_ID, "chao-phraya");
+  assert.equal(getRegion(null).id, DEFAULT_REGION_ID);
   assert.equal(getRegion("metro").nameEn, "Bangkok Metropolitan Region");
   const fallback = buildFallbackBoundary("metro");
   assert.equal(fallback.features.length, provinces.length);

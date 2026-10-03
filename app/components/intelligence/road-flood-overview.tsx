@@ -1,9 +1,11 @@
 "use client";
+import ObservationAreaMap from "./observation-area-map";
 import { useState, type CSSProperties } from "react";
+import { rainDistanceKm } from "../../lib/rain-nearby";
 import { currentRoadFloods, ROAD_FLOOD_SOURCE, type RoadFloodPayload } from "../../lib/road-floods";
 import { thaiObservationTime } from "../../lib/observation-time";
 import { formatValue } from "../../lib/map-intelligence";
-import type { RegionId } from "../../lib/provinces";
+import { isCombinedRegion, type RegionId } from "../../lib/provinces";
 import { MapIcon } from "./map-ui";
 import { useLiveResource, type LiveResource } from "./use-live-resource";
 import "./observations.css";
@@ -15,12 +17,12 @@ export default function RoadFloodOverview({ region, place, refresh, compact = fa
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState("all");
   const [expanded, setExpanded] = useState(false);
-  const inCoverage = region === "metro" || region === "bangkok";
-  const stations = inCoverage ? currentRoadFloods(resource.data?.stations ?? [], resource.clock) : [];
+  const inCoverage = isCombinedRegion(region) || region === "bangkok";
+  const stations = inCoverage ? currentRoadFloods(resource.data?.stations ?? [], resource.clock).filter(s=>!place || rainDistanceKm(place,s)<=8) : [];
   const fresh = stations.filter(s => s.status === "fresh");
   const flood = fresh.filter(s => s.level === "flood").length;
   const minor = fresh.filter(s => s.level === "minor").length;
-  const limit = compact ? 3 : 12;
+  const limit = compact ? 3 : 4;
   const distribution = [
     { label: "น้ำท่วม", count: flood, color: "#ac293f" },
     { label: "ท่วมเล็กน้อย", count: minor, color: "#976008" },
@@ -44,5 +46,5 @@ export default function RoadFloodOverview({ region, place, refresh, compact = fa
       <div className="obs-source-line"><span>{resource.refreshing ? "กำลังอัปเดต…" : resource.data ? `โหลด ${thaiObservationTime(resource.data.fetchedAt)} น. · อัปเดตอัตโนมัติ` : "รอข้อมูลต้นทาง"}</span><span>{stations.length-fresh.length} จุดข้อมูลเก่าหรือใช้ไม่ได้</span></div>{resource.error && <p className="obs-error" role="status">{resource.error}</p>}
     </>}
     <p className="obs-panel-note">รายงานเฉพาะ ณ จุดวัด สถานะจากต้นทางไม่ได้ยืนยันสภาพถนนตลอดสาย · ค่าขัดข้องไม่ถูกนับเป็นปกติ · กดจุดเพื่อเปิดตำแหน่ง</p><a className="ov-text-link" target="_blank" rel="noreferrer" href={ROAD_FLOOD_SOURCE}>ที่มา: สำนักการระบายน้ำ กรุงเทพมหานคร<MapIcon name="arrow" size={16}/></a>
-  </section>;
+  <ObservationAreaMap topic="road" region={region} position={place} roads={resource.data} now={resource.clock} loading={resource.loading}/></section>;
 }

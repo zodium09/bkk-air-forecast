@@ -83,6 +83,15 @@ test("wind-aware residual favours upwind evidence and reverses when wind reverse
   assert.ok(fromWest.correction < 0);
 });
 
+test("station residual attenuates outside normalized weights as forecast lead increases", () => {
+  const samples = [{ lat: 13.75, lng: 100.5, residual: 40, ageHours: 0 }];
+  const correction = hours => windAwareResidual(13.75, 100.5, samples, { speedKmh: 10, directionDeg: 180 }, hours).correction;
+  assert.equal(correction(0), 40);
+  assert.ok(correction(24) > correction(72));
+  assert.ok(correction(72) > correction(168));
+  assert.ok(Math.abs(correction(48) - 40 / Math.E) < 1e-10);
+});
+
 test("regional estimator keeps CAMS background when no station influence is supported", () => {
   const estimate = estimateWindAwarePm25({
     lat: 13.75,

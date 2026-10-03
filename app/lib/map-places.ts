@@ -1,4 +1,4 @@
-import type { ProvinceId, RegionId } from "./provinces.ts";
+import { regionContains, isCombinedRegion, type ProvinceId, type RegionId } from "./provinces.ts";
 
 /** A public geographic reference; it is not an observation station. */
 export type MapPlace = {
@@ -41,10 +41,10 @@ export function placeAddress(place: MapPlace) {
 }
 
 export function regionPlaces(places: MapPlace[], region: RegionId) {
-  return region === "metro" ? places : places.filter((place) => place.provinceId === region);
+  return places.filter(place => regionContains(region, place.lat, place.lng, place.provinceId));
 }
 
 /** Keep an overview legible, then reveal all road/locality references on zoom. */
 export function placeVisible(place: MapPlace, zoom: number, selected: boolean, region: RegionId = "metro") {
-  return selected || place.overview || zoom >= 10 || (region !== "metro" && region !== "bangkok");
+  return selected || place.overview || zoom >= 10 || (!isCombinedRegion(region) && region !== "bangkok");
 }

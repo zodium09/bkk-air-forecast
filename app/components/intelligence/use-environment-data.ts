@@ -4,7 +4,7 @@ import {
   aggregateMetroForecast,
   type ForecastPayload,
 } from "../../lib/forecast-data";
-import { provinces, type RegionId } from "../../lib/provinces";
+import { getRegionProvinces, isCombinedRegion, type RegionId } from "../../lib/provinces";
 import {
   normalizeAir,
   normalizeWeather,
@@ -25,10 +25,12 @@ export function useEnvironmentData(
   source: WeatherSource = "open-meteo",
   metric: "primary" | "secondary" = "primary",
   directRain = false,
+  placeId?: string,
 ) {
   const requestMode = mode === "observation" ? "observation" : "forecast";
   const { pulse } = useRefreshPulse(300000);
   const request = environmentRequest(layer, province, requestMode, source, metric, directRain);
+  if (layer === "rain" && directRain && placeId) { request.url += `&place=${encodeURIComponent(placeId)}`; request.key = request.url; }
   const cacheKey = request.key;
   const key = `${cacheKey}:${refresh}:${pulse}`;
   const [result, setResult] = useState<{
@@ -55,11 +57,11 @@ export function useEnvironmentData(
         return saved.data;
       if (layer === "air") {
         const payload: ForecastPayload =
-          requestMode === "observation" && province === "metro"
+          requestMode === "observation" && isCombinedRegion(province)
             ? aggregateMetroForecast(
                 await Promise.all(
-                  provinces.map((p) => get(`/api/forecast?province=${p.id}`)),
-                ),
+                  getRegionProvinces(province).map((p) => get(`/api/forecast?province=${p.id}`)),
+                ), province,
               )
             : await get(`/api/forecast?province=${province}`);
         return normalizeAir(payload, requestMode);

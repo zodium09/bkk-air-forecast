@@ -1,5 +1,5 @@
 import { normalizeAtmosphere, type AtmospherePayload } from "../../lib/air-atmosphere.ts";
-import { getProvince, metroRegion, provinces } from "../../lib/provinces.ts";
+import { CHAO_PHRAYA_REGION_ID, DEFAULT_REGION_ID, getProvince, isCombinedRegion, provinces, regionContains } from "../../lib/provinces.ts";
 import { fetchWithTimeout } from "../../lib/fetch-with-timeout.ts";
 import { addDays, bangkokDateKey } from "../../lib/forecast/timestamps.ts";
 
@@ -10,8 +10,8 @@ export function atmosphereCacheTtl(now: number) {
   return Math.max(1, Math.min(900, Math.floor((midnight - now) / 1000)));
 }
 export function atmosphereRequest(url: URL) {
-  const region = url.searchParams.get("province") ?? "metro";
-  if (region !== "metro" && !provinces.some(p => p.id === region)) return null;
+  const region = url.searchParams.get("province") ?? DEFAULT_REGION_ID;
+  if (!isCombinedRegion(region) && !provinces.some(p => p.id === region)) return null;
   const hasLat = url.searchParams.has("lat"), hasLng = url.searchParams.has("lng");
   if (hasLat !== hasLng) return null;
   const center = getProvince(region).center;
@@ -19,8 +19,7 @@ export function atmosphereRequest(url: URL) {
   if (hasLat) {
     if (!url.searchParams.get("lat")?.trim() || !url.searchParams.get("lng")?.trim()) return null;
     lat = Number(url.searchParams.get("lat")); lng = Number(url.searchParams.get("lng"));
-    const b = metroRegion.bounds;
-    if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < b.minLat || lat > b.maxLat || lng < b.minLng || lng > b.maxLng) return null;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || !regionContains(CHAO_PHRAYA_REGION_ID, lat, lng)) return null;
   }
   // Weather is a regional model grid, not a street sensor. Canonical 0.02° references bound duplicate requests.
   const point = { lat: Math.round(lat * 50) / 50, lng: Math.round(lng * 50) / 50 };

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createForecastResponse, createMetroForecastResponse } from "../../app/api/forecast/route.ts";
 import { createMetroRainForecastResponse, createRainForecastResponse } from "../../app/api/rain-forecast/route.ts";
+import { provinces, regionContains } from "../../app/lib/provinces.ts";
 
 const NOW = Date.UTC(2026, 7, 21, 3);
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json" } });
@@ -88,6 +89,39 @@ test("metro PM endpoint uses one regional CAMS domain and one Air4Thai download"
   assert.equal(requested.filter((url) => url.includes("air4thai.pcd.go.th")).length, 1);
   assert.equal(requested.filter((url) => url.includes("air-quality-api")).length, 1);
   assert.equal(requested.filter((url) => url.includes("api.open-meteo.com/v1/forecast")).length, 1);
+});
+
+test("expanded PM scope requests regional CAMS and local winds, retaining northern observation support", async () => {
+  const requested = [];
+  const fetchImpl = async input => {
+    const url = new URL(String(input)); requested.push(url);
+    if (url.hostname.includes("airbkk")) return json(airPayload());
+    if (url.hostname.includes("air4thai")) return json(air4ThaiPayload(1, { areaTH: "นครสวรรค์", baseLat: 15.7, baseLng: 100.1 }));
+    const lat = url.searchParams.get("latitude").split(",").map(Number), lng = url.searchParams.get("longitude").split(",").map(Number);
+    if (url.hostname.includes("air-quality")) return json(lat.map((latitude, i) => ({ ...camsPayload()[0], latitude, longitude: lng[i] })));
+    return json(lat.map((latitude, i) => ({ ...weatherPayload(), latitude, longitude: lng[i] })));
+  };
+  const payload = await (await createMetroForecastResponse({ regionId: "chao-phraya", now: () => NOW, fetchImpl })).json();
+  assert.equal(payload.province.id, "chao-phraya");
+  assert.equal(payload.stations.length, 149);
+  assert.equal(payload.dataQuality.provinceCoverage, 19);
+  assert.equal(payload.dataQuality.air4thaiRegionalStations, 1);
+  assert.equal(requested.length, 4);
+  const weather = requested.find(u => u.hostname === "api.open-meteo.com");
+  assert.equal(weather.searchParams.get("latitude").split(",").length, provinces.length);
+  assert.ok(payload.stations.every(p => regionContains("chao-phraya", p.lat, p.lng)));
+  assert.ok(payload.stations.every(p => p.values.every(Number.isFinite)));
+  assert.equal(payload.days[0].windSpeedKmh, null);
+  assert.match(payload.days[0].wind, /19/);
+});
+
+test("partial regional background cannot create zero-valued remote forecast targets", async () => {
+  const payload = await (await createMetroForecastResponse({ regionId: "chao-phraya", now: () => NOW, fetchImpl: forecastFetch() })).json();
+  assert.equal(payload.status, "degraded");
+  assert.ok(payload.stations.length < 149);
+  assert.ok(payload.degradedReasons.includes("unsupported_display_points"));
+  assert.ok(payload.degradedReasons.includes("regional_weather_partial_coverage"));
+  assert.ok(payload.stations.every(s => s.values.every(v => Number.isFinite(v) && v > 0)));
 });
 
 test("weather timeout degrades PM forecast without hiding the heatmap data", async () => {

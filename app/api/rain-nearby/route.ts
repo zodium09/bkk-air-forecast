@@ -1,13 +1,13 @@
 import { createTmdRadarResponse } from "../tmd-radar/route.ts";
 import { normalizeNearbyRain, type NearbyRainPayload } from "../../lib/rain-nearby.ts";
-import { provinces } from "../../lib/provinces.ts";
+import { CHAO_PHRAYA_REGION_ID, regionContains } from "../../lib/provinces.ts";
 import type { TmdRadarPayload } from "../../lib/tmd-radar-data.ts";
 
 export async function createNearbyRainResponse(request: Request, options: { fetchImpl?: typeof fetch; now?: () => number; timeoutMs?: number } = {}) {
   const params=new URL(request.url).searchParams;
   const latText=params.get("lat"),lngText=params.get("lng");
   const lat=Number(latText),lng=Number(lngText);
-  if (!latText?.trim() || !lngText?.trim() || !Number.isFinite(lat) || !Number.isFinite(lng) || !provinces.some(p=>lat>=p.bounds.minLat && lat<=p.bounds.maxLat && lng>=p.bounds.minLng && lng<=p.bounds.maxLng)) return Response.json({error:"เลือกจุดในกรุงเทพฯ หรือปริมณฑลเพื่อวิเคราะห์ฝน"},{status:400,headers:{"Cache-Control":"no-store"}});
+  if (!latText?.trim() || !lngText?.trim() || !regionContains(CHAO_PHRAYA_REGION_ID,lat,lng)) return Response.json({error:"เลือกจุดในเจ้าพระยาหรือกรุงเทพฯ–ปริมณฑลเพื่อวิเคราะห์ฝน"},{status:400,headers:{"Cache-Control":"no-store"}});
   const fetchImpl=options.fetchImpl??fetch, now=(options.now??Date.now)();
   const sourceUrl=new URL("https://radargis.tmd.go.th/api/location_nowcast_alert");
   sourceUrl.search=new URLSearchParams({lat:String(lat),lon:String(lng),radius_km:"8"}).toString();

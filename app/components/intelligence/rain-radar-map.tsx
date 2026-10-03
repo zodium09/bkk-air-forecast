@@ -4,7 +4,7 @@ import type * as Leaflet from "leaflet";
 import type { TmdRadarFrame } from "../../lib/tmd-radar-data";
 import type { RainPosition } from "../../lib/rain-nearby";
 import { getRegion, type RegionId } from "../../lib/provinces";
-import { getBasemapConfig } from "../../lib/basemap";
+import { installBasemap } from "../../lib/install-basemap";
 import "leaflet/dist/leaflet.css";
 
 export type RadarImageState={id:string;status:"loading"|"ready"|"error"};
@@ -16,7 +16,7 @@ export default function RainRadarMap({region,position,frame,opacity,onSelect,onI
   const latitude=position?.lat,longitude=position?.lng;
   useEffect(()=>{onClick.current=onSelect;onImage.current=onImageState;alpha.current=opacity;},[onSelect,onImageState,opacity]);
   useEffect(()=> {
-    let active=true;let tile:Leaflet.TileLayer|null=null;let observer:MutationObserver|null=null;let resize:ResizeObserver|null=null;
+    let active=true;let removeBase:(()=>void)|undefined;let observer:MutationObserver|null=null;let resize:ResizeObserver|null=null;
     import("leaflet").then(L=> {
       if(!active||!container.current)return;
       leaflet.current=L;
@@ -24,16 +24,15 @@ export default function RainRadarMap({region,position,frame,opacity,onSelect,onI
       const m=L.map(container.current,{scrollWheelZoom:false,zoomControl:true,attributionControl:true,zoomAnimation:false,markerZoomAnimation:false}).setView([13.76,100.56],9);
       map.current=m;
       const theme=()=> {
-        if(tile)m.removeLayer(tile);
-        const config=getBasemapConfig("street",document.documentElement.dataset.theme === "dark"?"dark":"light");
-        tile=L.tileLayer(config.url,{attribution:config.attribution,maxZoom:config.maxZoom}).addTo(m);
+        removeBase?.();
+        removeBase=installBasemap(L,m,"street",document.documentElement.dataset.theme === "dark"?"dark":"light");
       };
       theme();observer=new MutationObserver(theme);observer.observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
       m.on("click",event=>onClick.current({lat:event.latlng.lat,lng:event.latlng.lng}));
       resize=new ResizeObserver(()=>m.invalidateSize());resize.observe(container.current);
       setReady(true);
     }).catch(()=>{if(active)setError(true);});
-    return ()=>{active=false;observer?.disconnect();resize?.disconnect();map.current?.remove();map.current=null;};
+    return ()=>{active=false;observer?.disconnect();resize?.disconnect();removeBase?.();map.current?.remove();map.current=null;};
   },[]);
   useEffect(()=> {
     const m=map.current,L=leaflet.current;if(!ready||!m||!L)return;
