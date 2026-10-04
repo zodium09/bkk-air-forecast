@@ -56,6 +56,10 @@ test("home separates rain and water before air and heat, keeping each topic's ev
   const rain = html.slice(rainStart, waterStart), water = html.slice(waterStart, airStart), air = html.slice(airStart, heatStart), heat = html.slice(heatStart);
   for (const id of ["rain-radar", "forecast-rain", "watch-rain", "map-rain", "sources-rain"]) assert.ok(rain.includes(`id="${id}"`), id);
   assert.ok(water.includes('aria-label="น้ำท่วมถนนจากจุดตรวจวัด กทม."'));
+  assert.ok(water.includes('id="tide-analysis"'));
+  assert.ok(water.includes('น้ำขึ้นน้ำลงกับฝน'));
+  assert.ok(water.includes('https://hydro.navy.mi.th/waterlaveltable'));
+  assert.doesNotMatch(rain+air+heat,/id="tide-analysis"/);
   assert.doesNotMatch(rain, /id="water-levels"|id="road-floods"|id="upstream-watch"/);
   assert.ok(water.indexOf('aria-label="น้ำท่วมถนนจากจุดตรวจวัด กทม."') < water.indexOf('id="water-levels"'));
   assert.doesNotMatch(rain, /id="forecast-air"|id="forecast-heat"|id="current-observations"/);
@@ -117,12 +121,13 @@ for (const route of ["air", "rain", "heat"]) {
     if (route !== "rain") assert.doesNotMatch(html, /เลือกพื้นที่เพื่อดูสัญญาณฝนใกล้คุณ/);
   });
 }
-test("water page owns current water, roads and upstream evidence without a forecast timeline", async()=>{
+test("water page separates tide/rain planning from current water, roads and upstream evidence", async()=>{
   const worker=await loadWorker();
   const response=await worker.fetch(new Request("http://localhost/water",{headers:{accept:"text/html"}}),environment,executionContext);
   assert.equal(response.status,200);
   const html=await response.text();
-  for(const id of ["water-summary","water-levels","road-floods","upstream-watch"]) assert.ok(html.includes(`id="${id}"`),id);
+  for(const id of ["water-summary","water-levels","road-floods","upstream-watch","tide-analysis"]) assert.ok(html.includes(`id="${id}"`),id);
+  for(const text of ["เลือกสถานีน้ำทำนาย","วันที่เทียบน้ำขึ้นน้ำลงกับฝน","ไม่ใช่คำยืนยันว่าจะท่วม","ข้อมูลนี้คงเวลาปัจจุบัน","ม. ทะเลปานกลาง","ฝนสะสมในแต่ละชั่วโมง"]) assert.ok(html.includes(text),text);
   for(const text of ["น้ำมาก / ถึงตลิ่ง","น้ำน้อย","ค่าตรวจวัดรายสถานี","ไม่ใช่ความลึกน้ำท่วม","ภาพประกอบเพื่อเล่าเรื่อง"]) assert.ok(html.includes(text),text);
   assert.doesNotMatch(html,/id="rain-radar"|id="forecast-rain"|aria-label="เลื่อนเวลาพยากรณ์"/);
   assert.match(html,/href="\/rain\?province=chao-phraya"/);

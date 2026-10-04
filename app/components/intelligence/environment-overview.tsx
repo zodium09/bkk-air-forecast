@@ -8,6 +8,7 @@ import WeatherIllustration from "./weather-illustration";
 import AroundYouBrief from "./around-you-brief";
 import ImportantEvents from "./important-events";
 import UpstreamWatch from "./upstream-watch";
+import TideOutlook from "./tide-outlook";
 import { useLiveResource } from "./use-live-resource";
 import type { RoadFloodPayload } from "../../lib/road-floods";
 import type { WaterPayload } from "../../lib/water-levels";
@@ -260,7 +261,7 @@ export default function EnvironmentOverview() {
       <ImportantEvents compact region={region} position={selected ? { ...selected, label: placeLabel(selected) } : null} roads={roadsNow} water={waterNow} air={airNow} rain={rainNow} heat={heat.data} heatLoading={heat.loading} heatError={heat.error} clock={clock} onRefresh={refreshAll}/>
     </AroundYouBrief>
     <div className="fc-refresh-row"><p>วันพยากรณ์ใช้ร่วมกัน · ค่าตรวจวัดแต่ละเรื่องคงเวลาของต้นทาง</p><button className="ov-location-button" disabled={anyLoading} onClick={() => setRefresh(value => value + 1)}><MapIcon name="refresh" size={17}/>{anyLoading ? "กำลังโหลด…" : "โหลดข้อมูลล่าสุด"}</button></div>
-    <nav className="fc-reading-nav" aria-label="ข้ามไปอ่านรายละเอียดแต่ละเรื่อง"><span>อ่านรายละเอียด</span><a href="#chapter-rain">ฝนและเรดาร์</a><a href="#chapter-water">ระดับน้ำและอ่าง</a><a href="#chapter-air">ฝุ่น PM2.5</a><a href="#chapter-heat">ความร้อน</a></nav>
+    <nav className="fc-reading-nav" aria-label="ข้ามไปอ่านรายละเอียดแต่ละเรื่อง"><span>อ่านรายละเอียด</span><a href="#chapter-rain">ฝนและเรดาร์</a><a href="#chapter-water">ระดับน้ำและอ่าง</a><a href="#tide-analysis">น้ำขึ้นน้ำลงกับฝน</a><a href="#chapter-air">ฝุ่น PM2.5</a><a href="#chapter-heat">ความร้อน</a></nav>
     <div id="outlook" className="fc-chapters">
       <section className="fc-chapter ay-chapter bf-rain" id="chapter-rain" aria-labelledby="chapter-rain-heading" tabIndex={-1}>
         <header className="fc-chapter-heading"><MapIcon name="rain" size={31}/><div><h2 id="chapter-rain-heading">ฝน</h2><p>เรดาร์ฝนใกล้พื้นที่ โอกาสฝน และปริมาณสะสมตามช่วงเวลา</p></div><img className="ex-chapter-art" src="/home-rain.png" width="146" height="94" alt="" loading="lazy"/></header>
@@ -271,7 +272,8 @@ export default function EnvironmentOverview() {
         {renderSource("rain")}
       </section>
       <section className="fc-chapter ay-chapter bf-water" id="chapter-water" aria-labelledby="chapter-water-heading" tabIndex={-1}>
-        <header className="fc-chapter-heading"><MapIcon name="water" size={31}/><div><h2 id="chapter-water-heading">ระดับน้ำ</h2><p>สถานีน้ำ คลอง แม่น้ำ และน้ำบนถนน · ค่าตรวจวัดล่าสุด</p></div><a className="ov-text-link" href={waterHref}>เปิดหน้าระดับน้ำ<MapIcon name="arrow" size={17}/></a></header>
+        <header className="fc-chapter-heading"><MapIcon name="water" size={31}/><div><h2 id="chapter-water-heading">ระดับน้ำ</h2><p>น้ำขึ้นน้ำลงกับฝน สถานีน้ำ คลอง แม่น้ำ และน้ำบนถนน</p></div><a className="ov-text-link" href={waterHref}>เปิดหน้าระดับน้ำ<MapIcon name="arrow" size={17}/></a></header>
+        <TideOutlook region={region} position={selected} refresh={refresh} water={waterNow} roads={roadsNow}/>
         <RoadFloodOverview compact region={region} place={selected} refresh={refresh} sharedResource={roadsNow}/>
         <WaterOverview region={region} place={selected} refresh={refresh} sharedResource={waterNow} onRefresh={refreshAll}/>
         <div className="ex-upstream-preview"><UpstreamWatch refresh={refresh}/></div>

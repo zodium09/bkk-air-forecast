@@ -50,3 +50,7 @@ Rain and water have separate navigation and content ownership. /rain explains ra
 ## October 4, 2026 detailed topic reading
 
 The user asks to read more of each topic continuously, with less collapsed primary content. Overview rain, water, air and heat chapters now remain visible, with topic jump links. Daily forecasts and selected upstream basin details are visible without disclosure clicks. Large geography lists and technical methods can remain optional. Charts show metric names, units, sample values and time labels; rain amount and probability use separate plots. River capacity and reservoir storage use source percentages, distinct from risk probabilities and MSL water readings. Windy rain radar supplements TMD and retains its own native legend, source time and playback controls.
+
+## October 4, 2026 tide and rain timing
+
+Water also includes official hourly tide predictions for four lower-river/coastal reference stations, aligned with hourly precipitation forecasts at those public station coordinates. A transparent three-hour watch filter highlights rain coinciding with relatively high predicted water; it does not forecast inundation depth or assign a flood probability. Current nearby water/road observations remain separate and retain their own timestamps even when a future tide date is selected. Automatic station choice is bounded, upstream locations receive only lower-river context, and annual tide facts expire rather than repeating into a new year. See docs/TIDE_RAIN_ANALYSIS_TH.md.

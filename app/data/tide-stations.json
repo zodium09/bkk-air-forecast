@@ -1,0 +1,6 @@
+[
+  {"id":"phra-chul","code":"PC","name":"ป้อมพระจุลจอมเกล้า","province":"สมุทรปราการ","provinceId":"samut-prakan","river":"เจ้าพระยาตอนล่าง","lat":13.5533333333,"lng":100.5769444444,"sourceUrl":"https://hydro.navy.mi.th/storage/frontend/article/22984/file/th/PC2026msl.pdf"},
+  {"id":"bangkok-port","code":"BH","name":"ท่าเรือกรุงเทพ","province":"กรุงเทพมหานคร","provinceId":"bangkok","river":"เจ้าพระยาตอนล่าง","lat":13.7016666667,"lng":100.58,"sourceUrl":"https://hydro.navy.mi.th/storage/frontend/article/22987/file/th/BH2026msl.pdf"},
+  {"id":"navy-headquarters","code":"HD","name":"กองบัญชาการกองทัพเรือ","province":"กรุงเทพมหานคร","provinceId":"bangkok","river":"เจ้าพระยาตอนล่าง","lat":13.7433333333,"lng":100.4902777778,"sourceUrl":"https://hydro.navy.mi.th/storage/frontend/article/22989/file/th/HD2026msl.pdf"},
+  {"id":"tha-chin","code":"TC","name":"ปากน้ำท่าจีน","province":"สมุทรสาคร","provinceId":"samut-sakhon","river":"ท่าจีนตอนล่าง","lat":13.5177777778,"lng":100.275,"sourceUrl":"https://hydro.navy.mi.th/storage/frontend/article/23007/file/th/TC2026msl.pdf"}
+]
