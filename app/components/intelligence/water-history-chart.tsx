@@ -7,6 +7,7 @@ import { thaiObservationTime } from "../../lib/observation-time";
 import { formatValue } from "../../lib/map-intelligence";
 import { useLiveResource } from "./use-live-resource";
 import "./observations.css";
+import "./chart-details.css";
 
 export default function WaterHistoryChart({ station, version, refresh, motion }: { station: WaterStation; version: string; refresh: number; motion: boolean }) {
   const [hours,setHours] = useState(24), [selected,setSelected] = useState(-1);
@@ -21,6 +22,7 @@ export default function WaterHistoryChart({ station, version, refresh, motion }:
   return <div className={`obs-water-history${motion ? "" : " is-still"}`}><div className="obs-history-heading"><h4>ระดับน้ำย้อนหลัง</h4><div role="group" aria-label="ช่วงประวัติระดับน้ำ">{[24,72].map(h=><button key={h} aria-pressed={hours===h} onClick={()=>{setHours(h);setSelected(-1);}}>{h} ชม.</button>)}</div></div>
     {resource.loading ? <p className="obs-empty">กำลังอ่านประวัติระดับน้ำ…</p> : resource.data?.storage === "unavailable" || resource.error ? <p className="obs-empty" role="status">ประวัติยังไม่พร้อม · ค่าตรวจวัดปัจจุบันยังแสดงได้</p> : !points.length ? <p className="obs-empty">ยังไม่มีค่าที่สะสมไว้ของสถานีนี้ในช่วงที่เลือก</p> : <>
       <div className="obs-history-readout"><span>{thaiObservationTime(active?.observedAt ?? null)} น.</span><b>{active ? new Intl.NumberFormat("th-TH",{maximumFractionDigits:3}).format(active.value) : "—"} {unit}</b></div>
+      <p className="dv-axis-caption">แกนตั้ง: ระดับน้ำ ({unit}) · แกนนอน: เวลาตรวจวัด (ไทย) · เลื่อนแถบด้านล่างเพื่ออ่านแต่ละค่าพร้อมเวลา</p>
       <svg className="obs-history-svg" viewBox="0 0 600 194" role="img" aria-label={`ประวัติระดับน้ำ ${station.name} ${points.length} เวลา หน่วย ${unit}`}>
         {[geometry.max,(geometry.min+geometry.max)/2,geometry.min].map((value,i)=><g key={i}><line x1="48" x2="568" y1={24+i*70} y2={24+i*70} className="bf-grid-line"/><text x="2" y={29+i*70}>{new Intl.NumberFormat("th-TH",{maximumFractionDigits:2}).format(value)}</text></g>)}
         {geometry.paths.map((path,i)=><path key={i} className="bf-chart-line" pathLength="1" d={path} fill="none" stroke="var(--ov-blue)" strokeWidth="2.5" strokeLinecap="round" vectorEffect="non-scaling-stroke"/>)}

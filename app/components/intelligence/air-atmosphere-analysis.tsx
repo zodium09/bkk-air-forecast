@@ -41,7 +41,7 @@ function WeatherChart({ points, title, unit, active, color, onSelect, zoom = fal
   }, [active, points.length]);
   return <div className="aa-chart" style={{ "--aa-plot-color": color } as CSSProperties}>
     <div className="aa-chart-readout"><span>{reading?.label ?? title}</span><strong>{formatValue(reading?.value ?? null)} <small>{unit}</small></strong></div>
-    <div className="aa-chart-scroll" ref={scroll} role="region" aria-label={`${title}${points.length > 12 ? " เลื่อนแนวนอนเพื่อดูทุกชั่วโมง" : ""}`} tabIndex={points.length > 12 ? 0 : undefined}>
+    <p className="dv-axis-caption">แกนตั้ง: {title} ({unit}) · แกนนอน: วัน / เวลา (ไทย)</p><div className="aa-chart-scroll" ref={scroll} role="region" aria-label={`${title}${points.length > 12 ? " เลื่อนแนวนอนเพื่อดูทุกชั่วโมง" : ""}`} tabIndex={points.length > 12 ? 0 : undefined}>
       <div className={`aa-chart-inner${points.length > 12 ? " is-dense" : ""}`} style={points.length > 12 ? { minWidth: points.length * 42 } : undefined}>
         <svg viewBox="0 0 760 210" role="img" aria-label={`${title} · ${valid.length} ช่วงที่มีข้อมูล · ${unit}${zoom ? " · แกนตั้งแสดงช่วงค่าที่มีข้อมูล" : ""}`}>
           {[minimum, (minimum + maximum) / 2, maximum].map(value => <g key={value}><line x1="80" x2="724" y1={y(value)} y2={y(value)} className="aa-grid"/><text x="70" y={y(value) + 4} textAnchor="end">{formatValue(value)}</text></g>)}

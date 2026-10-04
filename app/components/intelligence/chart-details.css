@@ -1,0 +1,43 @@
+.dv-axis-caption{font-size:13px;line-height:1.7;color:var(--ov-muted,#53677c);margin:12px 0 8px}
+.bf-chart:not(.is-compact) .bf-chart-readout{font-size:14px;line-height:1.6;gap:16px}
+.bf-chart:not(.is-compact) .bf-chart-readout>b{font-size:19px;font-variant-numeric:tabular-nums}
+.bf-chart-readout>span>small{display:block;font-size:12px;color:var(--bf-muted)}
+.bf-chart:not(.is-compact){--bf-plot-height:218px}
+.bf-chart:not(.is-compact) .bf-chart-frame{display:grid;grid-template-columns:46px minmax(0,1fr)}
+.bf-chart:not(.is-compact) .bf-chart-plot{padding:18px 40px 0;box-sizing:border-box}
+.bf-chart:not(.is-compact) .bf-chart-canvas{height:var(--bf-plot-height)}
+.bf-chart:not(.is-compact) .bf-axis-rail{position:relative;inset:auto;width:auto;height:var(--bf-plot-height);margin-top:18px;display:block;font-size:12px;font-variant-numeric:tabular-nums}
+.bf-chart:not(.is-compact) .bf-axis>span{position:absolute;right:6px;transform:translateY(-50%);white-space:nowrap}
+.bf-point-values{position:absolute;inset:0;pointer-events:none}
+.bf-point-values>span{position:absolute;transform:translate(-50%,-115%);font-family:Manrope,sans-serif;font-size:15px;font-weight:750;white-space:nowrap;color:var(--bf-color);background:var(--bf-surface,#fff);padding:2px 4px;border-radius:3px;font-variant-numeric:tabular-nums}
+.bf-point-values>span small{display:block;font-size:11px;line-height:1.2;font-weight:500;text-align:center}
+.bf-chart .bf-chart-labels.is-detailed{position:relative;display:block;height:58px;margin-top:6px;padding:0}
+.bf-chart .bf-chart-labels.is-detailed>span{position:absolute;transform:translateX(-50%);width:82px;text-align:center;font-size:12px;line-height:1.5}
+.bf-chart .bf-chart-labels.is-detailed>span:first-child,.bf-chart .bf-chart-labels.is-detailed>span:last-child{text-align:center}
+.bf-chart .bf-chart-labels.is-detailed>span small{display:block;font-size:10px}
+.fc-reading-nav{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:16px 0 24px;padding:15px 0}
+.fc-reading-nav>span{font-size:14px;font-weight:700;margin-right:8px}
+.fc-reading-nav>a{color:var(--ov-ink,#172e48);font-size:14px;text-decoration:none;border-bottom:2px solid var(--ov-accent,#225ce0);padding:9px 10px;min-height:44px}
+.fc-reading-nav>a:hover{background:#eaf1ff}
+.fc-reading-nav>a:focus-visible{outline:3px solid var(--ov-accent,#225ce0);outline-offset:3px}
+.fc-daily>h2,.fc-daily>h3,.fc-companion-chart>h2,.fc-companion-chart>h3{font-size:20px;line-height:1.5;margin:0 0 10px}
+.fc-companion-chart{margin-top:28px;padding-top:22px;border-top:1px solid var(--ov-line,#d9e5eb)}
+.fc-companion-chart>p{font-size:13px;line-height:1.7;color:var(--ov-muted,#53677c);margin-bottom:14px}
+.fc-daily{margin-top:30px;padding-top:24px;border-top:1px solid var(--ov-line,#d9e5eb)}
+.ov-chart-bar>b>small{display:block;font-family:inherit;font-size:11px;line-height:1.5;font-weight:600;white-space:nowrap}
+.ov-chart-bar>b{line-height:1.3;top:auto;bottom:calc(100% + 8px)}
+.ov-infographic .ov-chart-plot{padding-top:48px}
+.ov-infographic .ov-chart-axis,.ov-infographic .ov-chart-grid{top:48px}
+.ov-infographic .ov-chart-axis{font-size:12px}
+.uw-detail h3{font-size:18px}
+.uw-dam>div>strong{font-size:17px}
+.uw-station strong{font-size:14px}
+.uw-dam .dv-gauge{max-width:245px}
+.uw-dam .dv-comparison-row{grid-template-columns:minmax(80px,1fr) minmax(60px,1.3fr) auto}
+.uw-dam .dv-comparison-row>strong{font-size:21px}
+.uw-rain-chart>button>b{white-space:nowrap}
+.uw-detail>.uw-dam,.uw-dam{padding:18px 0}
+.ex-upstream-preview>.uw-section{border:0;padding:0}
+.bf-overview .ay-chapter{scroll-margin-top:24px}
+@media(max-width:600px){.bf-point-values>span{font-size:13px}.bf-chart:not(.is-compact){--bf-plot-height:200px}.bf-chart:not(.is-compact) .bf-chart-frame{grid-template-columns:38px minmax(0,1fr)}.bf-chart:not(.is-compact) .bf-axis-rail{font-size:11px}.fc-daily>h2,.fc-daily>h3,.fc-companion-chart>h2,.fc-companion-chart>h3{font-size:18px}.fc-reading-nav{gap:3px}.fc-reading-nav>span{width:100%}.uw-dam .dv-comparison-row{grid-template-columns:1fr auto}.uw-dam .dv-comparison-row>strong{grid-column:2;grid-row:1 / 3}}
+@media(prefers-reduced-motion:reduce){.ov-page .ay-topic{transition:none}.ov-page .ay-topic:hover{transform:none}.ay-focus{animation:none}}

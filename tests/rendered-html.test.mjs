@@ -36,7 +36,12 @@ test("home separates rain and water before air and heat, keeping each topic's ev
   assert.ok(html.includes("รอบตัววันนี้"));
   assert.ok(html.includes('aria-label="เลือกเรื่องในสรุปรอบตัว"'));
   assert.equal((html.match(/aria-controls="around-you-trend"/g) ?? []).length, 4);
-  assert.equal((html.match(/<details class="fc-chapter ay-chapter/g) ?? []).length, 4);
+  assert.equal((html.match(/<section class="fc-chapter ay-chapter/g) ?? []).length, 4);
+  assert.doesNotMatch(html, /<details class="fc-chapter/);
+  assert.match(html, /เรดาร์ฝน Windy/);
+  assert.ok(html.includes("https://embed.windy.com/embed.html"));
+  assert.match(html, /overlay=radar/);
+  assert.match(html, /aria-label="ข้ามไปอ่านรายละเอียดแต่ละเรื่อง"/);
   assert.equal((html.match(/<h1[ >]/g) ?? []).length, 1);
   assert.ok(html.includes("เปิดการแจ้งเตือน"));
   assert.ok(html.includes('id="current-event-area-map"'));

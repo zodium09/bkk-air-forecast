@@ -1,4 +1,5 @@
 "use client";
+import WindyRadar from "./windy-radar";
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import type { RegionId } from "../../lib/provinces";
@@ -73,6 +74,7 @@ export default function RainRadar({region,position,onSelect,rainData,refresh=0,s
       <a className="rb-official" href="https://www.tmd.go.th/warning-and-events/warning-storm" target="_blank" rel="noreferrer">ดูประกาศเตือนภัยจากกรมอุตุฯ<MapIcon name="arrow" size={16}/></a>
     </div></div>
     {position&&<div className="rb-nearby"><div className="rb-nearby-heading"><h3>แนวโน้มฝนในพื้นที่ใกล้เคียง</h3><span>แบบจำลอง Open-Meteo · 3 ช่วงชั่วโมง</span></div><div className="rb-nearby-list">{forecast.map(row=><button key={row.id} onClick={()=>onSelect(row)}><span className="rb-nearby-place"><b>{row.label}</b><small>ห่างจุดที่เลือก {formatValue(row.distanceKm)} กม.</small></span><span className="rb-mini-hours">{row.hours.map(hour=><span key={hour.key}><i style={{transform:`scaleY(${hour.amount===null?.04:hour.amount===0?0:Math.max(.06,Math.min(1,hour.amount/Math.max(1,...row.hours.map(h=>h.amount??0))))})`}} className={hour.amount===null?"is-missing":""}/><small>{hour.label}</small><em>{formatValue(hour.amount)}</em></span>)}</span><span className="rb-nearby-reading"><b>{formatValue(row.total)}<small>มม.</small></b><em>{trendLabel[row.trend]}</em><small>โอกาสฝนสูงสุดรายชั่วโมง {formatValue(row.probability)}%</small></span><MapIcon name="arrow" size={16}/></button>)}</div>{!forecast.length&&<p className="rb-note">ยังไม่มีจุดพยากรณ์รายชั่วโมงที่ใช้ได้ในระยะ 8 กม. · ผลวิเคราะห์เรดาร์ด้านบนเป็นอีกชุดข้อมูล</p>}<p className="rb-note">รวมชั่วโมงปัจจุบันเต็มช่วงและอีก 2 ชั่วโมงถัดไป ตามเวลาที่แสดง · จุดใกล้กันอาจใช้เซลล์แบบจำลองเดียวกัน · ไม่ใช่การติดตามกลุ่มฝนหรือเวลาฝนถึงบ้าน</p></div>}
+    <WindyRadar region={region} position={position}/>
     <details className="rb-provenance"><summary>เวลาและที่มาของข้อมูล<MapIcon name="chevron" size={17}/></summary><p>ภาพและผลวิเคราะห์บริเวณใกล้เคียงจาก TMD RadarGIS · เวลาฐาน {radar?.observedAt?thaiObservationTime(radar.observedAt)+" น.":"ยังไม่พร้อม"} · ตรวจข้อมูล {catalog.data?thaiObservationTime(catalog.data.fetchedAt)+" น.":"กำลังโหลด"}</p><p>ผลวิเคราะห์ตำแหน่งของต้นทางไม่ได้ระบุเวลาของตัวเอง แอปจึงตรวจความใหม่กับภาพฐานและต้องมี Nowcast ที่ยังไม่หมดเวลา · เมื่อข้อมูลเกิน 30 นาทีจะหยุดสรุปสถานการณ์ใกล้เคียง ภาพตรวจจริงเกิน 90 นาทีจะไม่แสดง</p><p>ภาพเรดาร์แสดงอัตราฝนที่ประมาณจากเรดาร์ หน่วย มม./ชม. ส่วนกราฟใกล้เคียงเป็นยอดสะสมตามช่วงชั่วโมงจากแบบจำลอง ไม่ใช่หน่วยเดียวกัน</p><a href="https://radargis.tmd.go.th/" target="_blank" rel="noreferrer">เปิด TMD RadarGIS</a>{(catalog.error||analysis.error)&&<p role="status">{catalog.error||analysis.error}</p>}</details>
   </section>;
 }

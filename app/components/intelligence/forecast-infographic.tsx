@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, type CSSProperties } from "react";
+import "./chart-details.css";
 import { chartScale } from "../../lib/environment-overview";
+import { detailNumber } from "../../lib/detail-visuals";
 import { formatValue, relativeDay, type EnvironmentLayer } from "../../lib/map-intelligence";
 import { MapIcon } from "./map-ui";
 import { RiskMeter, riskNames, riskStyle } from "./risk-signals";
@@ -14,6 +16,7 @@ export default function ForecastInfographic({ layer, title, unit, period, days, 
   days: ForecastDay[]; date: string; today: string; loading: boolean; onDate: (date: string) => void;
 }) {
   const scale = chartScale(days.map((day) => day.value));
+  const canDraw = days.some(day => day.value !== null && Number.isFinite(day.value));
   const active = days.find((day) => day.date === date);
   const index = days.findIndex((day) => day.date === date);
   const scroller = useRef<HTMLDivElement>(null);
@@ -32,9 +35,9 @@ export default function ForecastInfographic({ layer, title, unit, period, days, 
       <div className="ov-chart-guide"><span>{period}</span><p>กดแท่งกราฟเพื่อเลือกวัน<br />ภาพรวมและแผนที่จะเปลี่ยนตาม</p><div className="ov-chart-step"><button aria-label="เลือกวันก่อนหน้า" disabled={index <= 0} onClick={() => onDate(days[index - 1].date)}><MapIcon name="arrow" size={18} /></button><button aria-label="เลือกวันถัดไป" disabled={index < 0 || index >= days.length - 1} onClick={() => onDate(days[index + 1].date)}><MapIcon name="arrow" size={18} /></button></div></div>
     </div>
     {days.length ? <div ref={scroller} className="ov-chart-scroll" role="region" aria-label={`กราฟ ${title} เลื่อนแนวนอนเพื่อดูทุกวัน`}>
-      <div className="ov-chart-plot">
-        <div className="ov-chart-axis" aria-hidden="true">{[scale.max, (scale.min + scale.max) / 2, scale.min].map((value) => <span key={value}>{formatValue(value)}</span>)}</div>
-        <div className="ov-chart-grid" aria-hidden="true"><i /><i /><i /></div>
+      <p className="dv-axis-caption">แกนตั้ง: {title} ({unit}) · แกนนอน: วันพยากรณ์</p><div className="ov-chart-plot">
+        {canDraw && <div className="ov-chart-axis" aria-hidden="true">{[scale.max, (scale.min + scale.max) / 2, scale.min].map((value) => <span key={value}>{detailNumber(value)}</span>)}</div>}
+        {canDraw && <div className="ov-chart-grid" aria-hidden="true"><i /><i /><i /></div>}
         <div className="ov-chart-days" style={{ "--day-count": days.length } as CSSProperties}>{days.map((day) => {
           const height = day.value === null ? 0 : Math.abs(day.value) / (scale.max - scale.min) * 100;
           const baseline = -scale.min / (scale.max - scale.min) * 100;
@@ -42,7 +45,7 @@ export default function ForecastInfographic({ layer, title, unit, period, days, 
           const relative = relativeDay(day.date, today);
           const label = relative === "วันนี้" || relative === "พรุ่งนี้" ? relative : new Intl.DateTimeFormat("th-TH", { day: "numeric", month: "short", timeZone: "Asia/Bangkok" }).format(new Date(`${day.date}T12:00:00+07:00`));
           return <button key={day.date} className={`ov-chart-day ov-risk-${day.priority}${date === day.date ? " is-active" : ""}${day.value === null ? " is-missing" : ""}`} style={riskStyle(day.priority)} aria-pressed={date === day.date} aria-label={`${title} ${relativeDay(day.date, today)} ${day.value === null ? "ไม่มีข้อมูล" : `${formatValue(day.value)} ${unit} · ความเสี่ยง${riskNames[day.priority]} · ${day.title}`}`} onClick={() => onDate(day.date)}>
-            <span className="ov-bar-space"><span className="ov-chart-bar" style={{ height: `${height}%`, bottom: `${bottom}%` }}><b>{formatValue(day.value)}</b>{height >= 18 && <MapIcon name={layer} size={19} />}</span>{day.value === null && <span className="ov-missing-bar"><b>—</b><small>ไม่มีข้อมูล</small></span>}</span>
+            <span className="ov-bar-space"><span className="ov-chart-bar" style={{ height: `${height}%`, bottom: `${bottom}%` }}><b>{formatValue(day.value)}<small>{unit}</small></b>{height >= 18 && <MapIcon name={layer} size={19} />}</span>{day.value === null && <span className="ov-missing-bar"><b>—</b><small>ไม่มีข้อมูล</small></span>}</span>
             <span className="ov-chart-day-label">{label}<small>{new Intl.DateTimeFormat("th-TH", { weekday: "short", timeZone: "Asia/Bangkok" }).format(new Date(`${day.date}T12:00:00+07:00`))}</small>{date === day.date && <i aria-hidden="true" />}</span>
           </button>;
         })}</div>

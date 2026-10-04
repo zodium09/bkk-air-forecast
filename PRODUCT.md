@@ -45,3 +45,8 @@ Target WCAG 2.2 AA. Do not rely on color alone for risk or status; retain visibl
 Automatically request browser location on the public entry pages, use the nearest supported public reference and retain manual choice on denial or unavailable location. The browser permission remains required. Do not continuously track or persist the user coordinates in browser storage. Explicit topic-link coordinates and manual selection take precedence over a pending automatic fix.
 
 Rain and water have separate navigation and content ownership. /rain explains radar and precipitation forecasts; /water explains current station water levels, road observations, recorded history and upstream context. No water forecast is inferred from rain. The overview summarizes both as separate chapters. Selected-point maps and observation lists share an 8 km radius. Geographic lists and maps start compact and can be expanded without losing the total counts. Street maps use OpenFreeMap with provider attribution and a functional raster fallback.
+
+
+## October 4, 2026 detailed topic reading
+
+The user asks to read more of each topic continuously, with less collapsed primary content. Overview rain, water, air and heat chapters now remain visible, with topic jump links. Daily forecasts and selected upstream basin details are visible without disclosure clicks. Large geography lists and technical methods can remain optional. Charts show metric names, units, sample values and time labels; rain amount and probability use separate plots. River capacity and reservoir storage use source percentages, distinct from risk probabilities and MSL water readings. Windy rain radar supplements TMD and retains its own native legend, source time and playback controls.
