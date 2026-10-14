@@ -66,7 +66,7 @@ export function goToStory(id: string) {
   if (section instanceof HTMLDetailsElement) section.open = true;
   section?.focus({ preventScroll: true });
   section?.scrollIntoView({
-    behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
+    behavior: matchMedia("(prefers-reduced-motion: reduce)").matches || !!section?.closest('[data-motion="off"]')
       ? "instant"
       : "smooth",
     block: "start",

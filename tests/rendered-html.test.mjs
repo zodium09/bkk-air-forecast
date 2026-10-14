@@ -46,7 +46,7 @@ test("home separates rain and water before air and heat, keeping each topic's ev
   assert.ok(html.includes("เปิดการแจ้งเตือน"));
   assert.ok(html.includes('id="current-event-area-map"'));
   assert.ok(html.includes('aria-label="เลือกเรื่องบนแผนที่สรุป"'));
-  for (const label of ["รายละเอียดรายพื้นที่", "สำรวจแผนที่และระดับติดตาม", "ยังประเมินไม่ได้", "สีแสดงเฉพาะจุด"]) assert.ok(html.includes(label), label);
+  for (const label of ["รายละเอียดรายพื้นที่", "ย่อแผนที่และตัวกรอง", "ยังประเมินไม่ได้", "สีแสดงเฉพาะจุด"]) assert.ok(html.includes(label), label);
   assert.ok(html.includes("สรุปบนสุดคงเวลาปัจจุบัน"));
   assert.ok(html.includes("ผลวิเคราะห์แสดงในแอป ไม่ใช่ประกาศเตือนภัย"));
   assert.match(html, /data-theme="light"/);
@@ -72,7 +72,8 @@ test("home separates rain and water before air and heat, keeping each topic's ev
   assert.doesNotMatch(air, /id="forecast-rain"|id="water-levels"|id="forecast-heat"/);
   for (const id of ["forecast-heat", "watch-heat", "map-heat", "sources-heat"]) assert.ok(heat.includes(`id="${id}"`), id);
   assert.doesNotMatch(heat, /id="forecast-air"|id="water-levels"|id="watch-rain"/);
-  assert.equal((html.match(/id="area-map"/g) ?? []).length, 1);
+  assert.equal((html.match(/id="area-map"/g) ?? []).length, 0, "remove the duplicated geographic preview");
+  for(const [layer,chapter] of [["rain",rain],["air",air],["heat",heat]]) assert.equal((chapter.slice(chapter.indexOf(`id="watch-${layer}"`)).match(/class="ra-section"/g)??[]).length,1,"one geographic map for each forecast watch");
   assert.doesNotMatch(html, /aria-label="เลือกข้อมูลบนแผนที่"|ov-local-readings|สรุประดับการติดตามจากพยากรณ์ทั้ง 3 เรื่อง/);
   assert.ok(html.includes("ฝนสะสมตลอดวัน 00:00–24:00"));
   assert.ok(html.includes("ค่าพยากรณ์ / ประมาณเชิงพื้นที่"));
@@ -128,7 +129,13 @@ test("water page separates tide/rain planning from current water, roads and upst
   const html=await response.text();
   for(const id of ["water-summary","water-levels","road-floods","upstream-watch","tide-analysis"]) assert.ok(html.includes(`id="${id}"`),id);
   for(const text of ["เลือกสถานีน้ำทำนาย","วันที่เทียบน้ำขึ้นน้ำลงกับฝน","ไม่ใช่คำยืนยันว่าจะท่วม","ข้อมูลนี้คงเวลาปัจจุบัน","ม. ทะเลปานกลาง","ฝนสะสมในแต่ละชั่วโมง"]) assert.ok(html.includes(text),text);
-  for(const text of ["น้ำมาก / ถึงตลิ่ง","น้ำน้อย","ค่าตรวจวัดรายสถานี","ไม่ใช่ความลึกน้ำท่วม","ภาพประกอบเพื่อเล่าเรื่อง"]) assert.ok(html.includes(text),text);
+  for(const text of ["น้ำมาก / ถึงตลิ่ง","น้ำน้อย","ค่าตรวจวัดล่าสุดรายสถานี","ไม่ใช่ความลึกน้ำท่วม","ภาพประกอบ ไม่ใช่ภาพสถานการณ์ปัจจุบัน"]) assert.ok(html.includes(text),text);
+  assert.ok(html.indexOf('id="water-area-map"')<html.indexOf('id="tide-analysis"'),"current geography precedes future timing");
+  assert.equal((html.match(/aria-controls="water-area-map"/g)??[]).length,3,"summary cards target the shared geographic stage");
+  assert.equal((html.match(/class="ra-section"/g)??[]).length,1,"one shared water/road map");
+  assert.doesNotMatch(html,/class="fc-water-summary"|class="ra-observation"/);
+  assert.ok(html.includes('aria-label="เลือกชั่วโมงบนกราฟน้ำและฝน"'));
+  assert.ok(html.includes('aria-label="เลือกส่วนในแดชบอร์ด"'));
   assert.doesNotMatch(html,/id="rain-radar"|id="forecast-rain"|aria-label="เลื่อนเวลาพยากรณ์"/);
   assert.match(html,/href="\/rain\?province=chao-phraya"/);
   assert.equal((html.match(/<h1[ >]/g)??[]).length,1);

@@ -10,7 +10,7 @@ import { MapIcon } from "./map-ui";
 import { useLiveResource, type LiveResource } from "./use-live-resource";
 import "./observations.css";
 
-export default function RoadFloodOverview({ region, place, refresh, compact = false, sharedResource }: { region: RegionId; place: {lat: number; lng: number} | null; refresh: number; compact?: boolean; sharedResource?: LiveResource<RoadFloodPayload> }) {
+export default function RoadFloodOverview({ region, place, refresh, compact = false, sharedResource, showAreaMap=true }: { region: RegionId; place: {lat: number; lng: number} | null; refresh: number; compact?: boolean; sharedResource?: LiveResource<RoadFloodPayload>; showAreaMap?: boolean }) {
   const localResource = useLiveResource<RoadFloodPayload>(sharedResource ? null : "/api/road-floods", refresh);
   const resource = sharedResource ?? localResource;
   const [attention, setAttention] = useState(true);
@@ -46,5 +46,5 @@ export default function RoadFloodOverview({ region, place, refresh, compact = fa
       <div className="obs-source-line"><span>{resource.refreshing ? "กำลังอัปเดต…" : resource.data ? `โหลด ${thaiObservationTime(resource.data.fetchedAt)} น. · อัปเดตอัตโนมัติ` : "รอข้อมูลต้นทาง"}</span><span>{stations.length-fresh.length} จุดข้อมูลเก่าหรือใช้ไม่ได้</span></div>{resource.error && <p className="obs-error" role="status">{resource.error}</p>}
     </>}
     <p className="obs-panel-note">รายงานเฉพาะ ณ จุดวัด สถานะจากต้นทางไม่ได้ยืนยันสภาพถนนตลอดสาย · ค่าขัดข้องไม่ถูกนับเป็นปกติ · กดจุดเพื่อเปิดตำแหน่ง</p><a className="ov-text-link" target="_blank" rel="noreferrer" href={ROAD_FLOOD_SOURCE}>ที่มา: สำนักการระบายน้ำ กรุงเทพมหานคร<MapIcon name="arrow" size={16}/></a>
-  <ObservationAreaMap topic="road" region={region} position={place} roads={resource.data} now={resource.clock} loading={resource.loading}/></section>;
+  {showAreaMap&&<ObservationAreaMap topic="road" region={region} position={place} roads={resource.data} now={resource.clock} loading={resource.loading}/>}</section>;
 }

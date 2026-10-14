@@ -12,10 +12,11 @@ import "./risk-area-summary.css";
 
 const emptyPoints: RiskAreaPoint[] = [];
 
-export default function RiskAreaSummary({ title="พื้นที่ที่ควรติดตามบนแผนที่", topics, region, boundary, activeTopic, onTopicChange, eventId, onClearEvent, onSelectPoint, revealKey, defaultMapOpen=false }: {
+export default function RiskAreaSummary({ title="พื้นที่ที่ควรติดตามบนแผนที่", topics, region, boundary, activeTopic, onTopicChange, eventId, onClearEvent, onSelectPoint, pointActionLabel="ดูพยากรณ์จุดนี้", revealKey, defaultMapOpen=false }: {
   title?: string; topics: RiskMapTopic[]; region: RegionId; boundary?: MapBoundary | null;
   activeTopic?: string; onTopicChange?: (topic:string)=>void; eventId?: string; onClearEvent?: ()=>void;
   onSelectPoint?: (point:RiskAreaPoint)=>void;
+  pointActionLabel?: string;
   revealKey?: string; defaultMapOpen?: boolean;
 }) {
   const uid=useId().replace(/:/g,""), headingId=`risk-area-title-${uid}`, detailId=`risk-area-detail-${uid}`;
@@ -48,7 +49,7 @@ export default function RiskAreaSummary({ title="พื้นที่ที่�
         {active.value!==null && <div className="ra-reading"><b>{active.topic==="water"?formatWaterValue(active.value):formatValue(active.value)}</b><span>{active.unit}</span></div>}
         <strong className="ra-verdict">{active.status}</strong><p>{active.detail}</p>
         {active.period && <p className="ra-period">ช่วงข้อมูล {active.period}</p>}<p className="ra-time">{timeText ? `${active.timeLabel || (active.kind === "พยากรณ์" ? "โหลดพยากรณ์" : active.kind === "Nowcast" ? "ภาพเรดาร์ฐาน" : "ตรวจวัด")} ${timeText}` : "ต้นทางไม่ระบุเวลาที่ใช้ได้"}</p><small className="ra-source">{active.source}</small>
-        {onSelectPoint ? <button className="ra-detail-link" onClick={()=>onSelectPoint(active)}>ดูพยากรณ์จุดนี้<MapIcon name="arrow" size={16}/></button> : <a className="ra-detail-link" href={active.href}>ดูข้อมูลเรื่องนี้<MapIcon name="arrow" size={16}/></a>}
+        {onSelectPoint ? <button className="ra-detail-link" onClick={()=>onSelectPoint(active)}>{pointActionLabel}<MapIcon name="arrow" size={16}/></button> : <a className="ra-detail-link" href={active.href}>ดูข้อมูลเรื่องนี้<MapIcon name="arrow" size={16}/></a>}
       </> : <div className="ra-empty"><MapIcon name="map" size={28}/><h4>{topic?.loading ? "กำลังอ่านจุดข้อมูล…" : all.length ? "ยังไม่พบจุดตามตัวกรองนี้" : topic?.id === "rain" ? "เลือกพื้นที่เพื่อดูสัญญาณฝนใกล้คุณ" : "ยังไม่มีจุดข้อมูลที่ใช้สรุปได้"}</h4><p>{all.length ? "เปิดจุดทั้งหมดหรือเลือกสีอื่น เพื่อดูข้อมูลที่มีและจุดที่ยังประเมินไม่ได้" : "เมื่อข้อมูลพร้อม ตำแหน่งและเวลาของแต่ละจุดจะปรากฏบนแผนที่"}</p>{all.length>0 && <button className="ra-detail-link" onClick={()=>{setAttentionOnly(false);setRankFilter(null);}}>แสดงจุดทั้งหมด<MapIcon name="arrow" size={16}/></button>}</div>}</aside>
     </div></div>}
     <p className="ra-note">{topic?.note} · เส้นขอบแสดงพื้นที่อ้างอิง สีแสดงเฉพาะจุด ไม่ได้ระบายความเสี่ยงแทนทั้งจังหวัด</p>
