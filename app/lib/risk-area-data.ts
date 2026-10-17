@@ -58,7 +58,7 @@ export function forecastRiskAreas(data: MapDataset | null, index: number, region
         detail = "ยอดสะสมทั้งวันจากแบบจำลอง";
       } else {
         if (first !== null && first >= 0 && first <= 100) { rank = first >= 80 ? 2 : first >= 60 ? 1 : 0; status = first >= 80 ? "โอกาสฝนสูง" : first >= 60 ? "เฝ้าระวังโอกาสฝน" : "โอกาสฝนยังไม่เข้าเกณฑ์ติดตาม"; }
-        detail = `${step.window === null ? "โอกาสฝนรายวัน" : "โอกาสฝนของช่วงที่เลือก"} ${formatValue(first)}%${amount ? " · สีแสดงระดับโอกาสฝน" : ""}`;
+        detail = `${step.window === null ? "โอกาสฝนรายชั่วโมงสูงสุดของวัน" : "โอกาสฝนของช่วงที่เลือก"} ${formatValue(first)}%${amount ? " · สีแสดงระดับโอกาสฝน" : ""}`;
       }
     }
     const province = provinces.find(province => p.id.startsWith(`${province.id}-`));

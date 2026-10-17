@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createTmdRadarResponse } from "../../app/api/tmd-radar/route.ts";
+import { createTmdRadarResponse } from "../../app/api/tmd-radar/handler.ts";
 
 const json = (value, status = 200) => new Response(JSON.stringify(value), {
   status,

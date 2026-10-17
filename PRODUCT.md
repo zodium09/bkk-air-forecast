@@ -1,5 +1,11 @@
 # Product
 
+## Current direction — October 15, 2026
+
+The primary product is a public tool for people following rain, flooding evidence, and basin conditions across the Chao Phraya system: Ping, Wang, Yom, Nan, Sakae Krang, Pasak, and the middle/lower Chao Phraya. It offers two modes over the same observations and definitions: a short general summary and a detailed station/map/history workspace. A user's primary job is to decide which basin and measured station to monitor next, and to inspect the original evidence and time of that reading. Air quality and heat remain secondary topics. The user-confirmed direction here supersedes the older equal-weight air/rain/heat briefing and automatic-location-first entry described below; those paragraphs document earlier implementation decisions until their routes are migrated.
+
+Release claims must distinguish measured rain, measured river level, daily reservoir reports, radar, model forecast, and an official bulletin. Station water level or capacity is never a flood-depth map, travel-time estimate, or official warning. Missing and stale readings cannot mean safe or zero. Scope starts at the whole basin; location permission is optional. Basin, station, and mode must survive a share link and browser history. See [the content contract](docs/HYDRO_CONTENT_CONTRACT_2026_10_15_TH.md) and [implementation plan](docs/SOL_OVERHAUL_HANDOFF_2026_10_15_TH.md).
+
 ## Register
 
 product

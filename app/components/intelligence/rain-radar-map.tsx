@@ -10,7 +10,7 @@ import { watchRadarImage } from "../../lib/radar-image";
 import "leaflet/dist/leaflet.css";
 
 export type RadarImageState={id:string;status:"loading"|"ready"|"error";displayedFrame:TmdRadarFrame|null};
-export default function RainRadarMap({region,position,frame,opacity,imageRetry=0,onSelect,onImageState}:{region:RegionId;position:RainPosition|null;frame:TmdRadarFrame|null;opacity:number;imageRetry?:number;onSelect:(position:RainPosition)=>void;onImageState:(state:RadarImageState)=>void}) {
+export default function RainRadarMap({region,position,frame,opacity,imageRetry=0,onSelect,onImageState,interactive=true}:{region:RegionId;position:RainPosition|null;frame:TmdRadarFrame|null;opacity:number;imageRetry?:number;onSelect:(position:RainPosition)=>void;onImageState:(state:RadarImageState)=>void;interactive?:boolean}) {
   const container=useRef<HTMLDivElement>(null), map=useRef<Leaflet.Map|null>(null);
   const leaflet=useRef<typeof Leaflet|null>(null), overlay=useRef<Leaflet.ImageOverlay|null>(null);
   const displayedFrame=useRef<TmdRadarFrame|null>(null);
@@ -34,13 +34,13 @@ export default function RainRadarMap({region,position,frame,opacity,imageRetry=0
         removeBase=installBasemap(L,m,"street",document.documentElement.dataset.theme === "dark"?"dark":"light");
       };
       theme();observer=new MutationObserver(theme);observer.observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
-      m.on("click",event=>onClick.current({lat:event.latlng.lat,lng:event.latlng.lng}));
+      if(interactive)m.on("click",event=>onClick.current({lat:event.latlng.lat,lng:event.latlng.lng}));
       setReady(true);
     }).catch(()=>{if(active)setError(true);}).finally(()=>{initializing=false;});
     };
     const stopObserving=observeVisibleMap(host,()=>{if(map.current)map.current.invalidateSize();else initialize();});
     return ()=>{active=false;observer?.disconnect();stopObserving();removeBase?.();map.current?.remove();map.current=null;overlay.current=null;displayedFrame.current=null;};
-  },[]);
+  },[interactive]);
   useEffect(()=> {
     const m=map.current,L=leaflet.current;if(!ready||!m||!L)return;
     const group=L.layerGroup().addTo(m),area=getRegion(region);
@@ -67,5 +67,5 @@ export default function RainRadarMap({region,position,frame,opacity,imageRetry=0
     return ()=>{stop();if(overlay.current!==image)image.remove();};
   },[ready,frame,imageRetry]);
   useEffect(()=>{overlay.current?.setOpacity(opacity);},[opacity]);
-  return <div className="rb-map-surface" ref={container} role="region" aria-label="แผนที่เรดาร์ฝน กดตำแหน่งเพื่อวิเคราะห์บริเวณใกล้เคียง">{!ready&&<p className="rb-map-placeholder" role="status">{error?"เปิดแผนที่ไม่ได้ ลองโหลดหน้านี้ใหม่":"กำลังเตรียมแผนที่เรดาร์…"}</p>}</div>;
+  return <div className="rb-map-surface" ref={container} role="region" aria-label={interactive?"แผนที่เรดาร์ฝน กดตำแหน่งเพื่อวิเคราะห์บริเวณใกล้เคียง":"แผนที่เรดาร์ฝนจากกรมอุตุนิยมวิทยา"}>{!ready&&<p className="rb-map-placeholder" role="status">{error?"เปิดแผนที่ไม่ได้ ลองโหลดหน้านี้ใหม่":"กำลังเตรียมแผนที่เรดาร์…"}</p>}</div>;
 }

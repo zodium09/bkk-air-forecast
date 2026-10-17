@@ -20,73 +20,27 @@ const executionContext = {
   passThroughOnException() {},
 };
 
-test("home separates rain and water before air and heat, keeping each topic's evidence together", async () => {
+test("hydro home renders a basin-first summary and preserves links into deep monitoring", async () => {
   const worker = await loadWorker();
   const response = await worker.fetch(new Request("http://localhost/", { headers: { accept: "text/html" } }), environment, executionContext);
   assert.equal(response.status, 200);
   const html = await response.text();
-  for (const label of ["ov-page", "ภาพรวม", "พื้นที่ของฉัน", "ระดับน้ำ", "ฝนจะมาเมื่อไร", "วางแผนรับความร้อน", "พื้นที่ที่ควรติดตาม", "ที่มาและข้อจำกัด", "ค้นหาถนน เขต หรือพื้นที่", "ข้ามไปที่ข้อมูล"]) assert.ok(html.includes(label), label);
-  assert.ok(html.includes("ดูพื้นที่ของฉัน"));
-  assert.ok(html.includes("/illustrations/bangkok-weather.webp"));
-  assert.ok(html.includes("เรื่องสำคัญตอนนี้"));
-  assert.ok(html.indexOf('id="overview"') < html.indexOf('id="my-area"'));
-  assert.ok(html.indexOf('id="my-area"') < html.indexOf('id="around-you"'));
-  assert.ok(html.indexOf('id="around-you"') < html.indexOf('id="important-events"'));
-  assert.ok(html.indexOf('id="important-events"') < html.indexOf('id="around-you-trend"'));
-  assert.ok(html.includes("รอบตัววันนี้"));
-  assert.ok(html.includes('aria-label="เลือกเรื่องในสรุปรอบตัว"'));
-  assert.equal((html.match(/aria-controls="around-you-trend"/g) ?? []).length, 4);
-  assert.equal((html.match(/<section class="fc-chapter ay-chapter/g) ?? []).length, 4);
-  assert.doesNotMatch(html, /<details class="fc-chapter/);
-  assert.match(html, /เรดาร์ฝน Windy/);
-  assert.ok(html.includes("https://embed.windy.com/embed.html"));
-  assert.match(html, /overlay=radar/);
-  assert.match(html, /aria-label="ข้ามไปอ่านรายละเอียดแต่ละเรื่อง"/);
-  assert.equal((html.match(/<h1[ >]/g) ?? []).length, 1);
-  assert.ok(html.includes("เปิดการแจ้งเตือน"));
-  assert.ok(html.includes('id="current-event-area-map"'));
-  assert.ok(html.includes('aria-label="เลือกเรื่องบนแผนที่สรุป"'));
-  for (const label of ["รายละเอียดรายพื้นที่", "ย่อแผนที่และตัวกรอง", "ยังประเมินไม่ได้", "สีแสดงเฉพาะจุด"]) assert.ok(html.includes(label), label);
-  assert.ok(html.includes("สรุปบนสุดคงเวลาปัจจุบัน"));
-  assert.ok(html.includes("ผลวิเคราะห์แสดงในแอป ไม่ใช่ประกาศเตือนภัย"));
-  assert.match(html, /data-theme="light"/);
-  assert.ok(html.indexOf('id="overview"') < html.indexOf('id="my-area"'));
-  const rainStart = html.indexOf('id="chapter-rain"'), waterStart = html.indexOf('id="chapter-water"'), airStart = html.indexOf('id="chapter-air"'), heatStart = html.indexOf('id="chapter-heat"');
-  assert.ok(html.indexOf('id="my-area"') < rainStart && rainStart < waterStart && waterStart < airStart && airStart < heatStart);
-  const rain = html.slice(rainStart, waterStart), water = html.slice(waterStart, airStart), air = html.slice(airStart, heatStart), heat = html.slice(heatStart);
-  for (const id of ["rain-radar", "forecast-rain", "watch-rain", "map-rain", "sources-rain"]) assert.ok(rain.includes(`id="${id}"`), id);
-  assert.ok(water.includes('aria-label="น้ำท่วมถนนจากจุดตรวจวัด กทม."'));
-  assert.ok(water.includes('id="tide-analysis"'));
-  assert.ok(water.includes('น้ำขึ้นน้ำลงกับฝน'));
-  assert.ok(water.includes('https://hydro.navy.mi.th/waterlaveltable'));
-  assert.doesNotMatch(rain+air+heat,/id="tide-analysis"/);
-  assert.doesNotMatch(rain, /id="water-levels"|id="road-floods"|id="upstream-watch"/);
-  assert.ok(water.indexOf('aria-label="น้ำท่วมถนนจากจุดตรวจวัด กทม."') < water.indexOf('id="water-levels"'));
-  assert.doesNotMatch(rain, /id="forecast-air"|id="forecast-heat"|id="current-observations"/);
-  for (const id of ["current-observations", "forecast-air", "air-analysis", "cold-wind", "watch-air", "map-air", "sources-air"]) assert.ok(air.includes(`id="${id}"`), id);
-  assert.ok(air.indexOf('id="forecast-air"') < air.indexOf('id="air-analysis"'));
-  assert.ok(air.indexOf('id="air-analysis"') < air.indexOf('id="cold-wind"'));
-  for (const label of ["ทำไมฝุ่นถึงเปลี่ยน?", "ลมหนาวจะมาหรือยัง?", "เกณฑ์วิเคราะห์ลมหนาวและข้อจำกัด", "เป็นพยากรณ์ระดับกริด", "ความกดอากาศ"]) assert.ok(air.includes(label), label);
-  assert.doesNotMatch(rain + heat, /id="air-analysis"|id="cold-wind"/);
-  assert.ok(air.indexOf('id="current-observations"') < air.indexOf('id="forecast-air"'));
-  assert.doesNotMatch(air, /id="forecast-rain"|id="water-levels"|id="forecast-heat"/);
-  for (const id of ["forecast-heat", "watch-heat", "map-heat", "sources-heat"]) assert.ok(heat.includes(`id="${id}"`), id);
-  assert.doesNotMatch(heat, /id="forecast-air"|id="water-levels"|id="watch-rain"/);
-  assert.equal((html.match(/id="area-map"/g) ?? []).length, 0, "remove the duplicated geographic preview");
-  for(const [layer,chapter] of [["rain",rain],["air",air],["heat",heat]]) assert.equal((chapter.slice(chapter.indexOf(`id="watch-${layer}"`)).match(/class="ra-section"/g)??[]).length,1,"one geographic map for each forecast watch");
-  assert.doesNotMatch(html, /aria-label="เลือกข้อมูลบนแผนที่"|ov-local-readings|สรุประดับการติดตามจากพยากรณ์ทั้ง 3 เรื่อง/);
-  assert.ok(html.includes("ฝนสะสมตลอดวัน 00:00–24:00"));
-  assert.ok(html.includes("ค่าพยากรณ์ / ประมาณเชิงพื้นที่"));
-  assert.ok(html.includes("ระดับน้ำในคลองและแม่น้ำ"));
-  assert.ok(html.includes("ค่าตรวจวัดแต่ละเรื่องคงเวลาของต้นทาง"));
-  assert.ok(html.indexOf('id="outlook"') < html.indexOf('id="water-levels"'));
-  assert.ok(html.includes("ค่านี้ไม่ใช่ความลึกของน้ำท่วม"));
-  assert.match(html, /href="\/rain\?province=chao-phraya"/);
-  assert.ok(html.indexOf('id="important-events"') < html.indexOf('id="upstream-watch"'));
-  assert.ok(html.indexOf('id="water-levels"') < html.indexOf('id="upstream-watch"'));
-  assert.ok(html.includes("ติดตามต้นน้ำเจ้าพระยา"));
-  assert.ok(html.includes("ส่วนในลุ่มน้ำ"));
-  assert.doesNotMatch(html, /class="mf-panel"/);
+  for (const label of ["เจ้าพระยา", "ฝนและน้ำ", "สรุปทั่วไป", "ติดตามเชิงลึก", "ทั้งลุ่มเจ้าพระยา", "แผนที่และกราฟ", "แหล่งข้อมูล", "กำลังอ่านค่าตรวจวัดฝน น้ำ และอ่าง"]) assert.ok(html.includes(label), label);
+  for (const id of ["chao-phraya", "06", "07", "08", "09", "11", "12"]) assert.ok(html.includes(`value="${id}"`), id);
+  assert.match(html, /href="\/explore"/);
+  assert.match(html, /href="\/watchlist"/);
+  assert.match(html, /href="\/sources"/);
+  assert.doesNotMatch(html, /BKK AIR FORECAST · RAIN|ฝุ่น PM2\.5.*ความร้อน.*ฝน/);
+  assert.equal((html.match(/<h1[ >]/g) ?? []).length, 0, "loading state does not invent a live headline");
+});
+
+test("hydro routes serve deep, basin, station, watchlist, and source views", async () => {
+  const worker = await loadWorker();
+  for (const [path, label] of [["/explore", "ติดตามเชิงลึก"], ["/basins/06", "ปิง"], ["/stations/47", "ฝนและน้ำ"], ["/watchlist", "ที่ติดตาม"], ["/sources", "แหล่งข้อมูล"]]) {
+    const response = await worker.fetch(new Request(`http://localhost${path}`, { headers: { accept: "text/html" } }), environment, executionContext);
+    assert.equal(response.status, 200, path);
+    assert.ok((await response.text()).includes(label), path);
+  }
 });
 
 test("public road/locality catalog serves traceable geography without calling an upstream geocoder", async () => {
@@ -390,7 +344,7 @@ test("rain page provides a query-persisted 24-hour accumulation watch mode", asy
 
 test("rain page lets users switch the seven-day forecast between TMD and Open-Meteo", async () => {
   const dashboard = await readFile(new URL("../app/rain/rain-dashboard.tsx", import.meta.url), "utf8");
-  const route = await readFile(new URL("../app/api/rain-forecast/route.ts", import.meta.url), "utf8");
+  const route = await readFile(new URL("../app/api/rain-forecast/handler.ts", import.meta.url), "utf8");
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(dashboard, /แหล่งข้อมูล/);
   assert.match(dashboard, /selectForecastSource\("tmd"\)/);
@@ -409,7 +363,7 @@ test("rain page lets users switch the seven-day forecast between TMD and Open-Me
 
 test("heat page lets users switch between 48-hour TMD data and seven-day Open-Meteo", async () => {
   const dashboard = await readFile(new URL("../app/heat/heat-dashboard.tsx", import.meta.url), "utf8");
-  const route = await readFile(new URL("../app/api/heat-forecast/route.ts", import.meta.url), "utf8");
+  const route = await readFile(new URL("../app/api/heat-forecast/handler.ts", import.meta.url), "utf8");
   const provider = await readFile(new URL("../app/lib/heat-forecast-provider.ts", import.meta.url), "utf8");
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(dashboard, /แหล่งพยากรณ์ 7 วัน/);
@@ -482,7 +436,7 @@ test("metro boundary adapter uses the official DMR province layer", async () => 
 });
 
 test("TMD radar adapter uses RadarGIS with explicit freshness and cache contracts", async () => {
-  const route = await readFile(new URL("../app/api/tmd-radar/route.ts", import.meta.url), "utf8");
+  const route = await readFile(new URL("../app/api/tmd-radar/handler.ts", import.meta.url), "utf8");
   assert.match(route, /radargis\.tmd\.go\.th\/api\/overlays/);
   assert.match(route, /X-TMD-Radar-Status/);
   assert.match(route, /ageMinutes <= 30/);
@@ -492,7 +446,7 @@ test("TMD radar adapter uses RadarGIS with explicit freshness and cache contract
 });
 
 test("forecast adapter uses a documented wind-aware regional CAMS residual model", async () => {
-  const route = await readFile(new URL("../app/api/forecast/route.ts", import.meta.url), "utf8");
+  const route = await readFile(new URL("../app/api/forecast/handler.ts", import.meta.url), "utf8");
   const influenceDomain = await readFile(new URL("../app/lib/forecast/influence-domain.ts", import.meta.url), "utf8");
   const windAwareInterpolation = await readFile(new URL("../app/lib/forecast/wind-aware-interpolation.ts", import.meta.url), "utf8");
   const manual = await readFile(new URL("../docs/WIND_AWARE_REGIONAL_PM25_MANUAL_TH.md", import.meta.url), "utf8");
@@ -562,9 +516,9 @@ test("rain forecast API normalizes a real-provider browser fallback payload", as
 
 test("Cloudflare free architecture consolidates metro requests and normalizes cache keys", async () => {
   const worker = await readFile(new URL("../worker/index.ts", import.meta.url), "utf8");
-  const airRoute = await readFile(new URL("../app/api/forecast/route.ts", import.meta.url), "utf8");
-  const rainRoute = await readFile(new URL("../app/api/rain-forecast/route.ts", import.meta.url), "utf8");
-  const heatRoute = await readFile(new URL("../app/api/heat-forecast/route.ts", import.meta.url), "utf8");
+  const airRoute = await readFile(new URL("../app/api/forecast/handler.ts", import.meta.url), "utf8");
+  const rainRoute = await readFile(new URL("../app/api/rain-forecast/handler.ts", import.meta.url), "utf8");
+  const heatRoute = await readFile(new URL("../app/api/heat-forecast/handler.ts", import.meta.url), "utf8");
   const airDashboard = await readFile(new URL("../app/forecast-dashboard.tsx", import.meta.url), "utf8");
   const rainDashboard = await readFile(new URL("../app/rain/rain-dashboard.tsx", import.meta.url), "utf8");
   assert.match(worker, /caches\.default/);
@@ -585,7 +539,7 @@ test("Cloudflare free architecture consolidates metro requests and normalizes ca
 });
 
 test("rain adapter uses cached nine-point live Open-Meteo providers without fake fallback values", async () => {
-  const route = await readFile(new URL("../app/api/rain-forecast/route.ts", import.meta.url), "utf8");
+  const route = await readFile(new URL("../app/api/rain-forecast/handler.ts", import.meta.url), "utf8");
   const provider = await readFile(new URL("../app/lib/rain-forecast-provider.ts", import.meta.url), "utf8");
   const dashboard = await readFile(new URL("../app/rain/rain-dashboard.tsx", import.meta.url), "utf8");
   assert.match(provider, /api\.open-meteo\.com\/v1\/forecast/);

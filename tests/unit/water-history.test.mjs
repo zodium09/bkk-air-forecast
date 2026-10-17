@@ -5,11 +5,25 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { createFileHistoryStore, createD1HistoryStore } from '../../app/lib/water-history-store.ts';
 import { waterHistoryGeometry, waterHistorySummary } from '../../app/lib/water-history.ts';
-import { createWaterHistoryResponse } from '../../app/api/water-history/route.ts';
-import { createWaterLevelsResponse } from '../../app/api/water-levels/route.ts';
+import { createWaterHistoryResponse } from '../../app/lib/water-history-response.ts';
+import { watchedWaterChange } from '../../app/lib/hydro/watched-change.ts';
+import { createWaterLevelsResponse } from '../../app/api/water-levels/handler.ts';
 
 const now=Date.parse('2026-10-01T15:00:00Z');
 const station=(changes={})=>({id:'123',value:0,datum:'msl',observedAt:new Date(now).toISOString(),status:'fresh',...changes});
+test('followed station change requires a matching current archive reading and nearby previous observation',()=>{
+  const current=station({value:1.25});
+  const points=[{observedAt:new Date(now-30*60000).toISOString(),value:1.12},{observedAt:current.observedAt,value:1.25}];
+  assert.equal(Math.round(watchedWaterChange(current,points,now).changeCm),13);
+  assert.equal(watchedWaterChange(current,points,now).minutes,30);
+  assert.equal(watchedWaterChange(current,points.slice(0,1),now),null);
+  assert.equal(watchedWaterChange(current,[points[0],{...points[1],value:1.3}],now),null);
+  assert.equal(watchedWaterChange(current,points,now+2*3600000),null);
+  assert.equal(watchedWaterChange(station({value:1.25,status:'stale'}),points,now),null);
+  assert.equal(watchedWaterChange(current,[{...points[0],observedAt:new Date(now-3*3600000).toISOString()},points[1]],now),null);
+  assert.equal(watchedWaterChange(current,[points[0],{observedAt:new Date(now-60000).toISOString(),value:1.24},points[1]],now),null);
+  assert.equal(watchedWaterChange(current,[...points,{observedAt:new Date(now+60000).toISOString(),value:1.26}],now),null);
+});
 test('local archive survives a new store instance, deduplicates timestamps, retains negative/zero and separates datums',async()=>{
   const root=path.resolve('output/playwright'); await fs.mkdir(root,{recursive:true});
   const directory=await fs.mkdtemp(path.join(root,'history-test-'));
@@ -18,6 +32,8 @@ test('local archive survives a new store instance, deduplicates timestamps, reta
     await first.record([station(),station(),station({value:-.4,datum:'gauge'})],now);
     await first.record([station({value:-1.2,observedAt:new Date(now-300000).toISOString()}),station({value:null}),station({observedAt:new Date(now+3600000).toISOString()})],now);
     const reopened=createFileHistoryStore(directory);
+    await first.saveSnapshot('water',{stations:[{id:'123',value:0}]},new Date(now).toISOString());
+    assert.equal((await reopened.readSnapshot('water')).payload.stations[0].value,0);
     assert.deepEqual((await reopened.read('123','msl',now-3600000,now)).map(p=>p.value),[-1.2,0]);
     assert.deepEqual((await reopened.read('123','gauge',now-3600000,now)).map(p=>p.value),[-.4]);
     assert.equal((await fs.readFile(path.join(directory,'2026-10-01.ndjson'),'utf8')).trim().split('\n').length,3);
@@ -29,9 +45,12 @@ test('local archive survives a new store instance, deduplicates timestamps, reta
 test('D1 SQL archive upserts, sorts and prunes old samples using a real SQLite engine',async()=>{
   const sqlite=new DatabaseSync(':memory:');
   const prepare=(sql)=>{let values=[];const statement={bind(...v){values=v;return statement;},async all(){return{results:sqlite.prepare(sql).all(...values)};},run(){return sqlite.prepare(sql).run(...values);}};return statement;};
-  const db={async exec(sql){sqlite.exec(sql);},prepare,async batch(statements){for(const statement of statements)statement.run();}};
+  const db={async exec(){assert.fail('D1 request must not create tables');},prepare,async batch(statements){for(const statement of statements)statement.run();}};
   try{
+    for (const migration of ['0000_last_proemial_gods.sql','0001_productive_daredevil.sql']) sqlite.exec(await fs.readFile(`drizzle/${migration}`,'utf8'));
     const store=createD1HistoryStore(db);
+    await store.saveSnapshot('rain',{points:[{mm:0}]},new Date(now).toISOString());
+    assert.equal((await store.readSnapshot('rain')).payload.points[0].mm,0);
     await store.record([station(),station({value:-1,observedAt:new Date(now-300000).toISOString()})],now);
     await store.record([station({value:.05})],now);
     assert.deepEqual((await store.read('123','msl',now-3600000,now)).map(p=>p.value),[-1,.05]);

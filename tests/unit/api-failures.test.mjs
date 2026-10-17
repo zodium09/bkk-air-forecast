@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createForecastResponse, createMetroForecastResponse } from "../../app/api/forecast/route.ts";
-import { createMetroRainForecastResponse, createRainForecastResponse } from "../../app/api/rain-forecast/route.ts";
+import { createForecastResponse, createMetroForecastResponse } from "../../app/api/forecast/handler.ts";
+import { createMetroRainForecastResponse, createRainForecastResponse } from "../../app/api/rain-forecast/handler.ts";
 import { provinces, regionContains } from "../../app/lib/provinces.ts";
 
 const NOW = Date.UTC(2026, 7, 21, 3);

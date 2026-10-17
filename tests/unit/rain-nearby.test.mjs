@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { currentRadar,currentNearbyRain,normalizeNearbyRain,nearbyRainOutlook,rainDistanceKm } from "../../app/lib/rain-nearby.ts";
-import { createNearbyRainResponse } from "../../app/api/rain-nearby/route.ts";
-import { createTmdRadarResponse } from "../../app/api/tmd-radar/route.ts";
+import { createNearbyRainResponse } from "../../app/api/rain-nearby/handler.ts";
+import { createTmdRadarResponse } from "../../app/api/tmd-radar/handler.ts";
 import { rainPlaceSteps } from "../../app/lib/rain-place-forecast.ts";
 
 const now=Date.parse("2026-10-02T16:35:00Z");

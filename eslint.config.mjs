@@ -10,9 +10,14 @@ import tseslint from "typescript-eslint";
 const eslintConfig = defineConfig([
   globalIgnores([
     ".next/**",
-    "dist/**",
-    "out/**",
-    "build/**",
+    "**/dist/**",
+    "**/out/**",
+    "**/build/**",
+    "output/**",
+    "outputs/**",
+    ".vinext/**",
+    ".wrangler/**",
+    ".data/**",
     "next-env.d.ts",
     "public/maps/maplibre/**",
   ]),

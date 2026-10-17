@@ -1,6 +1,6 @@
 ---
-name: BKK Air Forecast
-description: A public environmental briefing for the Chao Phraya basin and Bangkok metropolitan region.
+name: เจ้าพระยา · ฝนและน้ำ (working name)
+description: A public rain and water monitoring workspace for the entire Chao Phraya basin, with summary and deep modes sharing one data model.
 colors:
   personal-blue: "#2859e9"
   personal-water: "#007969"
@@ -216,7 +216,13 @@ components:
     padding: "10px 20px"
 ---
 
-# Design System: BKK Air Forecast
+# Design System: เจ้าพระยา · ฝนและน้ำ
+
+## Current shell — October 15, 2026
+
+The current main route uses `app/components/hydro/hydro.css` and `HydroApp`. Its primary controls are the basin selector and the summary/deep mode switch. Both views use the same water and upstream payload, basin registry, freshness rule and status copy. On phones, scope, timestamp and the first evidence-backed numbers must appear before a long map or decorative hero. Deep mode places search/list next to the station map on desktop and stacks them on mobile; the station detail and history follow the selected item. Map failure must leave list and detail usable.
+
+Current tokens are `--hy-paper`, `--hy-surface`, `--hy-ink`, `--hy-muted`, `--hy-line`, `--hy-accent` and evidence-status accents, with light/dark variants. Color alone never carries status; station labels and times do. Thai body text starts at 16 px. Old `ov-*`, `bf-*` and BKK Air tokens below remain legacy route documentation; they are not the specification for the new shell. Working product name is not a final brand approval.
 
 ## October 1, 2026 briefing revision
 

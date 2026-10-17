@@ -10,8 +10,8 @@ export async function generateMetadata(): Promise<Metadata> {
   const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "localhost:5173";
   const protocol = requestHeaders.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
   const origin = `${protocol}://${host}`;
-  const title = "BKK Air Forecast — ฝน ฝุ่น และความร้อนเจ้าพระยา–กรุงเทพฯ";
-  const description = "ดูฝน ฝุ่น และความร้อน 7 วันในลุ่มน้ำเจ้าพระยาและกรุงเทพฯ–ปริมณฑล พร้อมค่าตรวจวัดน้ำและการติดตามต้นน้ำ 6 ลุ่มน้ำ";
+  const title = "เจ้าพระยา · ฝนและน้ำ — ติดตามทั้งลุ่มน้ำ";
+  const description = "ติดตามฝน ระดับน้ำ สถานี และอ่างเก็บน้ำในลุ่มเจ้าพระยา ปิง วัง ยม น่าน ป่าสัก และสะแกกรัง พร้อมเวลาและแหล่งข้อมูลที่ตรวจสอบได้";
 
   return {
     metadataBase: new URL(origin),
@@ -25,13 +25,11 @@ export async function generateMetadata(): Promise<Metadata> {
       title,
       description,
       type: "website",
-      images: [{ url: `${origin}/og-home.png`, width: 1733, height: 907, alt: "BKK Air Forecast for Bangkok metropolitan air quality and rain" }],
     },
     twitter: {
-      card: "summary_large_image",
+      card: "summary",
       title,
       description,
-      images: [`${origin}/og-home.png`],
     },
   };
 }

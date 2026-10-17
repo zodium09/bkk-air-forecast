@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { formatWaterValue, normalizeWaterLevels, waterBankDifference, waterRisk, waterStationsForArea } from '../../app/lib/water-levels.ts';
-import { createWaterLevelsResponse } from '../../app/api/water-levels/route.ts';
+import { createWaterLevelsResponse } from '../../app/api/water-levels/handler.ts';
 const now = Date.parse('2026-10-01T07:00:00Z');
 const row = (changes={}) => ({ waterlevel_datetime:'2026-10-01 13:50',waterlevel_msl:'1.67',waterlevel_m:null,station:{id:852087,tele_station_name:{th:'อโศก'},tele_station_lat:13.743286,tele_station_long:100.56218,min_bank:2},river_name:'คลองแสนแสบ',geocode:{province_code:'10',amphoe_name:{th:'วัฒนา'}},agency:{agency_name:{th:'สถาบันสารสนเทศทรัพยากรน้ำ'}},...changes });
 const feed = (rows) => ({waterlevel_data:{result:'OK',data:rows}});

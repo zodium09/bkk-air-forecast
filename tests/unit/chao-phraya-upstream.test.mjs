@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { normalizeUpstream, upstreamSummary } from "../../app/lib/chao-phraya-upstream.ts";
-import { createUpstreamResponse } from "../../app/api/chao-phraya-upstream/route.ts";
+import { createUpstreamResponse } from "../../app/api/chao-phraya-upstream/handler.ts";
 
 const now = Date.parse("2026-10-02T12:00:00+07:00");
 const station = { id: 1, tele_station_name: { th: "สถานีปิง" }, tele_station_lat: 17.241944, tele_station_long: 98.971456, min_bank: 100, ground_level: 90 };

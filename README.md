@@ -1,4 +1,10 @@
-# BKK Air Forecast
+# เจ้าพระยา · ฝนและน้ำ (working name)
+
+The current entry page is a rain-and-water monitoring tool for the Chao Phraya system, including Ping, Wang, Yom, Nan, Sakae Krang and Pasak. `/` is the short summary and `/explore` is the detailed station map/list/history. `/basins/[id]`, `/stations/[id]`, `/watchlist` and `/sources` continue that flow. Both modes use `/api/hydro`; measured water and station rain remain distinct from the forecast and radar tools on `/rain`. The older BKK Air pages under `/water`, `/air` and `/heat` remain available during migration. See [current content rules](docs/HYDRO_CONTENT_CONTRACT_2026_10_15_TH.md) and [release gates](docs/SOL_OVERHAUL_HANDOFF_2026_10_15_TH.md).
+
+The scheduled water collector now includes upstream basin stations as well as the former main-scope stations. `/api/hydro` stores a per-source last-known snapshot and rechecks its observation timestamps during an upstream outage. Before relying on durable history, provision and verify a real D1 `DB` binding, apply pending tracked schema migrations `0000` → `0001_productive_daredevil` in order, and run `scripts/backfill-water-revisions.sql` separately only if an existing database has observations. D1 tables are no longer created by requests. `/api/ingestion-health` reads collector runs without collecting data, and `/sources` distinguishes this health from feed freshness. Archive continuity still depends on a real scheduled trigger and durable D1 binding in the deployed Cloudflare runtime; the currently published Site's database overview has no binding. A local journal is only for local runs. Do not treat the experimental `apps/chao-phraya-lab` time-shift graph or `/surveillance` fixtures as a flood forecast or active warning service. See [T04 migration and rollback notes](docs/T04_DATA_FOUNDATION_2026_10_15_TH.md).
+
+## Legacy implementation notes
 
 BKK Air Forecast presents rain, PM2.5 and heat outlooks for the Chao Phraya basin plus the original six-province Bangkok metropolitan area. The 13 added provinces are clipped to the actual basin polygon. Independent upstream monitoring covers Ping, Wang, Yom, Nan, Sakae Krang and Pasak. See [the geographic and upstream data contract](docs/CHAO_PHRAYA_COVERAGE_TH.md). It is designed for planning and data exploration; it is not an official warning or health-advisory system.
 

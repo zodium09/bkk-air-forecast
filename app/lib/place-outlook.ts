@@ -56,7 +56,7 @@ export function placeReading(layer: EnvironmentLayer, metric: Metric, value: num
     const priority = value >= 80 ? 2 : value >= 60 ? 1 : 0;
     return {
       title: value >= 60 ? "เตรียมรับฝน" : value > 20 ? "อาจมีฝนเป็นบางช่วง" : "โอกาสฝนค่อนข้างน้อย",
-      description: `โอกาสเกิดฝนประมาณ ${amount}% ${daily ? "ในช่วงใดช่วงหนึ่งของวันที่เลือก" : "ในช่วงเวลาที่เลือก"}`,
+      description: daily ? `โอกาสฝนรายชั่วโมงสูงสุดของวันที่เลือกประมาณ ${amount}% ไม่ใช่โอกาสฝนตลอดวัน` : `โอกาสเกิดฝนประมาณ ${amount}% ในช่วงเวลาที่เลือก`,
       action: value >= 60 ? "เตรียมร่ม เผื่อเวลาเดินทาง และดูเรดาร์ก่อนออกจากบ้าน" : "ยังอาจมีฝนเฉพาะจุด ดูเรดาร์ก่อนเดินทาง",
       priority,
     };

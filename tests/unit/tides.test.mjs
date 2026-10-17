@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {readFile} from "node:fs/promises";
 import {tidePoints,tideTime,tideDateAfter,validTideDate,normalizeTideRain,tideWindows,tideDayExtremes,tideReference,tideStations,tideObservedEvidence} from "../../app/lib/tides.ts";
-import {createTideOutlookResponse} from "../../app/api/tide-outlook/route.ts";
+import {createTideOutlookResponse} from "../../app/api/tide-outlook/handler.ts";
 import {tideRainUrl,fetchTideRain} from "../../app/lib/tide-outlook-provider.ts";
 
 const table=JSON.parse(await readFile(new URL('../../app/data/tide-predictions-2026.json',import.meta.url),'utf8'));

@@ -32,6 +32,7 @@ const CACHEABLE_API_PATHS = new Set([
   "/api/forecast",
   "/api/rain-forecast",
   "/api/rain-places",
+  "/api/hydro",
   "/api/heat-forecast",
   "/api/tmd-radar",
   "/api/bangkok-boundary",

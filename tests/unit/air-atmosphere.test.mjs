@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { normalizeAtmosphere, meanWindDirection, coldWindSignal } from "../../app/lib/air-atmosphere.ts";
-import { atmosphereRequest, atmosphereCacheTtl, buildAtmosphereUrl, createAtmosphereResponse } from "../../app/api/air-atmosphere/route.ts";
+import { atmosphereRequest, atmosphereCacheTtl, buildAtmosphereUrl, createAtmosphereResponse } from "../../app/api/air-atmosphere/handler.ts";
 
 const now = Date.parse("2026-10-02T10:00:00+07:00");
 const point = { lat: 13.76, lng: 100.5 };

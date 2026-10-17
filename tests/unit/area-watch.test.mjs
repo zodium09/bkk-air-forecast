@@ -3,8 +3,9 @@ import test from 'node:test';
 import { normalizeWeather } from '../../app/lib/map-intelligence.ts';
 import { timelineIndices, nextTimelineIndex, indexForDate } from '../../app/lib/dashboard-controls.ts';
 import { buildAreaWatch, watchStepIndex } from '../../app/lib/area-watch.ts';
-import { createRainForecastResponse } from '../../app/api/rain-forecast/route.ts';
-import { createHeatForecastResponse } from '../../app/api/heat-forecast/route.ts';
+import { createRainForecastResponse } from '../../app/api/rain-forecast/handler.ts';
+import { createHeatForecastResponse } from '../../app/api/heat-forecast/handler.ts';
+import { placeReading } from '../../app/lib/place-outlook.ts';
 const date='2026-09-26';
 const payload={layer:'rain',status:'live',fetchedAt:date,model:'Test provider',sources:[],disclaimer:'',dataQuality:{},days:[{dateKey:date}],windows:[{dayIndex:0,windowIndex:2,start:'06:00',end:'09:00'}],points:[{id:'nonthaburi-1',label:'นนทบุรี · ตอนกลาง',lat:13.9,lng:100.4,daily:[{pointProbabilityMax:90,rainMm:80,maxHeatIndexC:40,maxTemperatureC:32}],windows:[{dayIndex:0,windowIndex:2,pointProbabilityPeak:90,rainMm:12,maxHeatIndexC:40,maxTemperatureC:32}],hourly:[{time:`${date}T06:00`,probability:0,rainMm:0,heatIndexC:35,temperatureC:29},{time:`${date}T07:00`,probability:null,rainMm:2,heatIndexC:null,temperatureC:30},{time:`${date}T08:00`,probability:90,rainMm:10,heatIndexC:44,temperatureC:34}]}]};
 test('hourly normalization preserves actual zeros and missing values, separate from daily and three-hour aggregates',()=>{
@@ -42,6 +43,13 @@ test('daily rainfall thresholds never classify hourly probability as heavy rainf
  assert.equal(buildAreaWatch(data,date)[0].title,'พยากรณ์ฝนสะสมสูง');
  assert.equal(buildAreaWatch(data,date)[0].unit,'mm / วัน');
  assert.equal(buildAreaWatch(data,date,8)[0].title,'โอกาสฝนสูง');
+});
+test('daily rain probability copy names the maximum hourly probability rather than a whole-day chance',()=>{
+ const daily={key:'2026-09-26:d',date:'2026-09-26',window:null,cadence:'day',label:'ทั้งวัน'};
+ const hourly={key:'2026-09-26:h08',date:'2026-09-26',window:2,cadence:'hour',label:'08:00'};
+ assert.match(placeReading('rain','primary',80,daily).description,/รายชั่วโมงสูงสุด/);
+ assert.match(placeReading('rain','primary',80,daily).description,/ไม่ใช่โอกาสฝนตลอดวัน/);
+ assert.doesNotMatch(placeReading('rain','primary',80,hourly).description,/รายชั่วโมงสูงสุดของวัน/);
 });
 test('rain-amount overview does not surface probability-only signals and retains actual heavy daily totals',()=>{
  const data=normalizeWeather(payload,'rain');

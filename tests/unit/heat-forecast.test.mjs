@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createHeatForecastResponse, createMetroHeatForecastResponse } from "../../app/api/heat-forecast/route.ts";
+import { createHeatForecastResponse, createMetroHeatForecastResponse } from "../../app/api/heat-forecast/handler.ts";
 import { calculateHeatIndexC, getHeatRisk } from "../../app/lib/heat-forecast-data.ts";
 import { getProvincePoints } from "../../app/lib/provinces.ts";
 

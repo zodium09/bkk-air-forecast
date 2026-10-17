@@ -5,7 +5,7 @@ import { DEFAULT_REGION_ID, chaoPhrayaBoundary, chaoPhrayaCoreBoundary, getProvi
 import { mapPlaceCatalog } from "../../app/lib/map-place-catalog.ts";
 import { regionPlaces } from "../../app/lib/map-places.ts";
 import { getMetroAnalysisTargets, getRegionalCamsPoints } from "../../app/lib/forecast/influence-domain.ts";
-import { atmosphereRequest } from "../../app/api/air-atmosphere/route.ts";
+import { atmosphereRequest } from "../../app/api/air-atmosphere/handler.ts";
 
 test("primary scope retains metro and adds only the 13 clipped provinces", () => {
   assert.equal(DEFAULT_REGION_ID, "chao-phraya");

@@ -62,7 +62,7 @@ export default function AroundYouBrief({ region, place, boundary, sources, air, 
   const unit = layer === "air" ? "µg/m³" : layer === "heat" ? "°C" : "มม.";
   const title = layer === "air" ? "แนวโน้มฝุ่น 7 วัน" : layer === "heat" ? step?.window === null ? "ความร้อนสูงสุดรายวัน" : "ความร้อนในแต่ละช่วงเวลา" : step?.window === null ? "ฝนสะสมในแต่ละวัน" : "ฝนจะมาเมื่อไร";
   return <section className="ay-brief" id="around-you" tabIndex={-1} aria-labelledby="around-you-title">
-    <div className="ay-heading"><div><span className="ay-eyebrow">รู้รอบพื้นที่ ก่อนออกจากบ้าน</span><h2 id="around-you-title">สี่เรื่องรอบตัวคุณ</h2><p>{place ? `จุดอ้างอิง ${place.road || place.district}` : `${getRegion(region).shortNameTh} · เลือกพื้นที่เพื่อดูใกล้ตัว`}</p></div><span className="ay-current-label"><MapIcon name="clock" size={17}/>สรุปตามเวลาปัจจุบัน</span></div>
+    <div className="ay-heading"><div><span className="ay-eyebrow">รู้รอบพื้นที่ ก่อนออกจากบ้าน</span><h2 id="around-you-title">สี่เรื่องรอบตัวคุณ</h2><p>{place ? `จุดอ้างอิง ${place.road || place.district}` : `${getRegion(region).shortNameTh} · เลือกพื้นที่เพื่อดูใกล้ตัว`}</p></div><span className="ay-current-label"><MapIcon name="clock" size={17}/>{following ? "ค่าล่าสุดและพยากรณ์ช่วงปัจจุบัน" : "ค่าตรวจวัดล่าสุด · กราฟตามเวลาที่เลือก"}</span></div>
     <div className="ay-topics" role="group" aria-label="เลือกเรื่องในสรุปรอบตัว">{topics.map(item => {
       const card = cards[item.id];
       return <button key={item.id} className={`ay-topic ay-${item.id}`} aria-pressed={topic === item.id} aria-controls="around-you-trend" onClick={() => { setTopic(item.id); requestAnimationFrame(() => goToStory("around-you-trend")); }}>

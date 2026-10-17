@@ -1,5 +1,6 @@
 import { regionContains, provinces, type ProvinceId, type RegionId } from "./provinces.ts";
 import { observationAge } from "./observation-time.ts";
+import { canonicalBasinForStation } from "./hydro/station-registry.ts";
 
 export const WATER_SOURCE_PAGE = "https://www.thaiwater.net/water";
 export const WATER_SOURCE_API = "https://api-v3.thaiwater.net/api/v1/thaiwater30/public/waterlevel_load";
@@ -35,6 +36,15 @@ function localTime(value: unknown) {
 
 /** Station measurements remain at their source coordinates and source datum. Never interpolate them. */
 export function normalizeWaterLevels(raw: unknown, now = Date.now()): WaterPayload {
+  return normalizeWaterFeed(raw, now, false);
+}
+
+/** Basin product: accept covered stations even when the legacy province menu has no entry. */
+export function normalizeHydroWaterLevels(raw: unknown, now = Date.now()): WaterPayload {
+  return normalizeWaterFeed(raw, now, true);
+}
+
+function normalizeWaterFeed(raw: unknown, now: number, basinScope: boolean): WaterPayload {
   const feed = object(object(raw).waterlevel_data);
   const rows = feed.result === "OK" && Array.isArray(feed.data) ? feed.data : [];
   const unique = new Map<string, WaterStation>();
@@ -43,8 +53,8 @@ export function normalizeWaterLevels(raw: unknown, now = Date.now()): WaterPaylo
     const province = provinces.find((province) => province.code === String(geocode.province_code));
     const lat = number(station.tele_station_lat), lng = number(station.tele_station_long);
     const name = thai(station.tele_station_name), id = typeof station.id === "number" || typeof station.id === "string" ? String(station.id) : "";
-    if (!province || !id || !name || lat === null || lng === null || lat < 5 || lat > 21 || lng < 97 || lng > 106) continue;
-    if (province.scopeNote && !regionContains(province.id, lat, lng, province.id)) continue;
+    if (!id || !name || lat === null || lng === null || lat < 5 || lat > 21 || lng < 97 || lng > 106) continue;
+    if (basinScope ? !canonicalBasinForStation({lat,lng}) : !province || province.scopeNote && !regionContains(province.id, lat, lng, province.id)) continue;
     const observed = localTime(row.waterlevel_datetime);
     const validTime = observed !== null && observed <= now + 5 * 60000;
     const ageMinutes = validTime ? Math.max(0, Math.floor((now - observed!) / 60000)) : null;
@@ -55,7 +65,7 @@ export function normalizeWaterLevels(raw: unknown, now = Date.now()): WaterPaylo
     const waterway = thai(row.river_name);
     const record: WaterStation = {
       id, name, waterway: waterway || "ต้นทางไม่ระบุชื่อทางน้ำ", kind: waterway.startsWith("แม่น้ำ") ? "river" : waterway.startsWith("คลอง") ? "canal" : "other",
-      provinceId: province.id, province: province.nameTh, district: thai(geocode.amphoe_name), lat, lng,
+      provinceId: province?.id ?? String(geocode.province_code ?? ""), province: province?.nameTh ?? (thai(geocode.province_name) || "ต้นทางไม่ระบุจังหวัด"), district: thai(geocode.amphoe_name), lat, lng,
       value, datum, bank: datum === "msl" ? number(station.min_bank) : null,
       capacityPercent: value !== null ? number(row.storage_percent) : null,
       ground: datum === "msl" ? number(station.ground_level) : null,

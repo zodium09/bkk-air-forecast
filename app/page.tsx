@@ -1,5 +1,5 @@
-import EnvironmentOverview from "./components/intelligence/environment-overview";
+import HydroApp from "./components/hydro/hydro-app";
 
 export default function Home() {
-  return <EnvironmentOverview />;
+  return <HydroApp />;
 }
