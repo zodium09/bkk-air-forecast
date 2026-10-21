@@ -842,6 +842,110 @@
   flex: none;
 }
 
+.fs-live-alert-section {
+  padding: 18px 20px;
+  border-radius: 22px;
+  background: var(--fs-card);
+  backdrop-filter: blur(18px);
+  border: 1.5px solid var(--fs-line);
+  box-shadow: var(--fs-shadow);
+  display: grid;
+  gap: 14px;
+}
+.fs-live-alert-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.fs-live-risk-pill {
+  padding: 5px 14px;
+  border-radius: 99px;
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 800;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
+}
+.fs-live-radar-pill {
+  padding: 5px 13px;
+  border-radius: 99px;
+  background: #0f172a;
+  color: #fde047;
+  font-size: 12px;
+  font-weight: 700;
+}
+.fs-live-coord-pill {
+  padding: 5px 12px;
+  border-radius: 99px;
+  background: var(--fs-card-solid);
+  border: 1px solid var(--fs-line);
+  color: var(--fs-primary);
+  font: 700 12px "Manrope", sans-serif;
+}
+.fs-live-radar-desc {
+  padding: 11px 14px;
+  border-radius: 13px;
+  background: var(--fs-card-solid);
+  border: 1px solid var(--fs-line);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+.fs-schedule-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.fs-schedule-card {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--fs-card-solid);
+  border: 1px solid var(--fs-line);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.fs-schedule-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+.fs-schedule-head strong {
+  font-size: 12.5px;
+}
+.fs-schedule-head span {
+  padding: 2px 8px;
+  border-radius: 99px;
+  color: #ffffff;
+  font-size: 10.5px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.fs-schedule-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--fs-primary);
+}
+.fs-schedule-body p {
+  font-size: 12px;
+  line-height: 1.48;
+  margin: 2px 0;
+}
+.fs-schedule-advice {
+  margin-top: auto;
+  padding-top: 6px;
+  border-top: 1px dashed var(--fs-line);
+  font-size: 11.5px;
+  color: var(--fs-muted);
+  line-height: 1.45;
+}
+
+@media (max-width: 1080px) {
+  .fs-schedule-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
 @media (max-width: 980px) {
   .fs-topic-bar {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -852,5 +956,10 @@
   }
   .fs-hourly-bars {
     grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .fs-schedule-grid {
+    grid-template-columns: 1fr;
   }
 }

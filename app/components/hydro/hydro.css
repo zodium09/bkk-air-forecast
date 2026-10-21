@@ -1362,13 +1362,122 @@ html[data-theme="dark"] .hy-confluence-pill {
   margin-top:6px;
 }
 
+.hy-qgis-live-alert-banner {
+  margin-bottom:14px;
+  padding:16px 18px;
+  border-radius:16px;
+  background:linear-gradient(135deg, rgba(2,132,199,0.08), rgba(16,185,129,0.08));
+  border:1.5px solid var(--hy-line);
+  display:grid;
+  gap:14px;
+}
+.hy-qgis-now-status h3 {
+  font-size:15.5px;
+  margin:8px 0 6px;
+  color:var(--hy-ink);
+}
+.hy-qgis-now-status code {
+  padding:2px 6px;
+  border-radius:6px;
+  background:var(--hy-surface);
+  border:1px solid var(--hy-line);
+  font-size:12px;
+  color:var(--hy-blue);
+}
+.hy-qgis-now-badge-row {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  align-items:center;
+}
+.hy-qgis-now-pill {
+  padding:4px 12px;
+  border-radius:99px;
+  color:#fff;
+  font-size:12px;
+  font-weight:800;
+  box-shadow:0 4px 12px rgba(0,0,0,0.12);
+}
+.hy-qgis-radar-pill {
+  padding:4px 12px;
+  border-radius:99px;
+  background:#0f172a;
+  color:#fde047;
+  font-size:12px;
+  font-weight:700;
+}
+.hy-qgis-radar-summary {
+  margin:0;
+  font-size:13px;
+  line-height:1.6;
+  color:var(--hy-ink);
+  padding:10px 12px;
+  border-radius:10px;
+  background:var(--hy-surface);
+  border:1px solid var(--hy-line);
+}
+.hy-qgis-schedule-grid {
+  display:grid;
+  grid-template-columns:repeat(4, minmax(0, 1fr));
+  gap:10px;
+}
+.hy-qgis-schedule-card {
+  padding:12px 13px;
+  border-radius:12px;
+  background:var(--hy-surface);
+  border:1px solid var(--hy-line);
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+}
+.hy-qgis-schedule-head {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:6px;
+}
+.hy-qgis-schedule-head strong {
+  font-size:12.5px;
+  color:var(--hy-ink);
+}
+.hy-qgis-schedule-head span {
+  padding:2px 7px;
+  border-radius:99px;
+  color:#fff;
+  font-size:10.5px;
+  font-weight:800;
+  white-space:nowrap;
+}
+.hy-qgis-schedule-tag {
+  font-size:11px;
+  font-weight:700;
+  color:var(--hy-blue);
+}
+.hy-qgis-schedule-metrics p {
+  margin:3px 0;
+  font-size:12px;
+  line-height:1.5;
+  color:var(--hy-ink);
+}
+.hy-qgis-schedule-action {
+  margin:auto 0 0;
+  padding-top:6px;
+  border-top:1px dashed var(--hy-line);
+  font-size:11.5px;
+  color:var(--hy-muted);
+  line-height:1.45;
+}
+
+@media(max-width:1080px) {
+  .hy-qgis-schedule-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+}
 @media(max-width:960px) {
   .hy-qgis-sheet { grid-template-columns:1fr; }
+}
+@media(max-width:640px) {
+  .hy-qgis-schedule-grid { grid-template-columns:1fr; }
 }
 
 @media(prefers-reduced-motion:reduce) {
   .hy-app *,.hy-flow-path,.hy-stream-line,.hy-anim-wave-front,.hy-anim-wave-back,.hy-dam-wave,.hy-qgis-ring,.ra-marker-pulse { scroll-behavior:auto!important; animation:none!important; transition-duration:.01ms!important; }
 }
-
-
-
