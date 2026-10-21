@@ -1,4 +1,15 @@
-# เจ้าพระยา · ฝนและน้ำ (working name)
+# 🌊 สายน้ำเจ้าพระยา (ChaoPhraya Flow) & 🌤️ ฟ้าใส (FahSai Weather & Sea)
+
+ระบบเว็บแอปพลิเคชันแยก 2 แอปชัดเจน พร้อมแผนที่ภาพถ่ายดาวเทียมตรึงพิกัดจริง (`EPSG:4326`) สไตล์ **QGIS Print Composer**, เกณฑ์แบ่งสีความเสี่ยง **5 ระดับ**, การเช็ก **เรดาร์และทิศทางฝน–ลม**, และการแจ้งเตือน **รายช่วงเวลาพร้อมปริมาณชัดเจน** (อ่านรายละเอียดฉบับเต็มได้ที่ [docs/DUAL_APPS_QGIS_AND_LINKS_TH.md](docs/DUAL_APPS_QGIS_AND_LINKS_TH.md)):
+
+| แอปพลิเคชัน | ขอบเขตและฟีเจอร์หลัก | ลิงก์เว็บจริง (Vercel Production) | ลิงก์เครื่อง Local Dev |
+| :--- | :--- | :--- | :--- |
+| **1. 🌊 สายน้ำเจ้าพระยา (ChaoPhraya Flow)** | ติดตามเส้นทางน้ำ 7 ลุ่มน้ำ (ปิง, วัง, ยม, น่าน, สะแกกรัง, ป่าสัก, เจ้าพระยา), ระดับน้ำเทียบตลิ่ง, ฝนสะสม 24 ชม. ในลุ่มน้ำ, น้ำในเขื่อนหลัก และแผนที่ดาวเทียม QGIS (`BBox 98.40°E–101.60°E, 13.30°N–19.30°N`) | **[https://bkkplus-airforecast.vercel.app/](https://bkkplus-airforecast.vercel.app/)** | `http://localhost:3000` |
+| **2. 🌤️ ฟ้าใส (FahSai Weather & Sea)** | พยากรณ์อากาศ 5 หมวด (🌧️ ฝน, 😷 ฝุ่น PM2.5, ☀️ ความร้อน/UV, 🍃 ลมหนาว, 🌊 น้ำทะเล/คลื่นอ่าวไทย) สำหรับ กทม., ปริมณฑล และชายฝั่งอ่าวไทยตอนบน 10 จังหวัด (`BBox 99.75°E–101.25°E, 12.90°N–14.15°N`) | **[https://bkkplus-airforecast.vercel.app/fahsai](https://bkkplus-airforecast.vercel.app/fahsai)** | `http://localhost:3001` หรือ `http://localhost:3000/fahsai` |
+
+---
+
+## โครงสร้างระบบและการทำงานหลัก
 
 The current entry page is a rain-and-water monitoring tool for the Chao Phraya system, including Ping, Wang, Yom, Nan, Sakae Krang and Pasak. `/` is the short summary and `/explore` is the detailed station map/list/history. `/basins/[id]`, `/stations/[id]`, `/watchlist` and `/sources` continue that flow. Both modes use `/api/hydro`; measured water and station rain remain distinct from the forecast and radar tools on `/rain`. The older BKK Air pages under `/water`, `/air` and `/heat` remain available during migration. See [current content rules](docs/HYDRO_CONTENT_CONTRACT_2026_10_15_TH.md) and [release gates](docs/SOL_OVERHAUL_HANDOFF_2026_10_15_TH.md).
 
