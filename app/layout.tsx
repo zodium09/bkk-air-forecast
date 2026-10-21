@@ -10,8 +10,8 @@ export async function generateMetadata(): Promise<Metadata> {
   const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "localhost:5173";
   const protocol = requestHeaders.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
   const origin = `${protocol}://${host}`;
-  const title = "เจ้าพระยา · ฝนและน้ำ — ติดตามทั้งลุ่มน้ำ";
-  const description = "ติดตามฝน ระดับน้ำ สถานี และอ่างเก็บน้ำในลุ่มเจ้าพระยา ปิง วัง ยม น่าน ป่าสัก และสะแกกรัง พร้อมเวลาและแหล่งข้อมูลที่ตรวจสอบได้";
+  const title = "สายน้ำเจ้าพระยา (ChaoPhraya Flow) · ฝนและน้ำทั้ง 7 ลุ่มน้ำ";
+  const description = "แอปติดตามเส้นทางสายน้ำเจ้าพระยา ปิง วัง ยม น่าน ป่าสัก และสะแกกรัง รูปแบบสีสันสดใส เข้าใจง่าย พร้อมอนิเมชันการไหลของน้ำ เขื่อน และระดับตลิ่ง";
 
   return {
     metadataBase: new URL(origin),
