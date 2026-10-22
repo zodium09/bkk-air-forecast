@@ -10,6 +10,8 @@ import {
 } from "../../lib/fahsai-data";
 import "./fahsai.css";
 
+type TwinCameraMode = "iso" | "atmosphere" | "coastal" | "top";
+
 const TOPICS: {
   id: TopicId;
   icon: string;
@@ -150,23 +152,31 @@ export function classifyAreaRisk(area: AreaForecast, topic: TopicId): 1 | 2 | 3 
   return 1;
 }
 
-// Exact EPSG:4326 Bounding Box for Bangkok, Vicinity & Upper Gulf of Thailand locked to SVG frame (16..504, 16..324)
+/**
+ * 100% Aspect-Ratio-Locked EPSG:4326 Bounding Box for Bangkok, Vicinity & Upper Gulf of Thailand:
+ * - dLng = 101.45 - 99.65 = 1.80°
+ * - dLat = 14.05 - 12.85 = 1.20°
+ * - Ratio dLng : dLat = 1.80 : 1.20 = 3 : 2
+ * - FAHSAI_FRAME width : height = 480 : 320 = 3 : 2
+ * - ArcGIS export size = 900,600 = 3 : 2
+ * Zero distortion, 0.0000° bbox expansion!
+ */
 const FAHSAI_FRAME = {
-  x: 16,
+  x: 20,
   y: 16,
-  width: 488,
-  height: 308,
+  width: 480,
+  height: 320,
 };
 
 const FAHSAI_BBOX = {
-  minLng: 99.75,
-  maxLng: 101.25,
-  minLat: 12.90,
-  maxLat: 14.15,
+  minLng: 99.65,
+  maxLng: 101.45,
+  minLat: 12.85,
+  maxLat: 14.05,
 };
 
-const FAHSAI_SAT_URL = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${FAHSAI_BBOX.minLng},${FAHSAI_BBOX.minLat},${FAHSAI_BBOX.maxLng},${FAHSAI_BBOX.maxLat}&bboxSR=4326&imageSR=4326&size=976,616&format=jpg&f=image`;
-const FAHSAI_TOPO_URL = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/export?bbox=${FAHSAI_BBOX.minLng},${FAHSAI_BBOX.minLat},${FAHSAI_BBOX.maxLng},${FAHSAI_BBOX.maxLat}&bboxSR=4326&imageSR=4326&size=976,616&format=jpg&f=image`;
+const FAHSAI_SAT_URL = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${FAHSAI_BBOX.minLng},${FAHSAI_BBOX.minLat},${FAHSAI_BBOX.maxLng},${FAHSAI_BBOX.maxLat}&bboxSR=4326&imageSR=4326&size=900,600&format=jpg&f=image`;
+const FAHSAI_TOPO_URL = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/export?bbox=${FAHSAI_BBOX.minLng},${FAHSAI_BBOX.minLat},${FAHSAI_BBOX.maxLng},${FAHSAI_BBOX.maxLat}&bboxSR=4326&imageSR=4326&size=900,600&format=jpg&f=image`;
 
 export function projectFahSaiGeo(lat: number, lng: number): { x: number; y: number } {
   const xRatio = (lng - FAHSAI_BBOX.minLng) / (FAHSAI_BBOX.maxLng - FAHSAI_BBOX.minLng);
@@ -174,8 +184,8 @@ export function projectFahSaiGeo(lat: number, lng: number): { x: number; y: numb
   const x = FAHSAI_FRAME.x + xRatio * FAHSAI_FRAME.width;
   const y = FAHSAI_FRAME.y + FAHSAI_FRAME.height - yRatio * FAHSAI_FRAME.height;
   return {
-    x: Math.max(FAHSAI_FRAME.x + 12, Math.min(FAHSAI_FRAME.x + FAHSAI_FRAME.width - 12, x)),
-    y: Math.max(FAHSAI_FRAME.y + 12, Math.min(FAHSAI_FRAME.y + FAHSAI_FRAME.height - 12, y)),
+    x: Math.max(FAHSAI_FRAME.x + 8, Math.min(FAHSAI_FRAME.x + FAHSAI_FRAME.width - 8, x)),
+    y: Math.max(FAHSAI_FRAME.y + 8, Math.min(FAHSAI_FRAME.y + FAHSAI_FRAME.height - 8, y)),
   };
 }
 
@@ -197,33 +207,33 @@ function formatDms(deg: number, isLat: boolean): string {
 
 // Calibrated non-overlapping cartographic label offsets (dx, dy from exact WGS84 pin) for all 10 provinces
 const AREA_LABEL_OFFSETS: Record<string, { dx: number; dy: number; shortName: string }> = {
-  "pathum-thani": { dx: 42, dy: -16, shortName: "ปทุมธานี" },
-  nonthaburi: { dx: -52, dy: -18, shortName: "นนทบุรี" },
-  bangkok: { dx: 54, dy: -4, shortName: "กรุงเทพฯ" },
-  "nakhon-pathom": { dx: -44, dy: -16, shortName: "นครปฐม" },
-  chachoengsao: { dx: 38, dy: -16, shortName: "ฉะเชิงเทรา" },
-  "samut-prakan": { dx: 52, dy: 22, shortName: "สมุทรปราการ" },
-  "samut-sakhon": { dx: -50, dy: 22, shortName: "สมุทรสาคร" },
-  "samut-songkhram": { dx: -48, dy: 18, shortName: "สมุทรสงคราม" },
-  chonburi: { dx: -52, dy: -12, shortName: "ชลบุรี·พัทยา" },
-  phetchaburi: { dx: 52, dy: -10, shortName: "เพชรบุรี·ชะอำ" },
+  "pathum-thani": { dx: 48, dy: -16, shortName: "ปทุมธานี" },
+  nonthaburi: { dx: -56, dy: -18, shortName: "นนทบุรี" },
+  bangkok: { dx: 58, dy: -2, shortName: "กรุงเทพฯ" },
+  "nakhon-pathom": { dx: -48, dy: -16, shortName: "นครปฐม" },
+  chachoengsao: { dx: 42, dy: -16, shortName: "ฉะเชิงเทรา" },
+  "samut-prakan": { dx: 56, dy: 24, shortName: "สมุทรปราการ" },
+  "samut-sakhon": { dx: -54, dy: 22, shortName: "สมุทรสาคร" },
+  "samut-songkhram": { dx: -52, dy: 20, shortName: "สมุทรสงคราม" },
+  chonburi: { dx: -54, dy: -12, shortName: "ชลบุรี·พัทยา" },
+  phetchaburi: { dx: 54, dy: -8, shortName: "เพชรบุรี·ชะอำ" },
 };
 
 // Real WGS84 Coastline of the Upper Gulf of Thailand
 const UPPER_GULF_COASTLINE_WGS84: [number, number][] = [
-  [12.90, 99.98],
+  [12.85, 99.98],
   [13.11, 100.01],
   [13.28, 99.98],
   [13.40, 100.00],
   [13.48, 100.15],
   [13.52, 100.28],
   [13.58, 100.45],
-  [13.59, 100.60],
+  [13.595, 100.597],
   [13.52, 100.78],
   [13.47, 100.98],
   [13.36, 100.97],
   [13.15, 100.91],
-  [12.92, 100.88],
+  [12.88, 100.88],
 ];
 
 // Real WGS84 4 Major River Estuaries flowing into the Upper Gulf
@@ -234,7 +244,7 @@ const ESTUARY_RIVERS_WGS84: { id: string; name: string; labelLat: number; labelL
     labelLat: 13.68,
     labelLng: 99.86,
     coords: [
-      [14.05, 99.78],
+      [14.04, 99.78],
       [13.80, 99.88],
       [13.56, 99.95],
       [13.40, 100.00],
@@ -243,10 +253,10 @@ const ESTUARY_RIVERS_WGS84: { id: string; name: string; labelLat: number; labelL
   {
     id: "tha-chin",
     name: "แม่น้ำท่าจีน",
-    labelLat: 13.98,
+    labelLat: 13.96,
     labelLng: 100.15,
     coords: [
-      [14.15, 100.12],
+      [14.04, 100.12],
       [13.82, 100.19],
       [13.65, 100.24],
       [13.52, 100.28],
@@ -255,24 +265,24 @@ const ESTUARY_RIVERS_WGS84: { id: string; name: string; labelLat: number; labelL
   {
     id: "chao-phraya",
     name: "แม่น้ำเจ้าพระยา",
-    labelLat: 14.08,
+    labelLat: 14.02,
     labelLng: 100.53,
     coords: [
-      [14.15, 100.54],
-      [14.02, 100.53],
+      [14.04, 100.54],
+      [13.95, 100.52],
       [13.86, 100.51],
       [13.75, 100.50],
       [13.66, 100.54],
-      [13.59, 100.60],
+      [13.595, 100.597],
     ],
   },
   {
     id: "bang-pakong",
     name: "แม่น้ำบางปะกง",
-    labelLat: 13.92,
+    labelLat: 13.88,
     labelLng: 101.13,
     coords: [
-      [14.05, 101.18],
+      [14.02, 101.18],
       [13.85, 101.15],
       [13.69, 101.08],
       [13.47, 100.98],
@@ -518,9 +528,17 @@ export default function FahSaiApp() {
   const [showRadarWind, setShowRadarWind] = useState<boolean>(true);
   const [showBuffer, setShowBuffer] = useState<boolean>(true);
   const [showGrid, setShowGrid] = useState<boolean>(true);
-  const [hourIdx, setHourIdx] = useState<number>(15);
+  const [hourIdx, setHourIdx] = useState<number>(12);
   const [dark, setDark] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+
+  // 3D Digital Twin camera state & live clock
+  const [twinCamera, setTwinCamera] = useState<TwinCameraMode>("iso");
+  const [twinAutoRotate, setTwinAutoRotate] = useState<boolean>(false);
+  const [nowClockText, setNowClockText] = useState<string>(() => {
+    const d = new Date();
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  });
 
   const loadData = async () => {
     setRefreshing(true);
@@ -538,11 +556,20 @@ export default function FahSaiApp() {
   };
 
   useEffect(() => {
+    const updateClock = () => {
+      const d = new Date();
+      setNowClockText(`${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`);
+    };
     const timer = window.setTimeout(() => {
       setHourIdx(new Date().getHours());
+      updateClock();
       void loadData();
     }, 0);
-    return () => window.clearTimeout(timer);
+    const interval = window.setInterval(updateClock, 30000);
+    return () => {
+      window.clearTimeout(timer);
+      window.clearInterval(interval);
+    };
   }, []);
 
   const filteredAreas = useMemo(
@@ -586,20 +613,31 @@ export default function FahSaiApp() {
       const startH = (nowH + startOffset) % 24;
       const endH = (nowH + startOffset + len) % 24;
       const slots = Array.from({ length: len }, (_, k) => activeArea.hourly[(nowH + startOffset + k) % 24]).filter(Boolean);
-      const maxRainProb = slots.length ? Math.max(...slots.map(s => s.rainProb)) : c.rainProb;
+
+      // For startOffset === 0 ("ตอนนี้ – 1 ชม."), synchronize directly with current live readings so risk tier is 100% consistent!
+      const isNowSlot = startOffset === 0;
+      const maxRainProb = isNowSlot
+        ? c.rainProb
+        : slots.length
+          ? Math.max(...slots.map(s => s.rainProb))
+          : c.rainProb;
       const sumRainMm = Number(
         (
-          slots.reduce((acc, s) => acc + (s.rainProb >= 35 ? (s.rainProb / 100) * 4.2 : (s.rainProb / 100) * 1.1), 0)
+          isNowSlot
+            ? Math.max(rainRateMmHr * 0.6, (c.rainProb / 100) * 3.5)
+            : slots.reduce((acc, s) => acc + (s.rainProb >= 35 ? (s.rainProb / 100) * 4.2 : (s.rainProb / 100) * 1.1), 0)
         ).toFixed(1)
       );
-      const maxFeels = slots.length ? Math.max(...slots.map(s => s.feelsLikeC)) : c.feelsLikeC;
-      const minTemp = slots.length ? Math.min(...slots.map(s => s.tempC)) : c.minMorningC;
-      const maxPm25 = slots.length ? Math.max(...slots.map(s => s.pm25)) : c.pm25;
-      const maxWind = slots.length ? Math.max(...slots.map(s => s.windKmh)) : c.windKmh;
-      const maxTide = slots.length ? Math.max(...slots.map(s => s.tideMsl)) : c.highTideMsl;
+      const maxFeels = isNowSlot ? c.feelsLikeC : slots.length ? Math.max(...slots.map(s => s.feelsLikeC)) : c.feelsLikeC;
+      const minTemp = isNowSlot ? c.minMorningC : slots.length ? Math.min(...slots.map(s => s.tempC)) : c.minMorningC;
+      const maxPm25 = isNowSlot ? c.pm25 : slots.length ? Math.max(...slots.map(s => s.pm25)) : c.pm25;
+      const maxWind = isNowSlot ? c.windKmh : slots.length ? Math.max(...slots.map(s => s.windKmh)) : c.windKmh;
+      const maxTide = isNowSlot ? c.tideMsl : slots.length ? Math.max(...slots.map(s => s.tideMsl)) : c.highTideMsl;
 
       let slotTier: 1 | 2 | 3 | 4 | 5 = activeTier;
-      if (topic === "rain") {
+      if (isNowSlot) {
+        slotTier = activeTier;
+      } else if (topic === "rain") {
         slotTier = maxRainProb > 75 || sumRainMm > 20 ? 5 : maxRainProb >= 55 ? 4 : maxRainProb >= 35 ? 3 : maxRainProb >= 15 ? 2 : 1;
       } else if (topic === "air") {
         slotTier = maxPm25 > 75 ? 5 : maxPm25 > 37.5 ? 4 : maxPm25 > 25 ? 3 : maxPm25 > 15 ? 2 : 1;
@@ -614,7 +652,9 @@ export default function FahSaiApp() {
       const slotColor = bands.find(b => b.tier === slotTier)?.color ?? activeTierColor;
 
       return {
-        windowText: `${title} (${String(startH).padStart(2, "0")}:00–${String(endH).padStart(2, "0")}:00 น.)`,
+        windowText: isNowSlot
+          ? `${title} (ณ เวลา ${nowClockText} น.)`
+          : `${title} (${String(startH).padStart(2, "0")}:00–${String(endH).padStart(2, "0")}:00 น.)`,
         tag,
         tier: slotTier,
         color: slotColor,
@@ -638,13 +678,13 @@ export default function FahSaiApp() {
       etaMin,
       moveDirText,
       slots: [
-        sliceWindow(0, 1, "ตอนนี้ – 1 ชม.", "ความเสี่ยงตอนนี้"),
+        sliceWindow(0, 1, "ตอนนี้ – 1 ชม.", "ความเสี่ยง ณ เวลาปัจจุบัน"),
         sliceWindow(1, 3, "1–3 ชม. ข้างหน้า", "แจ้งเตือนระยะประชิด"),
-        sliceWindow(3, 6, "3–6 ชม. ข้างหน้า", "แนวโน้มช่วงเย็น–ค่ำ"),
-        sliceWindow(6, 12, "6–12 ชม. ข้างหน้า", "แนวโน้มกลางคืน–เช้ามืด"),
+        sliceWindow(3, 6, "3–6 ชม. ข้างหน้า", "แนวโน้มช่วงถัดไป"),
+        sliceWindow(6, 12, "6–12 ชม. ข้างหน้า", "แนวโน้มล่วงหน้า 12 ชม."),
       ],
     };
-  }, [activeArea, activeTier, activeTierColor, bands, topic]);
+  }, [activeArea, activeTier, activeTierColor, bands, topic, nowClockText]);
 
   // Build SVG path for the 24-hour animated curve chart
   const hourlyCurve = useMemo(() => {
@@ -698,7 +738,7 @@ export default function FahSaiApp() {
   }, [activeArea.hourly, topic]);
 
   const graticuleLats = [13.0, 13.3, 13.6, 13.9];
-  const graticuleLngs = [100.0, 100.4, 100.8, 101.1];
+  const graticuleLngs = [99.8, 100.2, 100.6, 101.0, 101.3];
 
   return (
     <div className={`fs-app theme-${topic} ${dark ? "is-dark" : ""}`}>
@@ -764,7 +804,7 @@ export default function FahSaiApp() {
       </header>
 
       <main className="fs-main">
-        {/* PRIORITY 1: Topic Switcher & Immediate Risk + Time-Window Quantitative Schedule */}
+        {/* PRIORITY 1: Topic Switcher */}
         <section className="fs-topic-bar" aria-label="เลือกหมวดพยากรณ์">
           {TOPICS.map(t => {
             const active = topic === t.id;
@@ -788,469 +828,8 @@ export default function FahSaiApp() {
           })}
         </section>
 
-        <section className="fs-live-alert-section" aria-label="ความเสี่ยงตอนนี้และตารางแจ้งเตือนรายช่วงเวลา">
-          <div className="fs-live-alert-top">
-            <div className="fs-live-alert-badges">
-              <span className="fs-live-risk-pill" style={{ background: activeTierColor }}>
-                🚨 ความเสี่ยงตอนนี้ ({activeArea.name}): ระดับ {activeTier}/5 · {bands.find(b => b.tier === activeTier)?.label}
-              </span>
-              <span className="fs-live-radar-pill">
-                📡 เรดาร์กลุ่มฝน {radarAndSchedule.dbz} dBZ (~{radarAndSchedule.rainRateMmHr} มม./ชม.) · ลม{activeArea.current.windDirLabel} {activeArea.current.windKmh} กม./ชม.
-              </span>
-              <span className="fs-live-coord-pill">
-                📍 พิกัด {activeArea.lat.toFixed(4)}°N, {activeArea.lng.toFixed(4)}°E
-              </span>
-            </div>
-            <p className="fs-live-radar-desc">
-              🧭 <strong>วิเคราะห์เรดาร์และทิศทางฝน–ลมตอนนี้:</strong> ลม{activeArea.current.windDirLabel}พัดด้วยความเร็ว{" "}
-              <b>{activeArea.current.windKmh} กม./ชม.</b> (ลมกระโชกสูงสุด <b>{activeArea.current.windGustKmh} กม./ชม.</b>) ส่งผลให้กลุ่มเมฆฝน{" "}
-              <b>{radarAndSchedule.moveDirText}</b> คาดว่าจะเคลื่อนตัวถึงพื้นที่รับลมภายในประมาณ{" "}
-              <b>{radarAndSchedule.etaMin} นาที</b> · ปริมาณฝนสะสม 24 ชม. คาดการณ์ <b>{activeArea.current.rain24hMm} มม.</b>
-            </p>
-          </div>
-
-          <div className="fs-schedule-grid">
-            {radarAndSchedule.slots.map((slot, i) => (
-              <div key={i} className="fs-schedule-card" style={{ borderTop: `4px solid ${slot.color}` }}>
-                <div className="fs-schedule-head">
-                  <strong>⏰ {slot.windowText}</strong>
-                  <span style={{ background: slot.color }}>ระดับ {slot.tier}</span>
-                </div>
-                <small className="fs-schedule-tag">{slot.tag}</small>
-                <div className="fs-schedule-body">
-                  <p>🌧️ <b>ปริมาณฝน:</b> {slot.rainQty}</p>
-                  <p>🧭 <b>ทิศทางลม & เรดาร์:</b> {slot.windRadarQty}</p>
-                  <p>📊 <b>สภาพแวดล้อม:</b> {slot.otherQty}</p>
-                </div>
-                <p className="fs-schedule-advice">💡 {slot.adviceText}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* PRIORITY 2: Geospatial Satellite Map (with Smart Symbology & Non-Overlapping Labels) + Area Status Card */}
+        {/* PRIORITY 2: MAIN HERO CARDS (Primary Area Hero Card on Left + Geospatial Satellite Map Card on Right) */}
         <section className="fs-hero-grid">
-          <article className="fs-map-card">
-            <div className="fs-map-head">
-              <div>
-                <span className="fs-eyebrow">🛰️ แผนที่ดาวเทียมภูมิสารสนเทศพิกัดจริง (WGS84 · 99.75°E–101.25°E)</span>
-                <h2>แผนที่ความเสี่ยง 5 ระดับ เรดาร์เมฆฝน และทิศทางลม กทม.–อ่าวไทยตอนบน</h2>
-              </div>
-              <div className="fs-zone-filters" role="group" aria-label="สลับภาพพื้นหลังแผนที่">
-                <button
-                  type="button"
-                  aria-pressed={basemap === "satellite"}
-                  onClick={() => setBasemap("satellite")}
-                >
-                  🛰️ ภาพถ่ายดาวเทียมจริง
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={basemap === "topo"}
-                  onClick={() => setBasemap("topo")}
-                >
-                  ⛰️ แผนที่ภูมิประเทศ
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={basemap === "dark"}
-                  onClick={() => setBasemap("dark")}
-                >
-                  🌑 แผนที่มืดเน้นสัญลักษณ์
-                </button>
-              </div>
-            </div>
-
-            <div className="fs-qgis-subtoolbar">
-              <div className="fs-zone-filters">
-                <button type="button" aria-pressed={zoneFilter === "all"} onClick={() => setZoneFilter("all")}>
-                  ทั้งหมด (10 จังหวัด)
-                </button>
-                <button type="button" aria-pressed={zoneFilter === "metro"} onClick={() => setZoneFilter("metro")}>
-                  🏙️ กทม.·ปริมณฑล
-                </button>
-                <button type="button" aria-pressed={zoneFilter === "coastal"} onClick={() => setZoneFilter("coastal")}>
-                  ⚓ ชายฝั่งอ่าวไทย
-                </button>
-              </div>
-              <div className="fs-zone-filters">
-                <button type="button" aria-pressed={showRadarWind} onClick={() => setShowRadarWind(v => !v)}>
-                  📡 เรดาร์ฝน & เวกเตอร์ลม
-                </button>
-                <button type="button" aria-pressed={showBuffer} onClick={() => setShowBuffer(v => !v)}>
-                  🎯 รัศมีความเสี่ยง
-                </button>
-                <button type="button" aria-pressed={showGrid} onClick={() => setShowGrid(v => !v)}>
-                  📐 กริดพิกัด (°N/°E)
-                </button>
-              </div>
-            </div>
-
-            <div className="fs-svg-map-wrap is-qgis">
-              <svg
-                viewBox="0 0 520 340"
-                className="fs-svg-map"
-                role="img"
-                aria-label="แผนที่ภาพถ่ายดาวเทียมตรึงพิกัด WGS84 กรุงเทพฯ ปริมณฑล และอ่าวไทยตอนบน พร้อมสัญลักษณ์ความเสี่ยง เรดาร์ฝน และทิศทางลม"
-              >
-                <defs>
-                  <linearGradient id="fs-sea-grad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={basemap === "topo" ? "#7dd3fc" : "#082f49"} />
-                    <stop offset="55%" stopColor={basemap === "topo" ? "#38bdf8" : "#0c4a6e"} />
-                    <stop offset="100%" stopColor={basemap === "topo" ? "#0284c7" : "#071f33"} />
-                  </linearGradient>
-                  <filter id="fs-idw-blur" x="-50%" y="-50%" width="200%" height="200%">
-                    <feGaussianBlur stdDeviation="18" />
-                  </filter>
-                  <filter id="fs-radar-blur" x="-50%" y="-50%" width="200%" height="200%">
-                    <feGaussianBlur stdDeviation="10" />
-                  </filter>
-                  <marker id="fs-wind-arrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">
-                    <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8" />
-                  </marker>
-                  <marker id="fs-storm-arrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                    <path d="M 0 1 L 10 5 L 0 9 z" fill="#facc15" />
-                  </marker>
-                  <clipPath id="fs-frame-clip">
-                    <rect x={FAHSAI_FRAME.x} y={FAHSAI_FRAME.y} width={FAHSAI_FRAME.width} height={FAHSAI_FRAME.height} />
-                  </clipPath>
-                </defs>
-
-                {/* Base fallback canvas */}
-                <rect x={FAHSAI_FRAME.x} y={FAHSAI_FRAME.y} width={FAHSAI_FRAME.width} height={FAHSAI_FRAME.height} fill="url(#fs-sea-grad)" />
-
-                {/* Exact Georeferenced Satellite / Topo Image (BBox 99.75..101.25°E, 12.90..14.15°N in WGS84) */}
-                {basemap === "satellite" && (
-                  <image
-                    href={FAHSAI_SAT_URL}
-                    x={FAHSAI_FRAME.x}
-                    y={FAHSAI_FRAME.y}
-                    width={FAHSAI_FRAME.width}
-                    height={FAHSAI_FRAME.height}
-                    preserveAspectRatio="none"
-                    opacity="0.92"
-                  />
-                )}
-                {basemap === "topo" && (
-                  <image
-                    href={FAHSAI_TOPO_URL}
-                    x={FAHSAI_FRAME.x}
-                    y={FAHSAI_FRAME.y}
-                    width={FAHSAI_FRAME.width}
-                    height={FAHSAI_FRAME.height}
-                    preserveAspectRatio="none"
-                    opacity="0.92"
-                  />
-                )}
-
-                <g clipPath="url(#fs-frame-clip)">
-                  {/* Georeferenced Upper Gulf of Thailand Coastline */}
-                  <path
-                    d={projectFahSaiPolyline(UPPER_GULF_COASTLINE_WGS84)}
-                    fill="none"
-                    stroke="#34d399"
-                    strokeWidth="2.2"
-                    strokeDasharray="6 3"
-                  />
-
-                  {/* Georeferenced 4 Major River Estuaries + Animated Flow Particles */}
-                  {ESTUARY_RIVERS_WGS84.map(river => {
-                    const rPath = projectFahSaiPolyline(river.coords);
-                    return (
-                      <g key={river.id}>
-                        <path
-                          d={rPath}
-                          fill="none"
-                          stroke="rgba(8, 25, 42, 0.72)"
-                          strokeWidth={river.id === "chao-phraya" ? "5" : "3.6"}
-                          strokeLinecap="round"
-                        />
-                        <path
-                          d={rPath}
-                          fill="none"
-                          stroke="#38bdf8"
-                          strokeWidth={river.id === "chao-phraya" ? "2.8" : "1.8"}
-                          strokeLinecap="round"
-                        />
-                        <circle r="2.5" fill="#ffffff" opacity="0.9">
-                          <animateMotion dur="4.2s" repeatCount="indefinite" path={rPath} />
-                        </circle>
-                      </g>
-                    );
-                  })}
-
-                  {/* Georeferenced IDW Risk Buffer Halos */}
-                  {showBuffer && (
-                    <g filter="url(#fs-idw-blur)">
-                      {filteredAreas.map(area => {
-                        const pt = projectFahSaiGeo(area.lat, area.lng);
-                        const rTier = classifyAreaRisk(area, topic);
-                        const col = bands.find(b => b.tier === rTier)?.color ?? "#10b981";
-                        return (
-                          <circle
-                            key={`halo-${area.id}`}
-                            cx={pt.x}
-                            cy={pt.y}
-                            r={rTier >= 4 ? 42 : rTier === 3 ? 34 : 26}
-                            fill={col}
-                            opacity={0.52}
-                          />
-                        );
-                      })}
-                    </g>
-                  )}
-
-                  {/* Radar Echo Cells & Wind Direction Vectors Layer */}
-                  {showRadarWind && (
-                    <g className="fs-radar-wind-layer">
-                      {filteredAreas
-                        .filter(a => a.current.rainProb >= 30)
-                        .map(area => {
-                          const pt = projectFahSaiGeo(area.lat, area.lng);
-                          const moveRad = ((area.current.windDeg + 180 - 90) * Math.PI) / 180;
-                          const distPx = 34;
-                          const tx = pt.x + Math.cos(moveRad) * distPx;
-                          const ty = pt.y + Math.sin(moveRad) * distPx;
-                          const dbzColor = area.current.rainProb >= 60 ? "#ef4444" : area.current.rainProb >= 45 ? "#f97316" : "#22c55e";
-                          return (
-                            <g key={`radar-${area.id}`}>
-                              <g filter="url(#fs-radar-blur)">
-                                <ellipse cx={pt.x} cy={pt.y} rx="28" ry="19" fill="#22c55e" opacity="0.36" />
-                                <ellipse cx={pt.x} cy={pt.y} rx="17" ry="11" fill={dbzColor} opacity="0.56" />
-                              </g>
-                              <line
-                                x1={pt.x}
-                                y1={pt.y}
-                                x2={tx}
-                                y2={ty}
-                                stroke="#facc15"
-                                strokeWidth="2"
-                                strokeDasharray="3 2"
-                                markerEnd="url(#fs-storm-arrow)"
-                              />
-                            </g>
-                          );
-                        })}
-
-                      {[
-                        { lat: 13.98, lng: 100.85 },
-                        { lat: 13.68, lng: 100.25 },
-                        { lat: 13.22, lng: 100.42 },
-                        { lat: 13.15, lng: 100.75 },
-                      ].map((w, idx) => {
-                        const p1 = projectFahSaiGeo(w.lat, w.lng);
-                        const moveRad = ((activeArea.current.windDeg + 180 - 90) * Math.PI) / 180;
-                        const p2 = {
-                          x: p1.x + Math.cos(moveRad) * 40,
-                          y: p1.y + Math.sin(moveRad) * 40,
-                        };
-                        return (
-                          <g key={`wind-stream-${idx}`} opacity="0.85">
-                            <line
-                              x1={p1.x}
-                              y1={p1.y}
-                              x2={p2.x}
-                              y2={p2.y}
-                              stroke="#38bdf8"
-                              strokeWidth="1.8"
-                              strokeDasharray="4 3"
-                              markerEnd="url(#fs-wind-arrow)"
-                            />
-                            <text
-                              x={(p1.x + p2.x) / 2}
-                              y={(p1.y + p2.y) / 2 - 4}
-                              fill="#bae6fd"
-                              stroke="rgba(8,24,40,0.85)"
-                              strokeWidth="2"
-                              paintOrder="stroke"
-                              fontSize="7.5"
-                              fontWeight="700"
-                              textAnchor="middle"
-                            >
-                              ลม {activeArea.current.windKmh} กม./ชม.
-                            </text>
-                          </g>
-                        );
-                      })}
-                    </g>
-                  )}
-
-                  {/* Upper Gulf of Thailand Waves at real coordinates (13.18°N, 100.42°E) */}
-                  {(() => {
-                    const gulfCenter = projectFahSaiGeo(13.18, 100.42);
-                    return (
-                      <g className="fs-gulf-waves">
-                        <path
-                          d={`M${gulfCenter.x - 60},${gulfCenter.y - 12} Q${gulfCenter.x - 30},${gulfCenter.y - 19} ${gulfCenter.x},${gulfCenter.y - 12} T${gulfCenter.x + 60},${gulfCenter.y - 12}`}
-                          fill="none"
-                          stroke="#ffffff"
-                          strokeWidth="2"
-                          opacity="0.75"
-                        />
-                        <text
-                          x={gulfCenter.x}
-                          y={gulfCenter.y + 8}
-                          textAnchor="middle"
-                          className="fs-gulf-label"
-                        >
-                          🌊 อ่าวไทยตอนบน (13.18°N, 100.42°E)
-                        </text>
-                      </g>
-                    );
-                  })()}
-
-                  {/* Georeferenced Province Symbology + Smart Leader-Line Non-Overlapping Callout Pills */}
-                  {filteredAreas.map(area => {
-                    const pt = projectFahSaiGeo(area.lat, area.lng);
-                    const isSel = area.id === activeArea.id;
-                    const metric = pinMetricLabel(area, topic);
-                    const rTier = classifyAreaRisk(area, topic);
-                    const riskColor = bands.find(b => b.tier === rTier)?.color ?? "#0284c7";
-                    const offset = AREA_LABEL_OFFSETS[area.id] ?? { dx: 0, dy: -22, shortName: area.name.split(" ")[0] };
-                    const pillW = 86;
-                    const pillH = 22;
-
-                    return (
-                      <g
-                        key={area.id}
-                        className={`fs-map-pin ${isSel ? "is-selected" : ""}`}
-                        transform={`translate(${pt.x}, ${pt.y})`}
-                        onClick={() => setSelectedId(area.id)}
-                        role="button"
-                        tabIndex={0}
-                        aria-label={`เลือกพื้นที่ ${area.name} พิกัด ${area.lat.toFixed(2)}N ${area.lng.toFixed(2)}E ค่าปัจจุบัน ${metric} ระดับความเสี่ยง ${rTier}`}
-                      >
-                        {isSel && <circle r="18" className="fs-pin-pulse" style={{ fill: riskColor }} />}
-                        {/* Leader Line from exact coordinate point to non-overlapping callout pill */}
-                        <line
-                          x1="0"
-                          y1="0"
-                          x2={offset.dx}
-                          y2={offset.dy}
-                          stroke="#ffffff"
-                          strokeWidth={isSel ? "2" : "1.3"}
-                          opacity="0.92"
-                        />
-                        {/* Exact Georeferenced Coordinate Symbol */}
-                        <circle
-                          r={isSel ? 7 : rTier >= 4 ? 6 : 5}
-                          fill={riskColor}
-                          stroke="#ffffff"
-                          strokeWidth="2"
-                        />
-                        <circle r="2" fill="#ffffff" />
-
-                        {/* Non-Overlapping Callout Pill */}
-                        <g transform={`translate(${offset.dx}, ${offset.dy})`}>
-                          <rect
-                            x={-pillW / 2}
-                            y={-pillH / 2}
-                            width={pillW}
-                            height={pillH}
-                            rx="11"
-                            fill="rgba(12, 28, 44, 0.92)"
-                            stroke={isSel ? "#ffffff" : riskColor}
-                            strokeWidth={isSel ? "2.2" : "1.4"}
-                          />
-                          <circle cx={-pillW / 2 + 10} cy="0" r="4.5" fill={riskColor} />
-                          <text x="4" y="3.5" textAnchor="middle" fill="#ffffff" fontSize="9.5" fontWeight="800">
-                            {offset.shortName} {metric}
-                          </text>
-                        </g>
-                      </g>
-                    );
-                  })}
-                </g>
-
-                {/* Georeferenced Coordinate Graticule Grid */}
-                {showGrid && (
-                  <g className="fs-qgis-grid">
-                    {graticuleLats.map(lat => {
-                      const { y } = projectFahSaiGeo(lat, FAHSAI_BBOX.minLng);
-                      const label = formatDms(lat, true);
-                      return (
-                        <g key={`lat-${lat}`}>
-                          <line x1={FAHSAI_FRAME.x} y1={y} x2={FAHSAI_FRAME.x + FAHSAI_FRAME.width} y2={y} />
-                          <text x={FAHSAI_FRAME.x + 5} y={y - 4}>{label}</text>
-                          <text x={FAHSAI_FRAME.x + FAHSAI_FRAME.width - 5} y={y - 4} textAnchor="end">{label}</text>
-                        </g>
-                      );
-                    })}
-                    {graticuleLngs.map(lng => {
-                      const { x } = projectFahSaiGeo(FAHSAI_BBOX.minLat, lng);
-                      const label = formatDms(lng, false);
-                      return (
-                        <g key={`lng-${lng}`}>
-                          <line x1={x} y1={FAHSAI_FRAME.y} x2={x} y2={FAHSAI_FRAME.y + FAHSAI_FRAME.height} />
-                          <text x={x + 4} y={FAHSAI_FRAME.y + 12}>{label}</text>
-                        </g>
-                      );
-                    })}
-                  </g>
-                )}
-
-                <g transform="translate(474, 42)">
-                  <circle r="18" fill="rgba(12, 28, 44, 0.85)" stroke="rgba(255,255,255,0.45)" />
-                  <polygon points="0,-12 -5,6 0,3 5,6" fill="#ffffff" />
-                  <text x="0" y="14" textAnchor="middle" fill="#7dd3fc" fontSize="8" fontWeight="800">N</text>
-                </g>
-
-                {/* Geographically calibrated Scale Bar (30 km ≈ 90 px) */}
-                <g transform="translate(28, 304)">
-                  <rect x="-4" y="-12" width="128" height="20" rx="4" fill="rgba(12, 28, 44, 0.85)" />
-                  <rect x="2" y="1" width="45" height="4" fill="#ffffff" />
-                  <rect x="47" y="1" width="45" height="4" fill="#38bdf8" />
-                  <text x="2" y="-2" fill="#ffffff" fontSize="8" fontWeight="700">0</text>
-                  <text x="42" y="-2" fill="#ffffff" fontSize="8" fontWeight="700">15</text>
-                  <text x="84" y="-2" fill="#7dd3fc" fontSize="8" fontWeight="700">30 กม.</text>
-                </g>
-
-                <rect x={FAHSAI_FRAME.x} y={FAHSAI_FRAME.y} width={FAHSAI_FRAME.width} height={FAHSAI_FRAME.height} fill="none" stroke="#ffffff" strokeWidth="2" />
-                <rect x="12" y="12" width="496" height="316" fill="none" stroke="#0c2e44" strokeWidth="4" strokeDasharray="20 20" />
-              </svg>
-
-              <div className="fs-qgis-titleblock">
-                <div>
-                  <small>GEOSPATIAL DATUM: WGS 84 (EPSG:4326) · EXTENT: 99.75°E–101.25°E, 12.90°N–14.15°N</small>
-                  <strong>แผนที่ดาวเทียมพิกัดจริง + สัญลักษณ์ความเสี่ยง & เรดาร์ทิศทางฝนลม ({TOPICS.find(t => t.id === topic)?.label})</strong>
-                </div>
-                <span>
-                  {activeArea.name} ({activeArea.lat.toFixed(2)}°N, {activeArea.lng.toFixed(2)}°E) · <b>ระดับ {activeTier}/5</b>
-                </span>
-              </div>
-            </div>
-
-            <div className="fs-qgis-commentary">
-              <strong>📐 สรุปการวิเคราะห์เชิงพื้นที่ & เรดาร์ (Spatial & Radar Summary):</strong>
-              <p>
-                พื้นที่ <b>{activeArea.name}</b> (พิกัดจริง <code>{activeArea.lat.toFixed(4)}°N, {activeArea.lng.toFixed(4)}°E</code>) จัดอยู่ในเกณฑ์{" "}
-                <b style={{ color: activeTierColor }}>
-                  {bands.find(b => b.tier === activeTier)?.label}
-                </b>{" "}
-                ({advice.headline}) · เรดาร์ตรวจพบความเข้ม <b>{radarAndSchedule.dbz} dBZ</b> เคลื่อนตัวตามลม{activeArea.current.windDirLabel} ({activeArea.current.windKmh} กม./ชม.) · {activeArea.coastalNote}
-              </p>
-            </div>
-
-            <div className="fs-area-chips">
-              {filteredAreas.map(a => {
-                const rTier = classifyAreaRisk(a, topic);
-                const col = bands.find(b => b.tier === rTier)?.color ?? "#0284c7";
-                return (
-                  <button
-                    key={a.id}
-                    type="button"
-                    className={a.id === activeArea.id ? "is-selected" : ""}
-                    onClick={() => setSelectedId(a.id)}
-                  >
-                    <span className="fs-chip-dot" style={{ background: col }} />
-                    <strong>{a.name}</strong>
-                    <b>{pinMetricLabel(a, topic)}</b>
-                  </button>
-                );
-              })}
-            </div>
-          </article>
-
           <article className="fs-hero-card">
             <div className="fs-hero-top">
               <div>
@@ -1267,7 +846,7 @@ export default function FahSaiApp() {
                 className="fs-advice-pill"
                 style={{ background: activeTierColor, color: "#fff" }}
               >
-                ระดับความเสี่ยง {activeTier}/5 · {advice.badge}
+                🚨 ความเสี่ยงตอนนี้ (ณ เวลา {nowClockText} น.) · ระดับ {activeTier}/5 · {advice.badge}
               </span>
             </div>
 
@@ -1275,7 +854,7 @@ export default function FahSaiApp() {
               <div className="fs-hero-big-metric">
                 {topic === "rain" && (
                   <>
-                    <small>โอกาสเกิดฝนวันนี้</small>
+                    <small>โอกาสเกิดฝนวันนี้ (ณ เวลา {nowClockText} น.)</small>
                     <strong>
                       {activeArea.current.rainProb}
                       <span>%</span>
@@ -1285,7 +864,7 @@ export default function FahSaiApp() {
                 )}
                 {topic === "air" && (
                   <>
-                    <small>ค่าฝุ่นละออง PM2.5</small>
+                    <small>ค่าฝุ่นละออง PM2.5 (ณ เวลา {nowClockText} น.)</small>
                     <strong>
                       {activeArea.current.pm25}
                       <span>µg/m³</span>
@@ -1295,7 +874,7 @@ export default function FahSaiApp() {
                 )}
                 {topic === "heat" && (
                   <>
-                    <small>ความรู้สึกร้อนจริง (RealFeel)</small>
+                    <small>ความรู้สึกร้อนจริง RealFeel (ณ เวลา {nowClockText} น.)</small>
                     <strong>
                       {activeArea.current.feelsLikeC}
                       <span>°C</span>
@@ -1308,7 +887,7 @@ export default function FahSaiApp() {
                 )}
                 {topic === "winter" && (
                   <>
-                    <small>อุณหภูมิต่ำสุดเช้ามืด</small>
+                    <small>อุณหภูมิต่ำสุดเช้ามืด (อัปเดต {nowClockText} น.)</small>
                     <strong>
                       {activeArea.current.minMorningC}
                       <span>°C</span>
@@ -1321,7 +900,7 @@ export default function FahSaiApp() {
                 )}
                 {topic === "sea" && (
                   <>
-                    <small>ระดับน้ำทะเลอ่าวไทยตอนบน</small>
+                    <small>ระดับน้ำทะเลอ่าวไทยตอนบน (ณ เวลา {nowClockText} น.)</small>
                     <strong>
                       {activeArea.current.tideMsl >= 0 ? "+" : ""}
                       {activeArea.current.tideMsl}
@@ -1458,6 +1037,633 @@ export default function FahSaiApp() {
               </button>
             </div>
           </article>
+
+          <article className="fs-map-card">
+            <div className="fs-map-head">
+              <div>
+                <span className="fs-eyebrow">🛰️ แผนที่ดาวเทียมภูมิสารสนเทศพิกัดจริง (WGS84 · 99.65°E–101.45°E)</span>
+                <h2>แผนที่ความเสี่ยง 5 ระดับ เรดาร์เมฆฝน และทิศทางลม กทม.–อ่าวไทยตอนบน</h2>
+              </div>
+              <div className="fs-zone-filters" role="group" aria-label="สลับภาพพื้นหลังแผนที่">
+                <button
+                  type="button"
+                  aria-pressed={basemap === "satellite"}
+                  onClick={() => setBasemap("satellite")}
+                >
+                  🛰️ ภาพถ่ายดาวเทียมจริง
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={basemap === "topo"}
+                  onClick={() => setBasemap("topo")}
+                >
+                  ⛰️ แผนที่ภูมิประเทศ
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={basemap === "dark"}
+                  onClick={() => setBasemap("dark")}
+                >
+                  🌑 แผนที่มืดเน้นสัญลักษณ์
+                </button>
+              </div>
+            </div>
+
+            <div className="fs-qgis-subtoolbar">
+              <div className="fs-zone-filters">
+                <button type="button" aria-pressed={zoneFilter === "all"} onClick={() => setZoneFilter("all")}>
+                  ทั้งหมด (10 จังหวัด)
+                </button>
+                <button type="button" aria-pressed={zoneFilter === "metro"} onClick={() => setZoneFilter("metro")}>
+                  🏙️ กทม.·ปริมณฑล
+                </button>
+                <button type="button" aria-pressed={zoneFilter === "coastal"} onClick={() => setZoneFilter("coastal")}>
+                  ⚓ ชายฝั่งอ่าวไทย
+                </button>
+              </div>
+              <div className="fs-zone-filters">
+                <button type="button" aria-pressed={showRadarWind} onClick={() => setShowRadarWind(v => !v)}>
+                  📡 เรดาร์ฝน & เวกเตอร์ลม
+                </button>
+                <button type="button" aria-pressed={showBuffer} onClick={() => setShowBuffer(v => !v)}>
+                  🎯 รัศมีความเสี่ยง
+                </button>
+                <button type="button" aria-pressed={showGrid} onClick={() => setShowGrid(v => !v)}>
+                  📐 กริดพิกัด (°N/°E)
+                </button>
+              </div>
+            </div>
+
+            <div className="fs-svg-map-wrap is-qgis">
+              <svg
+                viewBox="0 0 520 352"
+                className="fs-svg-map"
+                role="img"
+                aria-label="แผนที่ภาพถ่ายดาวเทียมตรึงพิกัด WGS84 อัตราส่วน 1:1 กรุงเทพฯ ปริมณฑล และอ่าวไทยตอนบน พร้อมสัญลักษณ์ความเสี่ยง เรดาร์ฝน และทิศทางลม"
+              >
+                <defs>
+                  <linearGradient id="fs-sea-grad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={basemap === "topo" ? "#7dd3fc" : "#082f49"} />
+                    <stop offset="55%" stopColor={basemap === "topo" ? "#38bdf8" : "#0c4a6e"} />
+                    <stop offset="100%" stopColor={basemap === "topo" ? "#0284c7" : "#071f33"} />
+                  </linearGradient>
+                  <filter id="fs-idw-blur" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="18" />
+                  </filter>
+                  <filter id="fs-radar-blur" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="10" />
+                  </filter>
+                  <marker id="fs-wind-arrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">
+                    <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8" />
+                  </marker>
+                  <marker id="fs-storm-arrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 1 L 10 5 L 0 9 z" fill="#facc15" />
+                  </marker>
+                  <clipPath id="fs-frame-clip">
+                    <rect x={FAHSAI_FRAME.x} y={FAHSAI_FRAME.y} width={FAHSAI_FRAME.width} height={FAHSAI_FRAME.height} />
+                  </clipPath>
+                </defs>
+
+                {/* Base fallback canvas */}
+                <rect x={FAHSAI_FRAME.x} y={FAHSAI_FRAME.y} width={FAHSAI_FRAME.width} height={FAHSAI_FRAME.height} fill="url(#fs-sea-grad)" />
+
+                {/* 100% Aspect-Ratio-Locked Georeferenced Satellite / Topo Image (BBox 99.65..101.45°E, 12.85..14.05°N in WGS84) */}
+                {basemap === "satellite" && (
+                  <image
+                    href={FAHSAI_SAT_URL}
+                    x={FAHSAI_FRAME.x}
+                    y={FAHSAI_FRAME.y}
+                    width={FAHSAI_FRAME.width}
+                    height={FAHSAI_FRAME.height}
+                    preserveAspectRatio="none"
+                    opacity="0.93"
+                  />
+                )}
+                {basemap === "topo" && (
+                  <image
+                    href={FAHSAI_TOPO_URL}
+                    x={FAHSAI_FRAME.x}
+                    y={FAHSAI_FRAME.y}
+                    width={FAHSAI_FRAME.width}
+                    height={FAHSAI_FRAME.height}
+                    preserveAspectRatio="none"
+                    opacity="0.93"
+                  />
+                )}
+
+                <g clipPath="url(#fs-frame-clip)">
+                  {/* Georeferenced Upper Gulf of Thailand Coastline */}
+                  <path
+                    d={projectFahSaiPolyline(UPPER_GULF_COASTLINE_WGS84)}
+                    fill="none"
+                    stroke="#34d399"
+                    strokeWidth="2.2"
+                    strokeDasharray="6 3"
+                  />
+
+                  {/* Georeferenced 4 Major River Estuaries + Animated Flow Particles */}
+                  {ESTUARY_RIVERS_WGS84.map(river => {
+                    const rPath = projectFahSaiPolyline(river.coords);
+                    return (
+                      <g key={river.id}>
+                        <path
+                          d={rPath}
+                          fill="none"
+                          stroke="rgba(8, 25, 42, 0.78)"
+                          strokeWidth={river.id === "chao-phraya" ? "5.2" : "3.8"}
+                          strokeLinecap="round"
+                        />
+                        <path
+                          d={rPath}
+                          fill="none"
+                          stroke="#38bdf8"
+                          strokeWidth={river.id === "chao-phraya" ? "3" : "2"}
+                          strokeLinecap="round"
+                        />
+                        <circle r="2.5" fill="#ffffff" opacity="0.9">
+                          <animateMotion dur="4.2s" repeatCount="indefinite" path={rPath} />
+                        </circle>
+                      </g>
+                    );
+                  })}
+
+                  {/* Georeferenced IDW Risk Buffer Halos */}
+                  {showBuffer && (
+                    <g filter="url(#fs-idw-blur)">
+                      {filteredAreas.map(area => {
+                        const pt = projectFahSaiGeo(area.lat, area.lng);
+                        const rTier = classifyAreaRisk(area, topic);
+                        const col = bands.find(b => b.tier === rTier)?.color ?? "#10b981";
+                        return (
+                          <circle
+                            key={`halo-${area.id}`}
+                            cx={pt.x}
+                            cy={pt.y}
+                            r={rTier >= 4 ? 42 : rTier === 3 ? 34 : 26}
+                            fill={col}
+                            opacity={0.52}
+                          />
+                        );
+                      })}
+                    </g>
+                  )}
+
+                  {/* Radar Echo Cells & Wind Direction Vectors Layer */}
+                  {showRadarWind && (
+                    <g className="fs-radar-wind-layer">
+                      {filteredAreas
+                        .filter(a => a.current.rainProb >= 30)
+                        .map(area => {
+                          const pt = projectFahSaiGeo(area.lat, area.lng);
+                          const moveRad = ((area.current.windDeg + 180 - 90) * Math.PI) / 180;
+                          const distPx = 34;
+                          const tx = pt.x + Math.cos(moveRad) * distPx;
+                          const ty = pt.y + Math.sin(moveRad) * distPx;
+                          const dbzColor = area.current.rainProb >= 60 ? "#ef4444" : area.current.rainProb >= 45 ? "#f97316" : "#22c55e";
+                          return (
+                            <g key={`radar-${area.id}`}>
+                              <g filter="url(#fs-radar-blur)">
+                                <ellipse cx={pt.x} cy={pt.y} rx="28" ry="19" fill="#22c55e" opacity="0.36" />
+                                <ellipse cx={pt.x} cy={pt.y} rx="17" ry="11" fill={dbzColor} opacity="0.56" />
+                              </g>
+                              <line
+                                x1={pt.x}
+                                y1={pt.y}
+                                x2={tx}
+                                y2={ty}
+                                stroke="#facc15"
+                                strokeWidth="2"
+                                strokeDasharray="3 2"
+                                markerEnd="url(#fs-storm-arrow)"
+                              />
+                            </g>
+                          );
+                        })}
+
+                      {[
+                        { lat: 13.92, lng: 100.88 },
+                        { lat: 13.68, lng: 100.25 },
+                        { lat: 13.18, lng: 100.42 },
+                        { lat: 13.12, lng: 100.78 },
+                      ].map((w, idx) => {
+                        const p1 = projectFahSaiGeo(w.lat, w.lng);
+                        const moveRad = ((activeArea.current.windDeg + 180 - 90) * Math.PI) / 180;
+                        const p2 = {
+                          x: p1.x + Math.cos(moveRad) * 38,
+                          y: p1.y + Math.sin(moveRad) * 38,
+                        };
+                        return (
+                          <g key={`wind-stream-${idx}`} opacity="0.85">
+                            <line
+                              x1={p1.x}
+                              y1={p1.y}
+                              x2={p2.x}
+                              y2={p2.y}
+                              stroke="#38bdf8"
+                              strokeWidth="1.8"
+                              strokeDasharray="4 3"
+                              markerEnd="url(#fs-wind-arrow)"
+                            />
+                            <text
+                              x={(p1.x + p2.x) / 2}
+                              y={(p1.y + p2.y) / 2 - 4}
+                              fill="#bae6fd"
+                              stroke="rgba(8,24,40,0.85)"
+                              strokeWidth="2"
+                              paintOrder="stroke"
+                              fontSize="7.5"
+                              fontWeight="700"
+                              textAnchor="middle"
+                            >
+                              ลม {activeArea.current.windKmh} กม./ชม.
+                            </text>
+                          </g>
+                        );
+                      })}
+                    </g>
+                  )}
+
+                  {/* Upper Gulf of Thailand Waves at real coordinates (13.16°N, 100.45°E) */}
+                  {(() => {
+                    const gulfCenter = projectFahSaiGeo(13.16, 100.45);
+                    return (
+                      <g className="fs-gulf-waves">
+                        <path
+                          d={`M${gulfCenter.x - 56},${gulfCenter.y - 10} Q${gulfCenter.x - 28},${gulfCenter.y - 17} ${gulfCenter.x},${gulfCenter.y - 10} T${gulfCenter.x + 56},${gulfCenter.y - 10}`}
+                          fill="none"
+                          stroke="#ffffff"
+                          strokeWidth="2"
+                          opacity="0.75"
+                        />
+                        <text
+                          x={gulfCenter.x}
+                          y={gulfCenter.y + 8}
+                          textAnchor="middle"
+                          className="fs-gulf-label"
+                        >
+                          🌊 อ่าวไทยตอนบน (13.16°N, 100.45°E)
+                        </text>
+                      </g>
+                    );
+                  })()}
+
+                  {/* Georeferenced Province Symbology + Smart Leader-Line Non-Overlapping Callout Pills */}
+                  {filteredAreas.map(area => {
+                    const pt = projectFahSaiGeo(area.lat, area.lng);
+                    const isSel = area.id === activeArea.id;
+                    const metric = pinMetricLabel(area, topic);
+                    const rTier = classifyAreaRisk(area, topic);
+                    const riskColor = bands.find(b => b.tier === rTier)?.color ?? "#0284c7";
+                    const offset = AREA_LABEL_OFFSETS[area.id] ?? { dx: 0, dy: -22, shortName: area.name.split(" ")[0] };
+                    const pillW = 86;
+                    const pillH = 22;
+
+                    return (
+                      <g
+                        key={area.id}
+                        className={`fs-map-pin ${isSel ? "is-selected" : ""}`}
+                        transform={`translate(${pt.x}, ${pt.y})`}
+                        onClick={() => setSelectedId(area.id)}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`เลือกพื้นที่ ${area.name} พิกัด ${area.lat.toFixed(2)}N ${area.lng.toFixed(2)}E ค่าปัจจุบัน ${metric} ระดับความเสี่ยง ${rTier}`}
+                      >
+                        {isSel && <circle r="18" className="fs-pin-pulse" style={{ fill: riskColor }} />}
+                        {/* Leader Line from exact coordinate point to non-overlapping callout pill */}
+                        <line
+                          x1="0"
+                          y1="0"
+                          x2={offset.dx}
+                          y2={offset.dy}
+                          stroke="#ffffff"
+                          strokeWidth={isSel ? "2" : "1.3"}
+                          opacity="0.92"
+                        />
+                        {/* Exact Georeferenced Coordinate Symbol */}
+                        <circle
+                          r={isSel ? 7 : rTier >= 4 ? 6 : 5}
+                          fill={riskColor}
+                          stroke="#ffffff"
+                          strokeWidth="2"
+                        />
+                        <circle r="2" fill="#ffffff" />
+
+                        {/* Non-Overlapping Callout Pill */}
+                        <g transform={`translate(${offset.dx}, ${offset.dy})`}>
+                          <rect
+                            x={-pillW / 2}
+                            y={-pillH / 2}
+                            width={pillW}
+                            height={pillH}
+                            rx="11"
+                            fill="rgba(12, 28, 44, 0.92)"
+                            stroke={isSel ? "#ffffff" : riskColor}
+                            strokeWidth={isSel ? "2.2" : "1.4"}
+                          />
+                          <circle cx={-pillW / 2 + 10} cy="0" r="4.5" fill={riskColor} />
+                          <text x="4" y="3.5" textAnchor="middle" fill="#ffffff" fontSize="9.5" fontWeight="800">
+                            {offset.shortName} {metric}
+                          </text>
+                        </g>
+                      </g>
+                    );
+                  })}
+                </g>
+
+                {/* Georeferenced Coordinate Graticule Grid */}
+                {showGrid && (
+                  <g className="fs-qgis-grid">
+                    {graticuleLats.map(lat => {
+                      const { y } = projectFahSaiGeo(lat, FAHSAI_BBOX.minLng);
+                      const label = formatDms(lat, true);
+                      return (
+                        <g key={`lat-${lat}`}>
+                          <line x1={FAHSAI_FRAME.x} y1={y} x2={FAHSAI_FRAME.x + FAHSAI_FRAME.width} y2={y} />
+                          <text x={FAHSAI_FRAME.x + 5} y={y - 4}>{label}</text>
+                          <text x={FAHSAI_FRAME.x + FAHSAI_FRAME.width - 5} y={y - 4} textAnchor="end">{label}</text>
+                        </g>
+                      );
+                    })}
+                    {graticuleLngs.map(lng => {
+                      const { x } = projectFahSaiGeo(FAHSAI_BBOX.minLat, lng);
+                      const label = formatDms(lng, false);
+                      return (
+                        <g key={`lng-${lng}`}>
+                          <line x1={x} y1={FAHSAI_FRAME.y} x2={x} y2={FAHSAI_FRAME.y + FAHSAI_FRAME.height} />
+                          <text x={x + 4} y={FAHSAI_FRAME.y + 12}>{label}</text>
+                        </g>
+                      );
+                    })}
+                  </g>
+                )}
+
+                <g transform="translate(474, 42)">
+                  <circle r="18" fill="rgba(12, 28, 44, 0.85)" stroke="rgba(255,255,255,0.45)" />
+                  <polygon points="0,-12 -5,6 0,3 5,6" fill="#ffffff" />
+                  <text x="0" y="14" textAnchor="middle" fill="#7dd3fc" fontSize="8" fontWeight="800">N</text>
+                </g>
+
+                {/* Geographically calibrated Scale Bar (30 km ≈ 75 px at 13.5°N where 1° = 266.7 px) */}
+                <g transform="translate(30, 314)">
+                  <rect x="-4" y="-12" width="118" height="20" rx="4" fill="rgba(12, 28, 44, 0.85)" />
+                  <rect x="2" y="1" width="38" height="4" fill="#ffffff" />
+                  <rect x="40" y="1" width="38" height="4" fill="#38bdf8" />
+                  <text x="2" y="-2" fill="#ffffff" fontSize="8" fontWeight="700">0</text>
+                  <text x="36" y="-2" fill="#ffffff" fontSize="8" fontWeight="700">15</text>
+                  <text x="74" y="-2" fill="#7dd3fc" fontSize="8" fontWeight="700">30 กม.</text>
+                </g>
+
+                <rect x={FAHSAI_FRAME.x} y={FAHSAI_FRAME.y} width={FAHSAI_FRAME.width} height={FAHSAI_FRAME.height} fill="none" stroke="#ffffff" strokeWidth="2" />
+                <rect x="16" y="12" width="488" height="328" fill="none" stroke="#0c2e44" strokeWidth="4" strokeDasharray="20 20" />
+              </svg>
+
+              <div className="fs-qgis-titleblock">
+                <div>
+                  <small>GEOSPATIAL DATUM: WGS 84 (EPSG:4326) · TRUE 1:1 EXTENT: 99.65°E–101.45°E, 12.85°N–14.05°N</small>
+                  <strong>แผนที่ดาวเทียมพิกัดจริง + สัญลักษณ์ความเสี่ยง & เรดาร์ทิศทางฝนลม ({TOPICS.find(t => t.id === topic)?.label})</strong>
+                </div>
+                <span>
+                  {activeArea.name} · ความเสี่ยงตอนนี้ (ณ เวลา {nowClockText} น.): <b>ระดับ {activeTier}/5</b>
+                </span>
+              </div>
+            </div>
+
+            <div className="fs-qgis-commentary">
+              <strong>📐 สรุปการวิเคราะห์เชิงพื้นที่ & เรดาร์ (Spatial & Radar Summary):</strong>
+              <p>
+                พื้นที่ <b>{activeArea.name}</b> (พิกัดจริง <code>{activeArea.lat.toFixed(4)}°N, {activeArea.lng.toFixed(4)}°E</code>) ณ เวลา <b>{nowClockText} น.</b> จัดอยู่ในเกณฑ์{" "}
+                <b style={{ color: activeTierColor }}>
+                  {bands.find(b => b.tier === activeTier)?.label}
+                </b>{" "}
+                ({advice.headline}) · เรดาร์ตรวจพบความเข้ม <b>{radarAndSchedule.dbz} dBZ</b> เคลื่อนตัวตามลม{activeArea.current.windDirLabel} ({activeArea.current.windKmh} กม./ชม.) · {activeArea.coastalNote}
+              </p>
+            </div>
+
+            <div className="fs-area-chips">
+              {filteredAreas.map(a => {
+                const rTier = classifyAreaRisk(a, topic);
+                const col = bands.find(b => b.tier === rTier)?.color ?? "#0284c7";
+                return (
+                  <button
+                    key={a.id}
+                    type="button"
+                    className={a.id === activeArea.id ? "is-selected" : ""}
+                    onClick={() => setSelectedId(a.id)}
+                  >
+                    <span className="fs-chip-dot" style={{ background: col }} />
+                    <strong>{a.name}</strong>
+                    <b>{pinMetricLabel(a, topic)}</b>
+                  </button>
+                );
+              })}
+            </div>
+          </article>
+        </section>
+
+        {/* BELOW MAIN HERO CARDS (ใต้การ์ดหลัก): Live Risk Status Now (with Current Time) + Radar Trajectory + 4 Time-Window Quantitative Schedule */}
+        <section className="fs-live-alert-section" aria-label="ความเสี่ยงตอนนี้และตารางแจ้งเตือนรายช่วงเวลาใต้การ์ดหลัก">
+          <div className="fs-live-alert-top">
+            <div className="fs-live-alert-badges">
+              <span className="fs-live-risk-pill" style={{ background: activeTierColor }}>
+                🚨 ความเสี่ยงตอนนี้ ({activeArea.name} · ณ เวลา {nowClockText} น.): ระดับ {activeTier}/5 · {bands.find(b => b.tier === activeTier)?.label}
+              </span>
+              <span className="fs-live-radar-pill">
+                📡 เรดาร์กลุ่มฝน {radarAndSchedule.dbz} dBZ (~{radarAndSchedule.rainRateMmHr} มม./ชม.) · ลม{activeArea.current.windDirLabel} {activeArea.current.windKmh} กม./ชม.
+              </span>
+              <span className="fs-live-coord-pill">
+                📍 พิกัด {activeArea.lat.toFixed(4)}°N, {activeArea.lng.toFixed(4)}°E
+              </span>
+            </div>
+            <p className="fs-live-radar-desc">
+              🧭 <strong>วิเคราะห์เรดาร์และทิศทางฝน–ลมตอนนี้ (ณ เวลา {nowClockText} น.):</strong> ลม{activeArea.current.windDirLabel}พัดด้วยความเร็ว{" "}
+              <b>{activeArea.current.windKmh} กม./ชม.</b> (ลมกระโชกสูงสุด <b>{activeArea.current.windGustKmh} กม./ชม.</b>) ส่งผลให้กลุ่มเมฆฝน{" "}
+              <b>{radarAndSchedule.moveDirText}</b> คาดว่าจะเคลื่อนตัวถึงพื้นที่รับลมภายในประมาณ{" "}
+              <b>{radarAndSchedule.etaMin} นาที</b> · ปริมาณฝนสะสม 24 ชม. คาดการณ์ <b>{activeArea.current.rain24hMm} มม.</b>
+            </p>
+          </div>
+
+          <div className="fs-schedule-grid">
+            {radarAndSchedule.slots.map((slot, i) => (
+              <div key={i} className="fs-schedule-card" style={{ borderTop: `4px solid ${slot.color}` }}>
+                <div className="fs-schedule-head">
+                  <strong>⏰ {slot.windowText}</strong>
+                  <span style={{ background: slot.color }}>ระดับ {slot.tier}</span>
+                </div>
+                <small className="fs-schedule-tag">{slot.tag}</small>
+                <div className="fs-schedule-body">
+                  <p>🌧️ <b>ปริมาณฝน:</b> {slot.rainQty}</p>
+                  <p>🧭 <b>ทิศทางลม & เรดาร์:</b> {slot.windRadarQty}</p>
+                  <p>📊 <b>สภาพแวดล้อม:</b> {slot.otherQty}</p>
+                </div>
+                <p className="fs-schedule-advice">💡 {slot.adviceText}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* PRO 3D ANIMATED ATMOSPHERIC, URBAN & COASTAL DIGITAL TWIN */}
+        <section className="fs-3d-twin-section" aria-label="แบบจำลองบรรยากาศ เมือง และอ่าวไทย 3 มิติแบบอนิเมชัน">
+          <div className="fs-3d-twin-head">
+            <div>
+              <span className="fs-eyebrow">🌐 3D ATMOSPHERIC, URBAN & COASTAL DIGITAL TWIN · แบบจำลอง 3 มิติแบบอนิเมชัน</span>
+              <h2>
+                จำลองชั้นบรรยากาศ เมฆฝนเรดาร์ ฝาชีครอบฝุ่น PM2.5 ความร้อนเมือง และคลื่นน้ำหนุนอ่าวไทย 3 มิติ ({activeArea.name} · ณ เวลา {nowClockText} น.)
+              </h2>
+              <p>
+                แสดงความสัมพันธ์เชิงลึก 3 มิติ ตั้งแต่ชั้นเมฆฝนระดับบน ชั้นการกดทับของฝุ่นละออง (Inversion Dome) เหนือตึกสูงกรุงเทพฯ–ปริมณฑล ไปจนถึงมวลน้ำทะเลอ่าวไทยที่หนุนเข้าสู่ปากแม่น้ำทั้ง 4 สาย
+              </p>
+            </div>
+            <div className="fs-3d-controls">
+              <div className="fs-3d-btn-group" role="group" aria-label="เลือกมุมกล้อง 3 มิติ">
+                <button type="button" aria-pressed={twinCamera === "iso"} onClick={() => setTwinCamera("iso")}>
+                  📐 มุมมอง 3D Isometric
+                </button>
+                <button type="button" aria-pressed={twinCamera === "atmosphere"} onClick={() => setTwinCamera("atmosphere")}>
+                  🌩️ ซูมชั้นบรรยากาศ–เรดาร์เมฆ
+                </button>
+                <button type="button" aria-pressed={twinCamera === "coastal"} onClick={() => setTwinCamera("coastal")}>
+                  🌊 ซูมคลื่น–ปากแม่น้ำอ่าวไทย
+                </button>
+                <button type="button" aria-pressed={twinCamera === "top"} onClick={() => setTwinCamera("top")}>
+                  🦅 มุมสูง Bird’s-Eye 3D
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={twinAutoRotate}
+                  onClick={() => setTwinAutoRotate(v => !v)}
+                >
+                  {twinAutoRotate ? "⏸️ หยุดหมุน 3D" : "🔄 หมุน 3D อัตโนมัติ"}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="fs-3d-viewport">
+            <div className="fs-3d-hud">
+              <span>🎯 พื้นที่โฟกัส: <b>{activeArea.name} ({activeArea.lat.toFixed(2)}°N, {activeArea.lng.toFixed(2)}°E)</b></span>
+              <span>🚨 ความเสี่ยงตอนนี้ ({nowClockText} น.): <b style={{ color: activeTierColor }}>ระดับ {activeTier}/5</b></span>
+              <span>📡 เรดาร์: <b>{radarAndSchedule.dbz} dBZ</b> · ลม{activeArea.current.windDirLabel} <b>{activeArea.current.windKmh} กม./ชม.</b></span>
+              <span>🌊 น้ำทะเล: <b>{activeHour.tideMsl >= 0 ? "+" : ""}{activeHour.tideMsl} ม. รทก.</b> (เวลาเลือก {activeHour.hourLabel} น.)</span>
+            </div>
+
+            <div className={`fs-3d-scene cam-${twinCamera} ${twinAutoRotate ? "is-autorotate" : ""}`}>
+              {/* 3D Terrain & Upper Gulf Base Slab */}
+              <div className="fs-3d-slab">
+                <div className="fs-3d-slab-grid" />
+
+                {/* Landmass Zone (Bangkok & Metro Plains) */}
+                <div className="fs-3d-land-zone">
+                  <span className="fs-3d-zone-label">🏙️ แอ่งที่ราบกรุงเทพฯ · ปริมณฑล & ปากแม่น้ำ 4 สาย</span>
+
+                  {/* 3D Extruded Urban Skyline Blocks (Bangkok Core) */}
+                  <div className="fs-3d-skyline">
+                    <div className="fs-3d-bldg b1" />
+                    <div className="fs-3d-bldg b2" />
+                    <div className="fs-3d-bldg b3" />
+                    <div className="fs-3d-bldg b4" />
+                    <div className="fs-3d-bldg b5" />
+                  </div>
+                </div>
+
+                {/* Upper Gulf of Thailand 3D Animated Water Body */}
+                <div
+                  className="fs-3d-sea-zone"
+                  style={{
+                    transform: `translateZ(${Math.max(4, Math.round((activeHour.tideMsl + 1.4) * 7))}px)`,
+                  }}
+                >
+                  <div className="fs-3d-sea-wave w1" />
+                  <div className="fs-3d-sea-wave w2" />
+                  <span className="fs-3d-zone-label">
+                    🌊 อ่าวไทยตอนบน · คลื่น {activeArea.current.waveHeightM} ม. · ระดับน้ำ {activeHour.tideMsl >= 0 ? "+" : ""}{activeHour.tideMsl} ม. รทก.
+                  </span>
+                </div>
+
+                {/* 3D PM2.5 Inversion Layer Dome ("ฝาชีครอบ 3 มิติ") */}
+                <div
+                  className="fs-3d-inversion-dome"
+                  style={{
+                    opacity: topic === "air" ? 0.85 : activeArea.current.pm25 > 28 ? 0.55 : 0.28,
+                    borderColor: activeArea.current.pm25 > 37.5 ? "#f97316" : "#10b981",
+                    background:
+                      activeArea.current.pm25 > 37.5
+                        ? "radial-gradient(ellipse at center, rgba(249, 115, 22, 0.34), rgba(234, 179, 8, 0.12) 70%, transparent)"
+                        : "radial-gradient(ellipse at center, rgba(16, 185, 129, 0.22), rgba(6, 182, 212, 0.08) 70%, transparent)",
+                  }}
+                >
+                  <span className="fs-3d-dome-tag">
+                    😷 ชั้นฝาชีครอบ (Mixing Height) · PM2.5 {activeHour.pm25} µg/m³
+                  </span>
+                </div>
+
+                {/* 3D Extruded Province Metric Pillars for All 10 Areas */}
+                {filteredAreas.map(area => {
+                  const xPct = ((area.lng - FAHSAI_BBOX.minLng) / (FAHSAI_BBOX.maxLng - FAHSAI_BBOX.minLng)) * 100;
+                  const yPct = (1 - (area.lat - FAHSAI_BBOX.minLat) / (FAHSAI_BBOX.maxLat - FAHSAI_BBOX.minLat)) * 100;
+                  const rTier = classifyAreaRisk(area, topic);
+                  const col = bands.find(b => b.tier === rTier)?.color ?? "#0ea5e9";
+                  const isSel = area.id === activeArea.id;
+                  const metricText = pinMetricLabel(area, topic);
+                  const heightPx = isSel ? 88 : 34 + rTier * 11;
+
+                  return (
+                    <div
+                      key={`twin-area-${area.id}`}
+                      className={`fs-3d-area-anchor ${isSel ? "is-selected" : ""}`}
+                      style={{ left: `${Math.min(92, Math.max(8, xPct))}%`, top: `${Math.min(90, Math.max(10, yPct))}%` }}
+                      onClick={() => setSelectedId(area.id)}
+                      onKeyDown={e => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setSelectedId(area.id);
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`เลือกพื้นที่ 3 มิติ ${area.name}`}
+                    >
+                      <div className="fs-3d-area-ring" style={{ borderColor: col }} />
+                      <div
+                        className="fs-3d-area-pillar"
+                        style={{
+                          height: `${heightPx}px`,
+                          background: `linear-gradient(180deg, ${col} 0%, rgba(14, 165, 233, 0.85) 100%)`,
+                          boxShadow: `0 0 18px ${col}`,
+                        }}
+                      />
+                      <div className="fs-3d-area-label" style={{ borderColor: isSel ? "#ffffff" : col }}>
+                        <strong>{AREA_LABEL_OFFSETS[area.id]?.shortName ?? area.name}</strong>
+                        <span>{metricText} · ระดับ {rTier}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Upper Atmospheric Plane (Z = +118px): 3D Storm Clouds, Rain Shafts, Solar UV & Wind Streamlines */}
+                <div className="fs-3d-upper-air">
+                  <div className="fs-3d-storm-cell">
+                    <div className="fs-3d-cloud-badge">
+                      ⛈️ เมฆฝนเรดาร์ {radarAndSchedule.dbz} dBZ · ฝน {activeHour.rainProb}% (~{radarAndSchedule.rainRateMmHr} มม./ชม.)
+                    </div>
+                    {activeHour.rainProb >= 25 && <div className="fs-3d-rain-shaft" />}
+                  </div>
+
+                  <div className="fs-3d-solar-badge">
+                    ☀️ รังสี UV {activeArea.current.uvIndex} · ร้อนจริง {activeHour.feelsLikeC}°C
+                  </div>
+
+                  <div
+                    className="fs-3d-wind-ribbon"
+                    style={{
+                      transform: `rotateZ(${activeArea.current.windDeg + 180}deg)`,
+                    }}
+                  >
+                    <span>💨 กระแสลม{activeArea.current.windDirLabel} {activeHour.windKmh} กม./ชม. ➔</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </section>
 
         {/* PRIORITY 3: Interactive 24-Hour Animated Curve & Bar Scrubber */}

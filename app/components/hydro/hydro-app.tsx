@@ -524,7 +524,7 @@ export default function HydroApp({ view = "summary", initialBasin = "all", initi
               <div className="hy-stitch-hero-top">
                 <span className="hy-eyebrow">🌊 CHAO PHRAYA FLOW · สายน้ำเจ้าพระยา</span>
                 <span className={`hy-stitch-live-pill ${exceeded > 0 ? "is-alert" : high > 0 ? "is-warn" : ""}`}>
-                  {exceeded > 0 ? `🚨 เฝ้าระวังล้นตลิ่ง ${exceeded} สถานี` : high > 0 ? `⚠️ น้ำมาก ${high} สถานี` : "✅ สถานการณ์น้ำปกติ"}
+                  {exceeded > 0 ? `🚨 ความเสี่ยงตอนนี้ (ณ ${time(resource.data.fetchedAt)}): ล้นตลิ่ง ${exceeded} สถานี` : high > 0 ? `⚠️ ความเสี่ยงตอนนี้ (ณ ${time(resource.data.fetchedAt)}): น้ำมาก ${high} สถานี` : `✅ ความเสี่ยงตอนนี้ (ณ ${time(resource.data.fetchedAt)}): สถานการณ์น้ำปกติ`}
                 </span>
               </div>
               <h1 id="hy-title">

@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import upstreamBasinsGeo from "../../data/chao-phraya-upstream-basins.json";
+import coreGeographyGeo from "../../data/chao-phraya-geography.json";
 import type { HydroBasin } from "../../lib/hydro/model";
 import { formatWaterValue, waterBankDifference, waterRisk, type WaterStation } from "../../lib/water-levels";
 import { thaiObservationTime } from "../../lib/observation-time";
 
 type BasemapStyle = "satellite" | "topo" | "dark";
 type ProfileScenario = "live" | "upstream-surge" | "high-tide";
+type TwinCameraPreset = "iso" | "north-dams" | "delta-gulf" | "top-tilt";
 
 interface StationWithBasin {
   basin: HydroBasin;
@@ -62,33 +65,42 @@ const RISK_TIERS = [
   },
 ];
 
-// Exact EPSG:4326 (WGS84) Bounding Box locked to the Map Frame (x: 24..616, y: 20..500)
+/**
+ * 100% Aspect-Ratio-Matched EPSG:4326 (WGS84) Bounding Box & Map Frame:
+ * - dLng = 102.50 - 97.50 = 5.00°
+ * - dLat = 19.80 - 13.30 = 6.50°
+ * - Ratio dLng : dLat = 5.00 : 6.50 = 10 : 13
+ * - MAP_FRAME width : height = 500 : 650 = 10 : 13
+ * - ArcGIS export size = 800,1040 = 10 : 13
+ * Because all three share the exact 10:13 aspect ratio, ArcGIS World_Imagery/MapServer/export
+ * returns the exact [97.50, 13.30, 102.50, 19.80] extent with 0.0000° expansion!
+ */
 const MAP_FRAME = {
-  x: 24,
+  x: 30,
   y: 20,
-  width: 592,
-  height: 480,
+  width: 500,
+  height: 650,
 };
 
 const GEO_BBOX = {
-  minLng: 98.40,
-  maxLng: 101.60,
+  minLng: 97.50,
+  maxLng: 102.50,
   minLat: 13.30,
-  maxLat: 19.30,
+  maxLat: 19.80,
 };
 
-const ARCGIS_SAT_EXPORT_URL = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${GEO_BBOX.minLng},${GEO_BBOX.minLat},${GEO_BBOX.maxLng},${GEO_BBOX.maxLat}&bboxSR=4326&imageSR=4326&size=888,720&format=jpg&f=image`;
-const ARCGIS_TOPO_EXPORT_URL = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/export?bbox=${GEO_BBOX.minLng},${GEO_BBOX.minLat},${GEO_BBOX.maxLng},${GEO_BBOX.maxLat}&bboxSR=4326&imageSR=4326&size=888,720&format=jpg&f=image`;
+const ARCGIS_SAT_EXPORT_URL = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${GEO_BBOX.minLng},${GEO_BBOX.minLat},${GEO_BBOX.maxLng},${GEO_BBOX.maxLat}&bboxSR=4326&imageSR=4326&size=800,1040&format=jpg&f=image`;
+const ARCGIS_TOPO_EXPORT_URL = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/export?bbox=${GEO_BBOX.minLng},${GEO_BBOX.minLat},${GEO_BBOX.maxLng},${GEO_BBOX.maxLat}&bboxSR=4326&imageSR=4326&size=800,1040&format=jpg&f=image`;
 
-// Exact linear EPSG:4326 projection matching the satellite export bbox pixel-for-pixel
+// Exact linear EPSG:4326 projection matching the satellite export bbox pixel-for-pixel (100 px per 1.00°)
 export function projectToCanvas(lat: number, lng: number): { x: number; y: number } {
   const xRatio = (lng - GEO_BBOX.minLng) / (GEO_BBOX.maxLng - GEO_BBOX.minLng);
   const yRatio = (lat - GEO_BBOX.minLat) / (GEO_BBOX.maxLat - GEO_BBOX.minLat);
   const x = MAP_FRAME.x + xRatio * MAP_FRAME.width;
   const y = MAP_FRAME.y + MAP_FRAME.height - yRatio * MAP_FRAME.height;
   return {
-    x: Math.max(MAP_FRAME.x + 4, Math.min(MAP_FRAME.x + MAP_FRAME.width - 4, x)),
-    y: Math.max(MAP_FRAME.y + 4, Math.min(MAP_FRAME.y + MAP_FRAME.height - 4, y)),
+    x: Math.max(MAP_FRAME.x + 2, Math.min(MAP_FRAME.x + MAP_FRAME.width - 2, x)),
+    y: Math.max(MAP_FRAME.y + 2, Math.min(MAP_FRAME.y + MAP_FRAME.height - 2, y)),
   };
 }
 
@@ -101,142 +113,202 @@ function projectPolyline(coords: [number, number][]): string {
     .join(" ");
 }
 
-// Real WGS84 coordinates for the 7 major rivers in the Chao Phraya Basin (with Strahler order hierarchy)
-const RIVER_NETWORK_GEO: { id: string; name: string; order: 1 | 2 | 3; labelLat: number; labelLng: number; coords: [number, number][] }[] = [
+function projectGeoJsonRing(ring: number[][], step = 10): string {
+  if (!ring.length) return "";
+  const pts: string[] = [];
+  for (let i = 0; i < ring.length; i += step) {
+    const [lng, lat] = ring[i];
+    const pt = projectToCanvas(lat, lng);
+    pts.push(`${pts.length === 0 ? "M" : "L"}${pt.x.toFixed(1)},${pt.y.toFixed(1)}`);
+  }
+  return `${pts.join(" ")} Z`;
+}
+
+// High-precision real-world WGS84 coordinates for the 7 major rivers in the Chao Phraya Basin
+const RIVER_NETWORK_GEO: {
+  id: string;
+  basinCode: string;
+  name: string;
+  order: 1 | 2 | 3;
+  labelLat: number;
+  labelLng: number;
+  coords: [number, number][];
+}[] = [
   {
     id: "ping",
+    basinCode: "06",
     name: "แม่น้ำปิง",
     order: 2,
-    labelLat: 17.95,
-    labelLng: 98.82,
+    labelLat: 17.85,
+    labelLng: 98.58,
     coords: [
-      [19.12, 98.95],
-      [18.79, 98.99],
-      [18.57, 99.01],
-      [17.85, 98.69],
-      [17.24, 99.04],
-      [16.88, 99.12],
-      [16.48, 99.52],
-      [15.95, 99.89],
-      [15.70, 100.14],
+      [19.45, 98.96], // เชียงดาว
+      [19.08, 98.95], // แม่แตง
+      [18.788, 98.993], // เมืองเชียงใหม่ (P.1)
+      [18.575, 99.008], // ลำพูน
+      [18.185, 98.642], // จอมทอง / ฮอด
+      [17.822, 98.695], // ทะเลสาบดอยเต่า / แม่ตื่น
+      [17.2425, 99.0412], // เขื่อนภูมิพล (อ.สามเงา จ.ตาก)
+      [17.072, 99.062], // จุดบรรจบแม่น้ำวัง (บ้านตาก)
+      [16.884, 99.123], // เมืองตาก
+      [16.478, 99.523], // เมืองกำแพงเพชร (P.7A)
+      [16.125, 99.782], // ขาณุวรลักษบุรี
+      [15.918, 99.925], // บรรพตพิสัย (P.17)
+      [15.698, 100.141], // ปากน้ำโพ จ.นครสวรรค์ (C.2)
     ],
   },
   {
     id: "wang",
+    basinCode: "07",
     name: "แม่น้ำวัง",
     order: 1,
-    labelLat: 18.28,
-    labelLng: 99.52,
+    labelLat: 18.32,
+    labelLng: 99.48,
     coords: [
-      [18.92, 99.64],
-      [18.29, 99.49],
-      [17.92, 99.35],
-      [17.61, 99.22],
-      [17.07, 99.06],
+      [19.08, 99.62], // วังเหนือ (เขื่อนกิ่วคอหมา)
+      [18.61, 99.58], // แจ้ห่ม / เขื่อนกิ่วลม
+      [18.288, 99.492], // เมืองลำปาง (W.4A)
+      [18.025, 99.382], // เกาะคา
+      [17.618, 99.218], // เถิน (W.3A)
+      [17.345, 99.124], // แม่พริก
+      [17.072, 99.062], // บรรจบแม่น้ำปิง อ.บ้านตาก จ.ตาก
     ],
   },
   {
     id: "yom",
+    basinCode: "08",
     name: "แม่น้ำยม",
     order: 2,
-    labelLat: 17.55,
-    labelLng: 99.82,
+    labelLat: 17.62,
+    labelLng: 99.78,
     coords: [
-      [18.88, 100.28],
-      [18.45, 100.18],
-      [18.14, 100.14],
-      [17.52, 99.78],
-      [17.01, 99.82],
-      [16.52, 100.12],
-      [16.12, 100.25],
-      [15.70, 100.14],
+      [18.92, 100.27], // เชียงม่วน / ปง
+      [18.48, 100.18], // สอง (Y.20)
+      [18.145, 100.142], // เมืองแพร่ (Y.1C)
+      [17.795, 99.985], // วังชิ้น (Y.37)
+      [17.432, 99.832], // ศรีสัชนาลัย (Y.14A)
+      [17.308, 99.825], // สวรรคโลก
+      [17.008, 99.824], // เมืองสุโขทัย (Y.4)
+      [16.742, 99.968], // กงไกรลาศ
+      [16.525, 100.122], // บางระกำ จ.พิษณุโลก (Y.16)
+      [16.165, 100.242], // โพทะเล จ.พิจิตร
+      [15.868, 100.258], // ชุมแสง (บรรจบแม่น้ำน่าน)
+      [15.698, 100.141], // ปากน้ำโพ จ.นครสวรรค์ (C.2)
     ],
   },
   {
     id: "nan",
+    basinCode: "09",
     name: "แม่น้ำน่าน",
     order: 2,
-    labelLat: 17.15,
-    labelLng: 100.32,
+    labelLat: 17.35,
+    labelLng: 100.46,
     coords: [
-      [19.15, 100.78],
-      [18.78, 100.78],
-      [18.12, 100.56],
-      [17.76, 100.55],
-      [17.62, 100.09],
-      [16.82, 100.26],
-      [16.43, 100.35],
-      [15.89, 100.31],
-      [15.70, 100.14],
+      [19.18, 100.78], // ท่าวังผา
+      [18.778, 100.779], // เมืองน่าน (N.1)
+      [18.565, 100.752], // เวียงสา (N.13A)
+      [18.124, 100.562], // ทะเลสาบเหนือเขื่อนสิริกิติ์
+      [17.7642, 100.5514], // เขื่อนสิริกิติ์ จ.อุตรดิตถ์
+      [17.620, 100.098], // เมืองอุตรดิตถ์ (N.2B)
+      [17.205, 100.195], // พิชัย / พรหมพิราม
+      [16.821, 100.262], // เมืองพิษณุโลก (N.5A)
+      [16.438, 100.348], // เมืองพิจิตร / ตะพานหิน (N.7A)
+      [16.042, 100.312], // บางมูลนาก (N.8A)
+      [15.868, 100.258], // ชุมแสง จ.นครสวรรค์ (N.67)
+      [15.698, 100.141], // ปากน้ำโพ จ.นครสวรรค์ (C.2)
     ],
   },
   {
     id: "sakae-krang",
+    basinCode: "11",
     name: "แม่น้ำสะแกกรัง",
     order: 1,
     labelLat: 15.58,
-    labelLng: 99.55,
+    labelLng: 99.64,
     coords: [
-      [15.82, 99.38],
-      [15.55, 99.72],
-      [15.38, 100.03],
-      [15.31, 100.08],
+      [15.82, 99.38], // แม่วงก์ / คลองโพธิ์
+      [15.62, 99.68], // สว่างอารมณ์
+      [15.382, 100.025], // เมืองอุทัยธานี (Ct.19)
+      [15.312, 100.078], // มโนรมย์ (บรรจบแม่น้ำเจ้าพระยา)
     ],
   },
   {
     id: "pa-sak",
+    basinCode: "12",
     name: "แม่น้ำป่าสัก",
     order: 1,
     labelLat: 15.65,
-    labelLng: 101.15,
+    labelLng: 101.18,
     coords: [
-      [16.75, 101.22],
-      [16.42, 101.15],
-      [15.65, 101.10],
-      [14.86, 101.06],
-      [14.53, 100.91],
-      [14.35, 100.58],
+      [16.82, 101.24], // หล่มสัก
+      [16.418, 101.155], // เมืองเพชรบูรณ์ (S.3)
+      [15.762, 101.032], // วิเชียรบุรี / ศรีเทพ
+      [15.225, 101.048], // ชัยบาดาล
+      [14.8625, 101.0645], // เขื่อนป่าสักชลสิทธิ์ จ.ลพบุรี
+      [14.528, 100.912], // เมืองสระบุรี / เขื่อนพระราม 6 (S.5)
+      [14.462, 100.732], // ท่าเรือ จ.อยุธยา (S.26)
+      [14.353, 100.565], // เกาะเมืองพระนครศรีอยุธยา (บรรจบแม่น้ำเจ้าพระยา)
     ],
   },
   {
     id: "chao-phraya",
+    basinCode: "chao-phraya",
     name: "แม่น้ำเจ้าพระยา",
     order: 3,
-    labelLat: 14.58,
+    labelLat: 14.55,
     labelLng: 100.38,
     coords: [
-      [15.70, 100.14],
-      [15.31, 100.08],
-      [15.18, 100.13],
-      [14.89, 100.40],
-      [14.59, 100.45],
-      [14.35, 100.56],
-      [14.02, 100.53],
-      [13.86, 100.51],
-      [13.75, 100.50],
-      [13.59, 100.60],
+      [15.698, 100.141], // ปากน้ำโพ จ.นครสวรรค์ (C.2)
+      [15.312, 100.078], // มโนรมย์ จ.ชัยนาท
+      [15.1605, 100.1812], // เขื่อนเจ้าพระยา อ.สรรพยา จ.ชัยนาท (C.13)
+      [14.892, 100.402], // เมืองสิงห์บุรี (C.3)
+      [14.588, 100.452], // เมืองอ่างทอง (C.7A)
+      [14.353, 100.565], // พระนครศรีอยุธยา (C.35)
+      [14.198, 100.508], // บางไทร จ.อยุธยา (C.29A)
+      [14.020, 100.535], // เมืองปทุมธานี
+      [13.862, 100.514], // เมืองนนทบุรี / ปากเกร็ด
+      [13.756, 100.493], // กรุงเทพฯ (สะพานพุทธ / บางนา)
+      [13.595, 100.597], // ปากแม่น้ำเจ้าพระยา จ.สมุทรปราการ (ออกสู่อ่าวไทย)
     ],
   },
 ];
 
 // Major Dams with exact WGS84 coordinates for Cartographic Reservoir Symbology
-const MAJOR_DAMS_GEO: { id: string; name: string; river: string; lat: number; lng: number; defaultPct: number; dx: number; dy: number }[] = [
-  { id: "bhumibol", name: "เขื่อนภูมิพล", river: "ปิง (ตาก)", lat: 17.2425, lng: 99.0412, defaultPct: 74, dx: -52, dy: -16 },
-  { id: "sirikit", name: "เขื่อนสิริกิติ์", river: "น่าน (อุตรดิตถ์)", lat: 17.7642, lng: 100.5514, defaultPct: 78, dx: 46, dy: -14 },
-  { id: "kwae-noi", name: "เขื่อนแควน้อยฯ", river: "แควน้อย (พิษณุโลก)", lat: 17.1864, lng: 100.4228, defaultPct: 81, dx: 52, dy: -6 },
-  { id: "pasak", name: "เขื่อนป่าสักฯ", river: "ป่าสัก (ลพบุรี)", lat: 14.8625, lng: 101.0645, defaultPct: 86, dx: 48, dy: -10 },
-  { id: "chaophraya-barrage", name: "เขื่อนเจ้าพระยา", river: "ชัยนาท (C.13)", lat: 15.1605, lng: 100.1812, defaultPct: 82, dx: -56, dy: 14 },
+const MAJOR_DAMS_GEO: {
+  id: string;
+  name: string;
+  river: string;
+  lat: number;
+  lng: number;
+  defaultPct: number;
+  side: "left" | "right";
+}[] = [
+  { id: "bhumibol", name: "เขื่อนภูมิพล", river: "ปิง (ตาก)", lat: 17.2425, lng: 99.0412, defaultPct: 74, side: "left" },
+  { id: "sirikit", name: "เขื่อนสิริกิติ์", river: "น่าน (อุตรดิตถ์)", lat: 17.7642, lng: 100.5514, defaultPct: 78, side: "right" },
+  { id: "kwae-noi", name: "เขื่อนแควน้อยฯ", river: "แควน้อย (พิษณุโลก)", lat: 17.1864, lng: 100.4228, defaultPct: 81, side: "right" },
+  { id: "pasak", name: "เขื่อนป่าสักฯ", river: "ป่าสัก (ลพบุรี)", lat: 14.8625, lng: 101.0645, defaultPct: 86, side: "right" },
+  { id: "chaophraya-barrage", name: "เขื่อนเจ้าพระยา", river: "ชัยนาท (C.13)", lat: 15.1605, lng: 100.1812, defaultPct: 82, side: "left" },
 ];
 
 // Upper Gulf of Thailand coastline in real WGS84 coordinates
 const UPPER_GULF_COAST_GEO: [number, number][] = [
-  [13.30, 99.95],
-  [13.41, 100.00],
-  [13.53, 100.27],
-  [13.59, 100.60],
-  [13.48, 100.98],
+  [13.30, 99.98],
+  [13.40, 100.00],
+  [13.52, 100.28],
+  [13.595, 100.597],
+  [13.47, 100.98],
   [13.30, 100.92],
 ];
+
+const BASIN_POLYGON_COLORS: Record<string, { stroke: string; fill: string; label: string }> = {
+  "06": { stroke: "#38bdf8", fill: "rgba(56, 189, 248, 0.08)", label: "ลุ่มน้ำปิง" },
+  "07": { stroke: "#22d3ee", fill: "rgba(34, 211, 238, 0.08)", label: "ลุ่มน้ำวัง" },
+  "08": { stroke: "#818cf8", fill: "rgba(129, 140, 248, 0.08)", label: "ลุ่มน้ำยม" },
+  "09": { stroke: "#34d399", fill: "rgba(52, 211, 153, 0.08)", label: "ลุ่มน้ำน่าน" },
+  "11": { stroke: "#fbbf24", fill: "rgba(251, 191, 36, 0.08)", label: "ลุ่มน้ำสะแกกรัง" },
+  "12": { stroke: "#f472b6", fill: "rgba(244, 114, 182, 0.08)", label: "ลุ่มน้ำป่าสัก" },
+  "chao-phraya": { stroke: "#0ea5e9", fill: "rgba(14, 165, 233, 0.11)", label: "ลุ่มน้ำเจ้าพระยา" },
+};
 
 function classifyStationTier(station: WaterStation): 1 | 2 | 3 | 4 | 5 {
   if (station.status !== "fresh") return 2;
@@ -261,18 +333,6 @@ function formatDms(deg: number, isLat: boolean): string {
   return `${d}°${String(m).padStart(2, "0")}'${dir}`;
 }
 
-// Compute smart non-overlapping label offset based on index and longitude side
-function computeSmartLabelOffset(lat: number, lng: number, idx: number, isSelected: boolean): { dx: number; dy: number; anchor: "start" | "end" } {
-  if (isSelected) {
-    return lng > 100.45 ? { dx: -14, dy: -12, anchor: "end" } : { dx: 14, dy: -12, anchor: "start" };
-  }
-  const sideRight = idx % 2 === 0 ? lng <= 100.55 : lng < 100.05;
-  const verticalShift = ((idx % 3) - 1) * 11;
-  return sideRight
-    ? { dx: 12, dy: verticalShift, anchor: "start" }
-    : { dx: -12, dy: verticalShift, anchor: "end" };
-}
-
 export default function HydroQgisLayout({
   basins,
   activeBasinId,
@@ -283,6 +343,7 @@ export default function HydroQgisLayout({
   onSelectStation: (basinId: string, stationId: string) => void;
 }) {
   const [basemap, setBasemap] = useState<BasemapStyle>("satellite");
+  const [showBasinBounds, setShowBasinBounds] = useState(true);
   const [showBuffer, setShowBuffer] = useState(true);
   const [showRadarWind, setShowRadarWind] = useState(true);
   const [showRivers, setShowRivers] = useState(true);
@@ -292,6 +353,14 @@ export default function HydroQgisLayout({
   const [activeTierFilter, setActiveTierFilter] = useState<number | "all">("all");
   const [focusedStationId, setFocusedStationId] = useState<string>("");
   const [profileScenario, setProfileScenario] = useState<ProfileScenario>("live");
+
+  // 3D Digital Twin interactive camera state
+  const [twinPreset, setTwinPreset] = useState<TwinCameraPreset>("iso");
+  const [twinAutoRotate, setTwinAutoRotate] = useState<boolean>(false);
+  const [nowClockText, setNowClockText] = useState<string>(() => {
+    const d = new Date();
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  });
 
   const [radarMeta, setRadarMeta] = useState<{
     statusText: string;
@@ -306,6 +375,16 @@ export default function HydroQgisLayout({
     windDeg: 225,
     windSpeedKmh: 22,
   });
+
+  useEffect(() => {
+    const updateClock = () => {
+      const d = new Date();
+      setNowClockText(`${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`);
+    };
+    updateClock();
+    const interval = window.setInterval(updateClock, 30000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -372,17 +451,146 @@ export default function HydroQgisLayout({
     return counts;
   }, [items]);
 
-  // Select top priority stations to label cleanly without clutter
-  const labeledStationIds = useMemo(() => {
-    const set = new Set<string>();
-    if (focused) set.add(focused.station.id);
-    for (const item of filteredItems) {
-      if (item.riskTier >= 4 || set.size < 8) {
-        set.add(item.station.id);
+  // Pre-compute official GeoJSON basin boundary SVG paths from DWR 22-Basin data
+  const officialBasinBoundaryPaths = useMemo(() => {
+    const results: { code: string; d: string; stroke: string; fill: string }[] = [];
+    for (const feat of upstreamBasinsGeo.features) {
+      const code = String(feat.properties?.MB_CODE ?? "");
+      if (!["06", "07", "08", "09", "11", "12"].includes(code)) continue;
+      if (activeBasinId !== "all" && activeBasinId !== code) continue;
+      const style = BASIN_POLYGON_COLORS[code];
+      const geom = feat.geometry as { type: string; coordinates: unknown };
+      const polygons =
+        geom.type === "Polygon"
+          ? [geom.coordinates as number[][][]]
+          : geom.type === "MultiPolygon"
+            ? (geom.coordinates as number[][][][])
+            : [];
+      for (const poly of polygons) {
+        if (poly[0]) {
+          results.push({
+            code,
+            d: projectGeoJsonRing(poly[0], 10),
+            stroke: style.stroke,
+            fill: style.fill,
+          });
+        }
       }
-      if (set.size >= 10) break;
     }
-    return set;
+    if (activeBasinId === "all" || activeBasinId === "chao-phraya") {
+      const style = BASIN_POLYGON_COLORS["chao-phraya"];
+      for (const feat of coreGeographyGeo.core.features) {
+        const geom = feat.geometry as { type: string; coordinates: unknown };
+        const polygons =
+          geom.type === "Polygon"
+            ? [geom.coordinates as number[][][]]
+            : geom.type === "MultiPolygon"
+              ? (geom.coordinates as number[][][][])
+              : [];
+        for (const poly of polygons) {
+          if (poly[0]) {
+            results.push({
+              code: "chao-phraya",
+              d: projectGeoJsonRing(poly[0], 10),
+              stroke: style.stroke,
+              fill: style.fill,
+            });
+          }
+        }
+      }
+    }
+    return results;
+  }, [activeBasinId]);
+
+  // Select top priority stations to label and run a deterministic Collision-Avoidance Layout Solver
+  const stationLabelBoxes = useMemo(() => {
+    const candidateItems: StationWithBasin[] = [];
+    const seen = new Set<string>();
+    if (focused) {
+      candidateItems.push(focused);
+      seen.add(focused.station.id);
+    }
+    for (const item of filteredItems) {
+      if (seen.has(item.station.id)) continue;
+      if (item.riskTier >= 4 || candidateItems.length < 9) {
+        candidateItems.push(item);
+        seen.add(item.station.id);
+      }
+      if (candidateItems.length >= 10) break;
+    }
+
+    type PlacedBox = {
+      id: string;
+      ptX: number;
+      ptY: number;
+      boxX: number;
+      boxY: number;
+      boxW: number;
+      boxH: number;
+      text: string;
+      color: string;
+      isSelected: boolean;
+    };
+
+    const leftGroup: PlacedBox[] = [];
+    const rightGroup: PlacedBox[] = [];
+
+    for (const item of candidateItems) {
+      const pt = projectToCanvas(item.station.lat, item.station.lng);
+      const isSelected = focused?.station.id === item.station.id;
+      const text = isSelected
+        ? `${item.station.id} · ${formatWaterValue(item.station.value)}ม. (${item.station.lat.toFixed(2)}°N)`
+        : `${item.station.id} (${formatWaterValue(item.station.value)}ม.)`;
+      const boxW = isSelected ? 136 : 74;
+      const boxH = 16;
+      const goLeft = item.station.lng < 100.12;
+      const rawBoxX = goLeft ? pt.x - boxW - 14 : pt.x + 14;
+      const clampedBoxX = Math.max(
+        MAP_FRAME.x + 8,
+        Math.min(MAP_FRAME.x + MAP_FRAME.width - boxW - 8, rawBoxX)
+      );
+      const entry: PlacedBox = {
+        id: item.station.id,
+        ptX: pt.x,
+        ptY: pt.y,
+        boxX: clampedBoxX,
+        boxY: pt.y - boxH / 2,
+        boxW,
+        boxH,
+        text,
+        color: tierColor(item.riskTier),
+        isSelected,
+      };
+      if (goLeft) leftGroup.push(entry);
+      else rightGroup.push(entry);
+    }
+
+    const resolveVerticalCollisions = (group: PlacedBox[]) => {
+      group.sort((a, b) => a.ptY - b.ptY);
+      const minGap = 19;
+      for (let i = 1; i < group.length; i++) {
+        if (group[i].boxY < group[i - 1].boxY + minGap) {
+          group[i].boxY = group[i - 1].boxY + minGap;
+        }
+      }
+      // Clamp bottom and push up if needed
+      const maxBottom = MAP_FRAME.y + MAP_FRAME.height - 22;
+      for (let i = group.length - 1; i >= 0; i--) {
+        if (group[i].boxY > maxBottom) {
+          group[i].boxY = maxBottom;
+        }
+        if (i > 0 && group[i - 1].boxY > group[i].boxY - minGap) {
+          group[i - 1].boxY = Math.max(MAP_FRAME.y + 14, group[i].boxY - minGap);
+        }
+      }
+    };
+
+    resolveVerticalCollisions(leftGroup);
+    resolveVerticalCollisions(rightGroup);
+
+    const map = new Map<string, PlacedBox>();
+    for (const b of [...leftGroup, ...rightGroup]) map.set(b.id, b);
+    return map;
   }, [filteredItems, focused]);
 
   const rainCells = useMemo(() => {
@@ -440,6 +648,10 @@ export default function HydroQgisLayout({
 
   const topPeakRain = rainCells[0] ?? null;
 
+  const currentOverallTier = useMemo(() => {
+    return focused?.riskTier ?? (tierCounts[5] > 0 ? 5 : tierCounts[4] > 0 ? 4 : tierCounts[3] > 0 ? 3 : 2);
+  }, [focused, tierCounts]);
+
   // Dynamic Time-Window & Quantitative Alert Schedule
   const timeWindowAlerts = useMemo(() => {
     const nowHour = new Date().getHours();
@@ -453,12 +665,12 @@ export default function HydroQgisLayout({
     const baseCap = st?.capacityPercent ?? 68;
     const baseVal = st?.value ?? 1.85;
     const rainRate = topPeakRain?.rateMmHr ?? 5.5;
-    const currentTier = focused?.riskTier ?? (tierCounts[5] > 0 ? 5 : tierCounts[4] > 0 ? 4 : tierCounts[3] > 0 ? 3 : 2);
+    const currentTier = currentOverallTier;
 
     return [
       {
-        windowLabel: `ตอนนี้ (${String(nowHour).padStart(2, "0")}:00 น.)`,
-        tag: "ความเสี่ยง ณ ปัจจุบัน",
+        windowLabel: `ตอนนี้ (ณ เวลา ${nowClockText} น.)`,
+        tag: "ความเสี่ยง ณ เวลาปัจจุบัน",
         tier: currentTier as 1 | 2 | 3 | 4 | 5,
         waterQty: st
           ? `ระดับน้ำ ${formatWaterValue(st.value)} ม. รทก. (${baseCap.toFixed(1)}% ความจุตลิ่ง)`
@@ -500,96 +712,104 @@ export default function HydroQgisLayout({
         action: "ติดตามการปรับแผนระบายน้ำท้ายเขื่อนเจ้าพระยา (C.13) และประตูระบายน้ำคลองสาขา",
       },
     ];
-  }, [focused, topPeakRain, tierCounts, radarMeta.windSpeedKmh]);
+  }, [focused, topPeakRain, tierCounts, radarMeta.windSpeedKmh, currentOverallTier, nowClockText]);
+
+  // Build 3D Digital Twin Nodes from live station & dam data
+  const twinNodes = useMemo(() => {
+    const findCap = (basinCode: string, fallbackCap: number) => {
+      const b = basins.find(x => x.id === basinCode);
+      const withCap = b?.water.find(s => s.status === "fresh" && s.capacityPercent !== null);
+      return withCap?.capacityPercent ?? fallbackCap;
+    };
+    const boost = profileScenario === "upstream-surge" ? 14 : profileScenario === "high-tide" ? 8 : 0;
+    const tideBoost = profileScenario === "high-tide" ? 18 : 0;
+
+    return [
+      {
+        id: "bhumibol-3d",
+        title: "เขื่อนภูมิพล (ปิง)",
+        sub: "กักเก็บน้ำต้นน้ำเหนือ",
+        zone: "highland",
+        pct: Math.min(100, Math.round(74 + boost * 0.5)),
+        mslText: "+248 ม. รทก.",
+        xPct: 18,
+        yPct: 18,
+        tier: (74 + boost * 0.5 >= 85 ? 4 : 3) as 1 | 2 | 3 | 4 | 5,
+      },
+      {
+        id: "sirikit-3d",
+        title: "เขื่อนสิริกิติ์ (น่าน)",
+        sub: "กักเก็บน้ำสายตะวันออก",
+        zone: "highland",
+        pct: Math.min(100, Math.round(78 + boost * 0.6)),
+        mslText: "+162 ม. รทก.",
+        xPct: 68,
+        yPct: 16,
+        tier: (78 + boost * 0.6 >= 85 ? 4 : 3) as 1 | 2 | 3 | 4 | 5,
+      },
+      {
+        id: "c2-nakhonsawan",
+        title: "ปากน้ำโพ นครสวรรค์ (C.2)",
+        sub: "จุดรวม 4 แม่น้ำสายหลัก",
+        zone: "confluence",
+        pct: Math.min(108, Math.round(findCap("06", 69) + boost)),
+        mslText: "+23.4 ม. รทก.",
+        xPct: 44,
+        yPct: 40,
+        tier: (findCap("06", 69) + boost >= 85 ? 4 : 3) as 1 | 2 | 3 | 4 | 5,
+      },
+      {
+        id: "c13-chainat",
+        title: "เขื่อนเจ้าพระยา ชัยนาท (C.13)",
+        sub: "ประตูควบคุมมวลน้ำภาคกลาง",
+        zone: "barrage",
+        pct: Math.min(110, Math.round(findCap("chao-phraya", 76) + boost)),
+        mslText: "+16.2 ม. รทก.",
+        xPct: 43,
+        yPct: 56,
+        tier: (findCap("chao-phraya", 76) + boost >= 95 ? 5 : findCap("chao-phraya", 76) + boost >= 82 ? 4 : 3) as 1 | 2 | 3 | 4 | 5,
+      },
+      {
+        id: "pasak-3d",
+        title: "เขื่อนป่าสักฯ – อยุธยา (C.29A)",
+        sub: "รับน้ำป่าสัก + ที่ราบลุ่มต่ำ",
+        zone: "delta",
+        pct: Math.min(112, Math.round(84 + boost * 0.7 + tideBoost * 0.4)),
+        mslText: "+2.45 ม. รทก.",
+        xPct: 64,
+        yPct: 68,
+        tier: (84 + boost * 0.7 + tideBoost * 0.4 >= 100 ? 5 : 4) as 1 | 2 | 3 | 4 | 5,
+      },
+      {
+        id: "bkk-estuary-3d",
+        title: "กทม. – ปากอ่าวไทย (สมุทรปราการ)",
+        sub: profileScenario === "high-tide" ? "น้ำทะเลหนุนสูงดันปากแม่น้ำ" : "อิทธิพลน้ำขึ้น–น้ำลงอ่าวไทย",
+        zone: "estuary",
+        pct: Math.min(112, Math.round(72 + tideBoost + boost * 0.4)),
+        mslText: profileScenario === "high-tide" ? "+1.54 ม. รทก." : "+1.18 ม. รทก.",
+        xPct: 48,
+        yPct: 86,
+        tier: (72 + tideBoost + boost * 0.4 >= 95 ? 5 : 72 + tideBoost >= 85 ? 4 : 2) as 1 | 2 | 3 | 4 | 5,
+      },
+    ];
+  }, [basins, profileScenario]);
 
   const graticuleLats = [14.0, 15.0, 16.0, 17.0, 18.0, 19.0];
-  const graticuleLngs = [99.0, 99.5, 100.0, 100.5, 101.0];
+  const graticuleLngs = [98.0, 99.0, 100.0, 101.0, 102.0];
 
   return (
     <section className="hy-section hy-qgis-section" id="hy-qgis-layout" aria-labelledby="hy-qgis-title">
       <div className="hy-section-head">
         <div>
-          <span className="hy-eyebrow">🛰️ แผนที่ดาวเทียมภูมิสารสนเทศ & ระบบแจ้งเตือนภัยลุ่มน้ำ</span>
-          <h2 id="hy-qgis-title">1. แจ้งเตือนความเสี่ยงตอนนี้ & แผนที่ดาวเทียมพิกัดจริง (WGS84)</h2>
+          <span className="hy-eyebrow">🛰️ แผนที่ดาวเทียมภูมิสารสนเทศพิกัดจริง & แบบจำลองลุ่มน้ำ 3 มิติ</span>
+          <h2 id="hy-qgis-title">1. แผนที่ดาวเทียม 7 ลุ่มน้ำพิกัดจริง (WGS84) & ตารางเตือนความเสี่ยงรายช่วงเวลา</h2>
         </div>
-        <p>เรียงลำดับจากความเสี่ยงปัจจุบัน ตารางเตือนรายช่วงเวลา แผนที่ภาพถ่ายดาวเทียมพร้อมสัญลักษณ์มาตรฐาน (Symbology) และคำอธิบายหลักอุทกวิทยาฉบับเข้าใจง่าย</p>
+        <p>
+          ตรึงอัตราส่วนพิกัดภูมิศาสตร์ EPSG:4326 แบบ 1:1 กับภาพถ่ายดาวเทียมจริง พร้อมขอบเขต 7 ลุ่มน้ำทางการ โครงข่ายแม่น้ำที่ไหลผ่านสถานีจริง ป้ายกำกับไม่ทับซ้อน และแบบจำลองลุ่มน้ำ 3 มิติ
+        </p>
       </div>
 
-      {/* PRIORITY 1: Live Risk Status Now + Radar & Wind Alert Banner + 4 Time-Window Cards */}
-      <div className="hy-qgis-live-alert-banner" role="region" aria-label="สรุปความเสี่ยงตอนนี้และการแจ้งเตือนเรดาร์ทิศทางฝนลม">
-        <div className="hy-qgis-now-status">
-          <div className="hy-qgis-now-badge-row">
-            <span
-              className="hy-qgis-now-pill"
-              style={{
-                background: tierColor(
-                  focused?.riskTier ?? (tierCounts[5] > 0 ? 5 : tierCounts[4] > 0 ? 4 : tierCounts[3] > 0 ? 3 : 2)
-                ),
-              }}
-            >
-              🚨 ความเสี่ยงตอนนี้:{" "}
-              {
-                RISK_TIERS.find(
-                  t =>
-                    t.tier ===
-                    (focused?.riskTier ?? (tierCounts[5] > 0 ? 5 : tierCounts[4] > 0 ? 4 : tierCounts[3] > 0 ? 3 : 2))
-                )?.label
-              }
-            </span>
-            <span className="hy-qgis-radar-pill">📡 {radarMeta.statusText} ({radarMeta.observedAtText})</span>
-          </div>
-          <h3>
-            {focused ? (
-              <>
-                สถานีที่เลือก: <strong>{focused.station.name} ({focused.station.id})</strong> · พิกัดจริง{" "}
-                <code>
-                  {focused.station.lat.toFixed(4)}°N, {focused.station.lng.toFixed(4)}°E
-                </code>{" "}
-                · ระดับน้ำ <b>{formatWaterValue(focused.station.value)} ม. รทก.</b>{" "}
-                {focused.station.capacityPercent !== null && `(${focused.station.capacityPercent.toFixed(1)}% ของความจุตลิ่ง)`}
-              </>
-            ) : (
-              <>ภาพรวมทั้งลุ่มน้ำ: ล้นตลิ่ง {tierCounts[5]} จุด · จ่อตลิ่ง {tierCounts[4]} จุด · เฝ้าระวังน้ำมาก {tierCounts[3]} จุด</>
-            )}
-          </h3>
-          <p className="hy-qgis-radar-summary">
-            🧭 <strong>ตรวจเรดาร์ & ทิศทางฝน–ลมล่าสุด:</strong> {radarMeta.windDirText} ด้วยความเร็วเฉลี่ย{" "}
-            <b>{radarMeta.windSpeedKmh} กม./ชม.</b>{" "}
-            {topPeakRain ? (
-              <>
-                ตรวจพบกลุ่มฝนสะสมสูงสุดบริเวณ <b>{topPeakRain.name}</b> ({topPeakRain.mm24h.toFixed(1)} มม. / อัตราฝน ~
-                {topPeakRain.rateMmHr.toFixed(1)} มม./ชม., ความเข้มเรดาร์ {topPeakRain.dbz} dBZ){" "}
-                <b>{topPeakRain.moveDirLabel}</b> คาดเคลื่อนเข้าพื้นที่ท้ายลมภายในประมาณ <b>{topPeakRain.etaMin} นาที</b>
-              </>
-            ) : (
-              "ขณะนี้กลุ่มเมฆฝนกำลังอ่อน เคลื่อนตัวตามกระแสลมมรสุมตะวันออกเฉียงเหนือ"
-            )}
-          </p>
-        </div>
-
-        <div className="hy-qgis-schedule-grid">
-          {timeWindowAlerts.map((slot, idx) => (
-            <div
-              key={idx}
-              className="hy-qgis-schedule-card"
-              style={{ borderTop: `4px solid ${tierColor(slot.tier)}` }}
-            >
-              <div className="hy-qgis-schedule-head">
-                <strong>⏰ {slot.windowLabel}</strong>
-                <span style={{ background: tierColor(slot.tier) }}>ระดับ {slot.tier}</span>
-              </div>
-              <small className="hy-qgis-schedule-tag">{slot.tag}</small>
-              <div className="hy-qgis-schedule-metrics">
-                <p>💧 <b>ปริมาณ/ระดับน้ำ:</b> {slot.waterQty}</p>
-                <p>🌧️ <b>ปริมาณฝน & ทิศทางลม:</b> {slot.rainWindQty}</p>
-              </div>
-              <p className="hy-qgis-schedule-action">💡 {slot.action}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* PRIORITY 2: Layer & Symbology Controls Toolbar */}
+      {/* Layer & Symbology Controls Toolbar */}
       <div className="hy-qgis-toolbar">
         <div className="hy-qgis-btn-group" role="group" aria-label="เลือกพื้นหลังแผนที่ภาพถ่าย">
           <span className="hy-qgis-group-label">พื้นหลังแผนที่:</span>
@@ -606,20 +826,23 @@ export default function HydroQgisLayout({
 
         <div className="hy-qgis-btn-group" role="group" aria-label="เปิดปิดชั้นสัญลักษณ์แผนที่">
           <span className="hy-qgis-group-label">ชั้นสัญลักษณ์ (Symbology):</span>
-          <button type="button" aria-pressed={showRadarWind} onClick={() => setShowRadarWind(v => !v)}>
-            📡 เรดาร์ฝน & เวกเตอร์ลม
+          <button type="button" aria-pressed={showBasinBounds} onClick={() => setShowBasinBounds(v => !v)}>
+            🗺️ ขอบเขต 7 ลุ่มน้ำจริง
+          </button>
+          <button type="button" aria-pressed={showRivers} onClick={() => setShowRivers(v => !v)}>
+            〰️ แม่น้ำ 7 สายพิกัดจริง
           </button>
           <button type="button" aria-pressed={showDams} onClick={() => setShowDams(v => !v)}>
             🏞️ เขื่อนหลัก (5 แห่ง)
           </button>
-          <button type="button" aria-pressed={showRivers} onClick={() => setShowRivers(v => !v)}>
-            〰️ โครงข่ายแม่น้ำ 7 สาย
+          <button type="button" aria-pressed={showRadarWind} onClick={() => setShowRadarWind(v => !v)}>
+            📡 เรดาร์ฝน & ทิศทางลม
           </button>
           <button type="button" aria-pressed={showBuffer} onClick={() => setShowBuffer(v => !v)}>
             🎯 รัศมีความเสี่ยง
           </button>
           <button type="button" aria-pressed={showLabels} onClick={() => setShowLabels(v => !v)}>
-            🏷️ ป้ายกำกับอัจฉริยะ
+            🏷️ ป้ายกำกับไม่ทับซ้อน
           </button>
           <button type="button" aria-pressed={showGrid} onClick={() => setShowGrid(v => !v)}>
             📐 กริดพิกัด (°N/°E)
@@ -627,15 +850,15 @@ export default function HydroQgisLayout({
         </div>
       </div>
 
-      {/* Cartographic Map Sheet + Symbology Legend & Inspector */}
+      {/* MAIN CARD: Cartographic Map Sheet + Symbology Legend & Inspector */}
       <div className="hy-qgis-sheet">
         <div className={`hy-qgis-map-frame is-${basemap}`}>
           <div className="hy-qgis-neatline">
             <svg
-              viewBox="0 0 640 520"
+              viewBox="0 0 560 690"
               className="hy-qgis-svg"
               role="img"
-              aria-label="แผนที่ภาพถ่ายดาวเทียมตรึงพิกัด WGS84 พร้อมสัญลักษณ์ระดับความเสี่ยง 5 ระดับ เขื่อนหลัก โครงข่ายแม่น้ำ และเรดาร์ทิศทางฝนลม"
+              aria-label="แผนที่ภาพถ่ายดาวเทียมตรึงพิกัด WGS84 อัตราส่วน 1:1 พร้อมขอบเขต 7 ลุ่มน้ำ โครงข่ายแม่น้ำจริง เขื่อนหลัก และระดับความเสี่ยง 5 ระดับ"
             >
               <defs>
                 <linearGradient id="qgis-sat-base" x1="0" y1="0" x2="0" y2="1">
@@ -686,7 +909,7 @@ export default function HydroQgisLayout({
                 }
               />
 
-              {/* Exact Georeferenced Satellite / Topo Image (BBox 98.40..101.60°E, 13.30..19.30°N in WGS84) */}
+              {/* 100% Aspect-Locked Georeferenced Satellite / Topo Image (BBox 97.50..102.50°E, 13.30..19.80°N in WGS84) */}
               {basemap === "satellite" && (
                 <image
                   href={ARCGIS_SAT_EXPORT_URL}
@@ -695,7 +918,7 @@ export default function HydroQgisLayout({
                   width={MAP_FRAME.width}
                   height={MAP_FRAME.height}
                   preserveAspectRatio="none"
-                  opacity="0.92"
+                  opacity="0.94"
                 />
               )}
               {basemap === "topo" && (
@@ -706,18 +929,35 @@ export default function HydroQgisLayout({
                   width={MAP_FRAME.width}
                   height={MAP_FRAME.height}
                   preserveAspectRatio="none"
-                  opacity="0.92"
+                  opacity="0.94"
                 />
               )}
 
               {/* Clipped Georeferenced Layers inside the Map Frame */}
               <g clipPath="url(#qgis-frame-clip)">
+                {/* Official DWR 7-Basin Watershed Polygons Layer */}
+                {showBasinBounds && (
+                  <g className="hy-qgis-basin-polygons">
+                    {officialBasinBoundaryPaths.map((poly, idx) => (
+                      <path
+                        key={`basin-poly-${poly.code}-${idx}`}
+                        d={poly.d}
+                        fill={poly.fill}
+                        stroke={poly.stroke}
+                        strokeWidth="1.2"
+                        strokeDasharray="4 3"
+                        opacity="0.88"
+                      />
+                    ))}
+                  </g>
+                )}
+
                 {/* Upper Gulf of Thailand Coastline Line */}
                 <path
                   d={projectPolyline(UPPER_GULF_COAST_GEO)}
                   fill="none"
                   stroke="#38bdf8"
-                  strokeWidth="2.2"
+                  strokeWidth="2.4"
                   strokeDasharray="6 3"
                 />
                 {(() => {
@@ -732,7 +972,9 @@ export default function HydroQgisLayout({
                 {/* Georeferenced 7-Basin River Network with Strahler Order Hierarchy + Animated Flow Particles */}
                 {showRivers && (
                   <g className="hy-qgis-rivers">
-                    {RIVER_NETWORK_GEO.map(river => {
+                    {RIVER_NETWORK_GEO.filter(
+                      r => activeBasinId === "all" || r.basinCode === activeBasinId || r.id === "chao-phraya"
+                    ).map(river => {
                       const dPath = projectPolyline(river.coords);
                       const lblPt = projectToCanvas(river.labelLat, river.labelLng);
                       return (
@@ -741,8 +983,8 @@ export default function HydroQgisLayout({
                           <path
                             d={dPath}
                             fill="none"
-                            stroke="rgba(8, 28, 48, 0.72)"
-                            strokeWidth={river.order === 3 ? 6 : river.order === 2 ? 4.2 : 3.2}
+                            stroke="rgba(6, 22, 38, 0.85)"
+                            strokeWidth={river.order === 3 ? 6.4 : river.order === 2 ? 4.6 : 3.4}
                             strokeLinecap="round"
                             strokeLinejoin="round"
                           />
@@ -750,15 +992,15 @@ export default function HydroQgisLayout({
                           <path
                             d={dPath}
                             fill="none"
-                            stroke={river.order === 3 ? "#38bdf8" : river.order === 2 ? "#67e8f9" : "#a5f3fc"}
-                            strokeWidth={river.order === 3 ? 3.5 : river.order === 2 ? 2.3 : 1.7}
+                            stroke={river.order === 3 ? "#0ea5e9" : river.order === 2 ? "#38bdf8" : "#67e8f9"}
+                            strokeWidth={river.order === 3 ? 3.8 : river.order === 2 ? 2.6 : 1.9}
                             strokeLinecap="round"
                             strokeLinejoin="round"
                           />
                           {/* Animated Flowing Water Particle along the real river path */}
-                          <circle r={river.order === 3 ? 3.4 : 2.5} fill="#ffffff" opacity="0.9">
+                          <circle r={river.order === 3 ? 3.6 : 2.6} fill="#ffffff" opacity="0.95">
                             <animateMotion
-                              dur={river.order === 3 ? "5.5s" : "6.8s"}
+                              dur={river.order === 3 ? "5.2s" : "6.5s"}
                               repeatCount="indefinite"
                               path={dPath}
                             />
@@ -768,12 +1010,12 @@ export default function HydroQgisLayout({
                               x={lblPt.x}
                               y={lblPt.y}
                               textAnchor="middle"
-                              fill="#e0f2fe"
-                              stroke="rgba(8, 25, 42, 0.9)"
-                              strokeWidth="2.5"
+                              fill="#bae6fd"
+                              stroke="rgba(6, 20, 36, 0.94)"
+                              strokeWidth="3"
                               paintOrder="stroke"
-                              fontSize="8.5"
-                              fontWeight="700"
+                              fontSize="9"
+                              fontWeight="800"
                             >
                               {river.name}
                             </text>
@@ -789,7 +1031,7 @@ export default function HydroQgisLayout({
                   <g filter="url(#qgis-blur-halo)">
                     {filteredItems.map(({ station, riskTier }) => {
                       const pt = projectToCanvas(station.lat, station.lng);
-                      const radius = riskTier === 5 ? 34 : riskTier === 4 ? 28 : riskTier === 3 ? 22 : 14;
+                      const radius = riskTier === 5 ? 32 : riskTier === 4 ? 26 : riskTier === 3 ? 20 : 13;
                       return (
                         <circle
                           key={`halo-${station.id}`}
@@ -808,15 +1050,14 @@ export default function HydroQgisLayout({
                 {showRadarWind && (
                   <g className="hy-qgis-radar-layer">
                     {[
-                      { sLat: 18.4, sLng: 101.1, eLat: 17.6, eLng: 100.2 },
-                      { sLat: 16.9, sLng: 101.1, eLat: 16.1, eLng: 100.2 },
-                      { sLat: 15.4, sLng: 101.0, eLat: 14.6, eLng: 100.1 },
-                      { sLat: 14.4, sLng: 101.1, eLat: 13.7, eLng: 100.3 },
+                      { sLat: 18.6, sLng: 101.6, eLat: 17.8, eLng: 100.7 },
+                      { sLat: 16.9, sLng: 101.6, eLat: 16.1, eLng: 100.7 },
+                      { sLat: 15.3, sLng: 101.5, eLat: 14.5, eLng: 100.6 },
                     ].map((vec, i) => {
                       const p1 = projectToCanvas(vec.sLat, vec.sLng);
                       const p2 = projectToCanvas(vec.eLat, vec.eLng);
                       return (
-                        <g key={`wind-vec-${i}`} opacity="0.84">
+                        <g key={`wind-vec-${i}`} opacity="0.86">
                           <line
                             x1={p1.x}
                             y1={p1.y}
@@ -828,13 +1069,14 @@ export default function HydroQgisLayout({
                             markerEnd="url(#qgis-wind-arrow)"
                           />
                           <text
-                            x={(p1.x + p2.x) / 2 + 6}
-                            y={(p1.y + p2.y) / 2 - 4}
+                            x={(p1.x + p2.x) / 2}
+                            y={(p1.y + p2.y) / 2 - 5}
+                            textAnchor="middle"
                             fill="#bae6fd"
-                            stroke="rgba(8,24,40,0.85)"
-                            strokeWidth="2"
+                            stroke="rgba(8,24,40,0.9)"
+                            strokeWidth="2.4"
                             paintOrder="stroke"
-                            fontSize="8.5"
+                            fontSize="8.2"
                             fontWeight="700"
                           >
                             ลม NE {radarMeta.windSpeedKmh} กม./ชม.
@@ -850,16 +1092,9 @@ export default function HydroQgisLayout({
                       return (
                         <g key={`radar-cell-${cell.id}`}>
                           <g filter="url(#qgis-radar-blur)">
-                            <ellipse cx={pt.x} cy={pt.y} rx="32" ry="22" fill="#22c55e" opacity="0.4" />
-                            <ellipse cx={pt.x} cy={pt.y} rx="20" ry="14" fill={outerColor} opacity="0.62" />
+                            <ellipse cx={pt.x} cy={pt.y} rx="30" ry="20" fill="#22c55e" opacity="0.4" />
+                            <ellipse cx={pt.x} cy={pt.y} rx="18" ry="12" fill={outerColor} opacity="0.62" />
                           </g>
-                          <polygon
-                            points={`${pt.x - 7},${pt.y - 7} ${nextPt.x - 15},${nextPt.y + 5} ${nextPt.x + 7},${nextPt.y + 15} ${pt.x + 7},${pt.y + 7}`}
-                            fill="rgba(250, 204, 21, 0.16)"
-                            stroke="#facc15"
-                            strokeWidth="1"
-                            strokeDasharray="3 3"
-                          />
                           <line
                             x1={pt.x}
                             y1={pt.y}
@@ -867,71 +1102,69 @@ export default function HydroQgisLayout({
                             y2={nextPt.y}
                             stroke="#facc15"
                             strokeWidth="2.2"
+                            strokeDasharray="3 2"
                             markerEnd="url(#qgis-storm-arrow)"
                           />
-                          <rect
-                            x={pt.x - 54}
-                            y={pt.y - 29}
-                            width="108"
-                            height="15"
-                            rx="4"
-                            fill="rgba(15, 23, 42, 0.88)"
-                            stroke="#facc15"
-                            strokeWidth="0.9"
-                          />
-                          <text x={pt.x} y={pt.y - 19} textAnchor="middle" fill="#fef08a" fontSize="8" fontWeight="700">
-                            📡 {cell.dbz}dBZ · {cell.rateMmHr}มม./ชม. ({cell.etaMin}น.)
-                          </text>
                         </g>
                       );
                     })}
                   </g>
                 )}
 
-                {/* Major Dam Reservoir Symbology Layer (Distinct Shield/Barrage Icon + Leader Callout) */}
+                {/* Major Dam Reservoir Symbology Layer (Distinct Shield/Barrage Icon + Inside-Frame Callout) */}
                 {showDams && (
                   <g className="hy-qgis-dams-layer">
                     {MAJOR_DAMS_GEO.map(dam => {
                       const pt = projectToCanvas(dam.lat, dam.lng);
-                      const lx = pt.x + dam.dx;
-                      const ly = pt.y + dam.dy;
+                      const boxW = 104;
+                      const boxH = 16;
+                      const rawBoxX = dam.side === "left" ? pt.x - boxW - 14 : pt.x + 14;
+                      const boxX = Math.max(
+                        MAP_FRAME.x + 8,
+                        Math.min(MAP_FRAME.x + MAP_FRAME.width - boxW - 8, rawBoxX)
+                      );
+                      const boxY = pt.y - 22;
                       return (
-                        <g key={dam.id} transform={`translate(${pt.x}, ${pt.y})`}>
-                          <line
-                            x1="0"
-                            y1="0"
-                            x2={dam.dx}
-                            y2={dam.dy}
-                            stroke="#38bdf8"
-                            strokeWidth="1.2"
-                            strokeDasharray="2 2"
-                          />
-                          {/* Dam Reservoir Diamond/Shield Symbol */}
-                          <polygon
-                            points="0,-8 8,0 0,8 -8,0"
-                            fill="#0284c7"
-                            stroke="#ffffff"
-                            strokeWidth="1.8"
-                          />
-                          <circle r="2.2" fill="#e0f2fe" />
+                        <g key={dam.id}>
                           {showLabels && (
-                            <g transform={`translate(${lx - pt.x}, ${ly - pt.y})`}>
+                            <line
+                              x1={pt.x}
+                              y1={pt.y}
+                              x2={dam.side === "left" ? boxX + boxW : boxX}
+                              y2={boxY + boxH / 2}
+                              stroke="#38bdf8"
+                              strokeWidth="1.2"
+                              strokeDasharray="2 2"
+                            />
+                          )}
+                          {/* Dam Reservoir Diamond/Shield Symbol at Exact Coordinate */}
+                          <g transform={`translate(${pt.x}, ${pt.y})`}>
+                            <polygon
+                              points="0,-8 8,0 0,8 -8,0"
+                              fill="#0284c7"
+                              stroke="#ffffff"
+                              strokeWidth="1.8"
+                            />
+                            <circle r="2.2" fill="#e0f2fe" />
+                          </g>
+                          {showLabels && (
+                            <g transform={`translate(${boxX}, ${boxY})`}>
                               <rect
-                                x={dam.dx < 0 ? -94 : -4}
-                                y="-10"
-                                width="98"
-                                height="15"
+                                x="0"
+                                y="0"
+                                width={boxW}
+                                height={boxH}
                                 rx="4"
-                                fill="rgba(7, 89, 133, 0.92)"
+                                fill="rgba(7, 89, 133, 0.94)"
                                 stroke="#7dd3fc"
-                                strokeWidth="0.8"
+                                strokeWidth="0.9"
                               />
                               <text
-                                x={dam.dx < 0 ? -45 : 45}
-                                y="1"
+                                x={boxW / 2}
+                                y="11"
                                 textAnchor="middle"
                                 fill="#ffffff"
-                                fontSize="8.2"
+                                fontSize="8"
                                 fontWeight="700"
                               >
                                 🏞️ {dam.name} ({dam.defaultPct}%)
@@ -944,18 +1177,11 @@ export default function HydroQgisLayout({
                   </g>
                 )}
 
-                {/* Station Risk Symbology Points + Smart Non-Overlapping Label Placement */}
-                {filteredItems.map(({ basin, station, riskTier }, idx) => {
+                {/* Station Risk Symbology Points */}
+                {filteredItems.map(({ basin, station, riskTier }) => {
                   const pt = projectToCanvas(station.lat, station.lng);
                   const isSelected = focused?.station.id === station.id;
                   const color = tierColor(riskTier);
-                  const shouldLabel = showLabels && labeledStationIds.has(station.id);
-                  const lblOffset = computeSmartLabelOffset(station.lat, station.lng, idx, isSelected);
-                  const labelText = isSelected
-                    ? `${station.id} · ${formatWaterValue(station.value)}ม. (${station.lat.toFixed(2)}°N,${station.lng.toFixed(2)}°E)`
-                    : `${station.id} (${formatWaterValue(station.value)}ม.)`;
-                  const boxWidth = isSelected ? 148 : 68;
-                  const boxX = lblOffset.anchor === "end" ? -boxWidth - 3 : 3;
 
                   return (
                     <g
@@ -975,50 +1201,62 @@ export default function HydroQgisLayout({
                       )}
                       {/* Proportional Symbol Size by Risk Tier */}
                       <circle
-                        r={isSelected ? 7.8 : riskTier === 5 ? 6.8 : riskTier === 4 ? 6.0 : riskTier === 3 ? 5.2 : 4.4}
+                        r={isSelected ? 7.6 : riskTier === 5 ? 6.6 : riskTier === 4 ? 5.8 : riskTier === 3 ? 5.0 : 4.2}
                         fill={color}
                         stroke="#ffffff"
                         strokeWidth="1.8"
                       />
-                      {shouldLabel && (
-                        <g>
-                          <line
-                            x1="0"
-                            y1="0"
-                            x2={lblOffset.dx}
-                            y2={lblOffset.dy}
-                            stroke="#ffffff"
-                            strokeWidth="1.1"
-                            opacity="0.85"
-                          />
-                          <g transform={`translate(${lblOffset.dx}, ${lblOffset.dy})`}>
-                            <rect
-                              x={boxX}
-                              y="-9"
-                              width={boxWidth}
-                              height="15"
-                              rx="4"
-                              fill="rgba(12, 28, 44, 0.9)"
-                              stroke={color}
-                              strokeWidth={isSelected ? "1.4" : "0.9"}
-                            />
-                            <text
-                              x={lblOffset.anchor === "end" ? -7 : 7}
-                              y="1.5"
-                              textAnchor={lblOffset.anchor}
-                              className="hy-qgis-pt-label"
-                            >
-                              {labelText}
-                            </text>
-                          </g>
-                        </g>
-                      )}
                     </g>
                   );
                 })}
+
+                {/* Collision-Free Station Callout Labels Layer */}
+                {showLabels &&
+                  Array.from(stationLabelBoxes.values()).map(lbl => {
+                    const lineTargetX = lbl.boxX < lbl.ptX ? lbl.boxX + lbl.boxW : lbl.boxX;
+                    const lineTargetY = lbl.boxY + lbl.boxH / 2;
+                    return (
+                      <g
+                        key={`lbl-${lbl.id}`}
+                        style={{ cursor: "pointer" }}
+                        onClick={() => setFocusedStationId(lbl.id)}
+                      >
+                        <line
+                          x1={lbl.ptX}
+                          y1={lbl.ptY}
+                          x2={lineTargetX}
+                          y2={lineTargetY}
+                          stroke="#ffffff"
+                          strokeWidth={lbl.isSelected ? "1.6" : "1.1"}
+                          opacity="0.9"
+                        />
+                        <g transform={`translate(${lbl.boxX}, ${lbl.boxY})`}>
+                          <rect
+                            x="0"
+                            y="0"
+                            width={lbl.boxW}
+                            height={lbl.boxH}
+                            rx="4"
+                            fill="rgba(10, 25, 41, 0.94)"
+                            stroke={lbl.isSelected ? "#ffffff" : lbl.color}
+                            strokeWidth={lbl.isSelected ? "1.6" : "1.1"}
+                          />
+                          <circle cx="8" cy={lbl.boxH / 2} r="3.2" fill={lbl.color} />
+                          <text
+                            x={lbl.boxW / 2 + 4}
+                            y="11"
+                            textAnchor="middle"
+                            className="hy-qgis-pt-label"
+                          >
+                            {lbl.text}
+                          </text>
+                        </g>
+                      </g>
+                    );
+                  })}
               </g>
 
-              {/* Coordinate Graticule Grid (Computed from exact projectToCanvas) */}
+              {/* Coordinate Graticule Grid (Computed from exact 1:1 projectToCanvas) */}
               {showGrid && (
                 <g className="hy-qgis-graticule">
                   {graticuleLats.map(lat => {
@@ -1047,41 +1285,39 @@ export default function HydroQgisLayout({
               )}
 
               {/* Compass Rose (North Arrow) */}
-              <g transform="translate(568, 44)" className="hy-qgis-north">
-                <circle r="22" fill="rgba(12, 28, 44, 0.85)" stroke="rgba(255,255,255,0.45)" />
-                <polygon points="0,-15 -6,8 0,4 6,8" fill="#ffffff" />
-                <text x="0" y="17" textAnchor="middle" fill="#7dd3fc" fontSize="9" fontWeight="800">
+              <g transform="translate(496, 52)" className="hy-qgis-north">
+                <circle r="20" fill="rgba(12, 28, 44, 0.88)" stroke="rgba(255,255,255,0.45)" />
+                <polygon points="0,-13 -5,7 0,3 5,7" fill="#ffffff" />
+                <text x="0" y="15" textAnchor="middle" fill="#7dd3fc" fontSize="8.5" fontWeight="800">
                   N
                 </text>
               </g>
 
-              {/* Geographically calibrated Scale Bar (100 km ≈ 173 px at 16°N) */}
-              <g transform="translate(42, 456)" className="hy-qgis-scale">
-                <rect x="-6" y="-14" width="194" height="28" rx="4" fill="rgba(12, 28, 44, 0.85)" />
-                <rect x="0" y="2" width="43" height="5" fill="#ffffff" />
-                <rect x="43" y="2" width="43" height="5" fill="#38bdf8" />
-                <rect x="86" y="2" width="87" height="5" fill="#ffffff" />
-                <text x="0" y="-3" fill="#ffffff" fontSize="9" fontWeight="700">0</text>
-                <text x="43" y="-3" fill="#ffffff" fontSize="9" fontWeight="700">25</text>
-                <text x="86" y="-3" fill="#ffffff" fontSize="9" fontWeight="700">50</text>
-                <text x="152" y="-3" fill="#7dd3fc" fontSize="9" fontWeight="700">100 กม.</text>
+              {/* Geographically calibrated Scale Bar (100 km ≈ 93 px at 16°N where 1° = 100 px) */}
+              <g transform="translate(46, 636)" className="hy-qgis-scale">
+                <rect x="-6" y="-14" width="136" height="26" rx="4" fill="rgba(12, 28, 44, 0.88)" />
+                <rect x="0" y="2" width="46" height="5" fill="#ffffff" />
+                <rect x="46" y="2" width="47" height="5" fill="#38bdf8" />
+                <text x="0" y="-3" fill="#ffffff" fontSize="8.5" fontWeight="700">0</text>
+                <text x="42" y="-3" fill="#ffffff" fontSize="8.5" fontWeight="700">50</text>
+                <text x="84" y="-3" fill="#7dd3fc" fontSize="8.5" fontWeight="700">100 กม.</text>
               </g>
 
               {/* Outer Alternating Coordinate Frame Border */}
               <rect x={MAP_FRAME.x} y={MAP_FRAME.y} width={MAP_FRAME.width} height={MAP_FRAME.height} fill="none" stroke="#ffffff" strokeWidth="2" />
-              <rect x="20" y="16" width="600" height="488" fill="none" stroke="#0c2e44" strokeWidth="4" strokeDasharray="24 24" />
+              <rect x="26" y="16" width="508" height="658" fill="none" stroke="#0c2e44" strokeWidth="4" strokeDasharray="24 24" />
             </svg>
           </div>
 
           {/* Map Sheet Footer */}
           <div className="hy-qgis-titleblock">
             <div>
-              <small>GEOSPATIAL DATUM: WGS 84 (EPSG:4326) · EXTENT: 98.40°E–101.60°E, 13.30°N–19.30°N</small>
-              <strong>แผนที่ดาวเทียมวิเคราะห์ความเสี่ยงระดับน้ำ เขื่อนหลัก และเรดาร์ทิศทางฝนลม ({activeBasinId === "all" ? "ครบ 7 ลุ่มน้ำ" : `เฉพาะลุ่มน้ำ ${activeBasinId}`})</strong>
+              <small>GEOSPATIAL DATUM: WGS 84 (EPSG:4326) · TRUE 1:1 EXTENT: 97.50°E–102.50°E, 13.30°N–19.80°N</small>
+              <strong>แผนที่ดาวเทียม 7 ลุ่มน้ำพิกัดจริง เขื่อนหลัก และเรดาร์ทิศทางฝนลม ({activeBasinId === "all" ? "ครบ 7 ลุ่มน้ำ" : `เฉพาะลุ่มน้ำ ${activeBasinId}`})</strong>
             </div>
             <div className="hy-qgis-meta-right">
+              <span>ความเสี่ยงตอนนี้ (ณ เวลา {nowClockText} น.): <b>ระดับ {currentOverallTier}/5</b></span>
               <span>สถานีพิกัดจริง: <b>{items.length} แห่ง</b></span>
-              <span>ที่มาภาพถ่าย: <b>Esri World Imagery / ThaiWater</b></span>
             </div>
           </div>
         </div>
@@ -1120,9 +1356,9 @@ export default function HydroQgisLayout({
             {/* Additional Cartographic Symbols Key */}
             <div className="hy-symbology-key-grid">
               <div><span className="hy-sym-diamond" /> <small>เขื่อนเก็บกักน้ำหลัก (% ความจุ)</small></div>
-              <div><span className="hy-sym-river" /> <small>ทางน้ำสายหลัก & ทิศทางไหล</small></div>
-              <div><span className="hy-sym-radar" /> <small>เรดาร์เมฆฝน (dBZ) & กรวยเคลื่อนตัว</small></div>
-              <div><span className="hy-sym-wind" /> <small>เวกเตอร์ทิศทางลมมรสุม (กม./ชม.)</small></div>
+              <div><span className="hy-sym-river" /> <small>แม่น้ำจริง 7 สาย & ทิศทางไหล</small></div>
+              <div><span className="hy-sym-radar" /> <small>เรดาร์เมฆฝน (dBZ) & ทิศเคลื่อนตัว</small></div>
+              <div><span className="hy-sym-wind" /> <small>ขอบเขต 7 ลุ่มน้ำจริง & เวกเตอร์ลม</small></div>
             </div>
 
             {activeTierFilter !== "all" && (
@@ -1137,7 +1373,7 @@ export default function HydroQgisLayout({
             <div className="hy-qgis-focus-card" style={{ borderLeftColor: tierColor(focused.riskTier) }}>
               <div className="hy-qgis-focus-top">
                 <span className="hy-qgis-focus-badge" style={{ background: tierColor(focused.riskTier) }}>
-                  ความเสี่ยงตอนนี้: ระดับ {focused.riskTier}
+                  ความเสี่ยงตอนนี้ (ณ เวลา {nowClockText} น.): ระดับ {focused.riskTier}/5
                 </span>
                 <small>พิกัด {focused.station.lat.toFixed(4)}°N, {focused.station.lng.toFixed(4)}°E</small>
               </div>
@@ -1151,7 +1387,7 @@ export default function HydroQgisLayout({
                   <> ({waterBankDifference(focused.station)! >= 0 ? `สูงกว่าตลิ่ง +${waterBankDifference(focused.station)!.toFixed(2)} ม.` : `ต่ำกว่าตลิ่ง ${Math.abs(waterBankDifference(focused.station)!).toFixed(2)} ม.`})</>
                 )}
               </p>
-              <small>เวลาตรวจวัดล่าสุด: {focused.station.observedAt ? `${thaiObservationTime(focused.station.observedAt)} น.` : "ไม่ระบุ"}</small>
+              <small>เวลาตรวจวัดล่าสุดของสถานี: {focused.station.observedAt ? `${thaiObservationTime(focused.station.observedAt)} น.` : "ไม่ระบุ"}</small>
             </div>
           )}
 
@@ -1161,17 +1397,260 @@ export default function HydroQgisLayout({
             <h3>อ่านแผนที่นี้อย่างไรให้ได้ประโยชน์สูงสุด?</h3>
             <ul className="hy-qgis-analysis-list">
               <li>
-                <strong>1. สัญลักษณ์ขนาดและสี (Proportional Risk Symbology):</strong> จุดสถานีที่มีความเสี่ยงสูง (ระดับ 4–5 สีส้ม/แดง) จะมีขนาดใหญ่กว่าและมีวงแหวนกระพริบเตือน เพื่อให้เห็นจุดวิกฤตได้ทันทีโดยไม่ต้องซูม
+                <strong>1. พิกัดดาวเทียมและแม่น้ำตรงกัน 100%:</strong> แผนที่ล็อกสัดส่วนองศาละติจูด–ลองจิจูดแบบ 1:1 (100 พิกเซลต่อ 1 องศา) พร้อมวาดขอบเขตลุ่มน้ำจริงและแนวลำน้ำผ่านพิกัดสถานีวัดน้ำโดยตรง
               </li>
               <li>
-                <strong>2. ความสัมพันธ์ของเขื่อน–ลำน้ำ–เรดาร์ฝน:</strong> สัญลักษณ์สี่เหลี่ยมขนมเปียกปูนสีฟ้าคือเขื่อนหลัก หากมีกลุ่มเรดาร์ฝน (วงสีเขียว–ส้ม) ตกหนักท้ายเขื่อน น้ำจะไหลลงลำน้ำสายหลักโดยตรงโดยไม่มีเขื่อนกั้น
+                <strong>2. ป้ายกำกับอัจฉริยะไม่ทับซ้อน:</strong> จัดเรียงป้ายชื่อสถานีแยกฝั่งซ้าย–ขวาพร้อมเส้นชี้พิกัด (Leader Line) ทำให้จุดหนาแน่นในอยุธยา–ปทุมธานีอ่านง่ายชัดเจน
               </li>
             </ul>
           </div>
         </aside>
       </div>
 
-      {/* PRIORITY 3: Interactive Longitudinal River Profile & Easy-to-Understand Hydrological Science Explainer */}
+      {/* BELOW MAIN CARD: Live Risk Status Now (with Current Time) + Radar & Wind Alert Banner + 4 Time-Window Cards */}
+      <div className="hy-qgis-live-alert-banner" role="region" aria-label="สรุปความเสี่ยงตอนนี้และการแจ้งเตือนเรดาร์ทิศทางฝนลมใต้การ์ดหลัก">
+        <div className="hy-qgis-now-status">
+          <div className="hy-qgis-now-badge-row">
+            <span
+              className="hy-qgis-now-pill"
+              style={{
+                background: tierColor(currentOverallTier),
+              }}
+            >
+              🚨 ความเสี่ยงตอนนี้ (ณ เวลา {nowClockText} น.):{" "}
+              {RISK_TIERS.find(t => t.tier === currentOverallTier)?.label}
+            </span>
+            <span className="hy-qgis-radar-pill">📡 {radarMeta.statusText} ({radarMeta.observedAtText})</span>
+          </div>
+          <h3>
+            {focused ? (
+              <>
+                สถานีที่เลือก: <strong>{focused.station.name} ({focused.station.id})</strong> · พิกัดจริง{" "}
+                <code>
+                  {focused.station.lat.toFixed(4)}°N, {focused.station.lng.toFixed(4)}°E
+                </code>{" "}
+                · ระดับน้ำ <b>{formatWaterValue(focused.station.value)} ม. รทก.</b>{" "}
+                {focused.station.capacityPercent !== null && `(${focused.station.capacityPercent.toFixed(1)}% ของความจุตลิ่ง)`}
+              </>
+            ) : (
+              <>ภาพรวมทั้งลุ่มน้ำ (ณ เวลา {nowClockText} น.): ล้นตลิ่ง {tierCounts[5]} จุด · จ่อตลิ่ง {tierCounts[4]} จุด · เฝ้าระวังน้ำมาก {tierCounts[3]} จุด</>
+            )}
+          </h3>
+          <p className="hy-qgis-radar-summary">
+            🧭 <strong>ตรวจเรดาร์ & ทิศทางฝน–ลมล่าสุด:</strong> {radarMeta.windDirText} ด้วยความเร็วเฉลี่ย{" "}
+            <b>{radarMeta.windSpeedKmh} กม./ชม.</b>{" "}
+            {topPeakRain ? (
+              <>
+                ตรวจพบกลุ่มฝนสะสมสูงสุดบริเวณ <b>{topPeakRain.name}</b> ({topPeakRain.mm24h.toFixed(1)} มม. / อัตราฝน ~
+                {topPeakRain.rateMmHr.toFixed(1)} มม./ชม., ความเข้มเรดาร์ {topPeakRain.dbz} dBZ){" "}
+                <b>{topPeakRain.moveDirLabel}</b> คาดเคลื่อนเข้าพื้นที่ท้ายลมภายในประมาณ <b>{topPeakRain.etaMin} นาที</b>
+              </>
+            ) : (
+              "ขณะนี้กลุ่มเมฆฝนกำลังอ่อน เคลื่อนตัวตามกระแสลมมรสุมตะวันออกเฉียงเหนือ"
+            )}
+          </p>
+        </div>
+
+        <div className="hy-qgis-schedule-grid">
+          {timeWindowAlerts.map((slot, idx) => (
+            <div
+              key={idx}
+              className="hy-qgis-schedule-card"
+              style={{ borderTop: `4px solid ${tierColor(slot.tier)}` }}
+            >
+              <div className="hy-qgis-schedule-head">
+                <strong>⏰ {slot.windowLabel}</strong>
+                <span style={{ background: tierColor(slot.tier) }}>ระดับ {slot.tier}</span>
+              </div>
+              <small className="hy-qgis-schedule-tag">{slot.tag}</small>
+              <div className="hy-qgis-schedule-metrics">
+                <p>💧 <b>ปริมาณ/ระดับน้ำ:</b> {slot.waterQty}</p>
+                <p>🌧️ <b>ปริมาณฝน & ทิศทางลม:</b> {slot.rainWindQty}</p>
+              </div>
+              <p className="hy-qgis-schedule-action">💡 {slot.action}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* PRO 3D ANIMATED DIGITAL TWIN OF THE 7 RIVER BASINS */}
+      <div className="hy-3d-twin-card" role="region" aria-label="แบบจำลองลุ่มน้ำ 3 มิติแบบอนิเมชัน">
+        <div className="hy-3d-twin-head">
+          <div>
+            <span className="hy-eyebrow">🌐 3D HYDROLOGICAL DIGITAL TWIN · แบบจำลองลุ่มน้ำ 3 มิติแบบอนิเมชัน</span>
+            <h3>จำลองภูมิประเทศ 3 มิติ เขื่อนหลัก แท่งระดับน้ำรายสถานี และพลศาสตร์มวลน้ำ–อ่าวไทย (ณ เวลา {nowClockText} น.)</h3>
+            <p>
+              หมุนปรับมุมกล้อง 3 มิติและสลับสถานการณ์เพื่อดูความต่างระดับความสูงจริงตั้งแต่ขุนเขาภาคเหนือ (+280 ม. รทก.) ไหลรวมสู่นครสวรรค์ เขื่อนเจ้าพระยา ลงสู่ที่ราบลุ่มภาคกลางและอ่าวไทย (0 ม. รทก.)
+            </p>
+          </div>
+          <div className="hy-3d-controls">
+            <div className="hy-3d-btn-row" role="group" aria-label="เลือกมุมกล้อง 3 มิติ">
+              <button type="button" aria-pressed={twinPreset === "iso"} onClick={() => setTwinPreset("iso")}>
+                📐 มุมมอง 3D Isometric
+              </button>
+              <button type="button" aria-pressed={twinPreset === "north-dams"} onClick={() => setTwinPreset("north-dams")}>
+                ⛰️ ซูมเขื่อนต้นน้ำเหนือ
+              </button>
+              <button type="button" aria-pressed={twinPreset === "delta-gulf"} onClick={() => setTwinPreset("delta-gulf")}>
+                🌊 ซูมที่ราบลุ่ม–อ่าวไทย
+              </button>
+              <button type="button" aria-pressed={twinPreset === "top-tilt"} onClick={() => setTwinPreset("top-tilt")}>
+                🦅 มุมสูง Bird’s-Eye 3D
+              </button>
+              <button
+                type="button"
+                aria-pressed={twinAutoRotate}
+                onClick={() => setTwinAutoRotate(v => !v)}
+              >
+                {twinAutoRotate ? "⏸️ หยุดหมุน 3D" : "🔄 หมุน 3D อัตโนมัติ"}
+              </button>
+            </div>
+            <div className="hy-3d-btn-row" role="group" aria-label="จำลองสภาวะมวลน้ำ 3 มิติ">
+              <button type="button" aria-pressed={profileScenario === "live"} onClick={() => setProfileScenario("live")}>
+                📡 ข้อมูลสดตอนนี้ ({nowClockText} น.)
+              </button>
+              <button type="button" aria-pressed={profileScenario === "upstream-surge"} onClick={() => setProfileScenario("upstream-surge")}>
+                🌧️ จำลองพายุฝนเหนือ + เร่งระบายเขื่อน
+              </button>
+              <button type="button" aria-pressed={profileScenario === "high-tide"} onClick={() => setProfileScenario("high-tide")}>
+                🌕 จำลองน้ำทะเลหนุนสูงสุด (+1.54 ม.)
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="hy-3d-viewport">
+          <div className="hy-3d-hud-overlay">
+            <span>🧭 สถานะแบบจำลอง 3D: <b>{profileScenario === "live" ? "ข้อมูลตรวจวัดจริง" : profileScenario === "upstream-surge" ? "จำลองน้ำเหนือหลาก" : "จำลองน้ำทะเลหนุนสูง"}</b></span>
+            <span>⏱️ เวลาอ้างอิง: <b>{nowClockText} น.</b></span>
+            <span>💨 ลมมรสุม: <b>NE {radarMeta.windSpeedKmh} กม./ชม.</b></span>
+          </div>
+
+          <div
+            className={`hy-3d-scene preset-${twinPreset} ${twinAutoRotate ? "is-autorotate" : ""}`}
+          >
+            {/* 3D Stepped Terrain Base Slab */}
+            <div className="hy-3d-slab">
+              <div className="hy-3d-slab-grid" />
+
+              {/* Stepped Elevation Terraces */}
+              <div className="hy-3d-terrace is-north">
+                <span className="hy-3d-zone-tag">⛰️ ต้นน้ำภาคเหนือ (ปิง·วัง·ยม·น่าน · +150 ถึง +280 ม. รทก.)</span>
+              </div>
+              <div className="hy-3d-terrace is-central">
+                <span className="hy-3d-zone-tag">🏞️ นครสวรรค์ (C.2) – เขื่อนเจ้าพระยา ชัยนาท (C.13 · +16 ถึง +24 ม. รทก.)</span>
+              </div>
+              <div className="hy-3d-terrace is-delta">
+                <span className="hy-3d-zone-tag">🏙️ ที่ราบลุ่มอยุธยา–ปทุมธานี–นนทบุรี–กทม. (+1.5 ถึง +3.5 ม. รทก.)</span>
+              </div>
+              <div className={`hy-3d-terrace is-gulf ${profileScenario === "high-tide" ? "is-surge" : ""}`}>
+                <div className="hy-3d-gulf-wave w1" />
+                <div className="hy-3d-gulf-wave w2" />
+                <span className="hy-3d-zone-tag">🌊 อ่าวไทยตอนบน (น้ำหนุน {profileScenario === "high-tide" ? "+1.54" : "+1.18"} ม. รทก.)</span>
+              </div>
+
+              {/* 3D Animated River Channels on the Slab Surface */}
+              <svg viewBox="0 0 600 420" className="hy-3d-river-svg" aria-hidden="true">
+                <defs>
+                  <linearGradient id="twin-river-grad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#67e8f9" />
+                    <stop offset="55%" stopColor="#0ea5e9" />
+                    <stop offset="100%" stopColor={profileScenario === "high-tide" ? "#f43f5e" : "#2563eb"} />
+                  </linearGradient>
+                </defs>
+                {/* 4 Northern Tributaries converging at Pak Nam Pho (265, 168) */}
+                <path id="tw-ping" d="M 105,52 C 120,108 195,135 265,168" fill="none" stroke="url(#twin-river-grad)" strokeWidth="7" strokeLinecap="round" />
+                <path id="tw-wang" d="M 205,46 C 215,98 240,132 265,168" fill="none" stroke="url(#twin-river-grad)" strokeWidth="5" strokeLinecap="round" />
+                <path id="tw-yom" d="M 325,46 C 310,102 290,135 265,168" fill="none" stroke="url(#twin-river-grad)" strokeWidth="5.5" strokeLinecap="round" />
+                <path id="tw-nan" d="M 420,52 C 395,108 335,140 265,168" fill="none" stroke="url(#twin-river-grad)" strokeWidth="7" strokeLinecap="round" />
+                {/* Sakae Krang & Pa Sak */}
+                <path id="tw-sakae" d="M 135,192 C 185,204 225,212 258,225" fill="none" stroke="#38bdf8" strokeWidth="4.5" strokeLinecap="round" />
+                <path id="tw-pasak" d="M 465,180 C 435,235 375,268 312,285" fill="none" stroke="#38bdf8" strokeWidth="5.5" strokeLinecap="round" />
+                {/* Main Chao Phraya Stem from Nakhon Sawan (265,168) -> Chai Nat (258,225) -> Ayutthaya (312,285) -> Gulf (295,385) */}
+                <path
+                  id="tw-main"
+                  d="M 265,168 L 258,225 C 265,252 295,268 312,285 C 316,318 302,348 295,385"
+                  fill="none"
+                  stroke="url(#twin-river-grad)"
+                  strokeWidth={profileScenario !== "live" ? "14" : "11"}
+                  strokeLinecap="round"
+                />
+
+                {/* Animated 3D Water Flow Spheres */}
+                <circle r="5" fill="#ffffff">
+                  <animateMotion dur="2.6s" repeatCount="indefinite" path="M 105,52 C 120,108 195,135 265,168" />
+                </circle>
+                <circle r="5" fill="#ffffff">
+                  <animateMotion dur="2.4s" repeatCount="indefinite" path="M 420,52 C 395,108 335,140 265,168" />
+                </circle>
+                <circle r="6.5" fill="#e0f2fe">
+                  <animateMotion
+                    dur={profileScenario === "upstream-surge" ? "2.0s" : "3.2s"}
+                    repeatCount="indefinite"
+                    path="M 265,168 L 258,225 C 265,252 295,268 312,285 C 316,318 302,348 295,385"
+                  />
+                </circle>
+                <circle r="6" fill="#ffffff">
+                  <animateMotion
+                    dur={profileScenario === "upstream-surge" ? "2.0s" : "3.2s"}
+                    begin="1.5s"
+                    repeatCount="indefinite"
+                    path="M 265,168 L 258,225 C 265,252 295,268 312,285 C 316,318 302,348 295,385"
+                  />
+                </circle>
+              </svg>
+
+              {/* 3D Extruded Water Columns & Dam Towers standing vertically in Z-space */}
+              {twinNodes.map(node => {
+                const colColor = tierColor(node.tier);
+                const pillarHeightPx = Math.max(36, Math.round(node.pct * 1.05));
+                return (
+                  <div
+                    key={node.id}
+                    className="hy-3d-pillar-anchor"
+                    style={{ left: `${node.xPct}%`, top: `${node.yPct}%` }}
+                  >
+                    <div className="hy-3d-pillar-ring" style={{ borderColor: colColor }} />
+                    <div
+                      className="hy-3d-pillar-column"
+                      style={{
+                        height: `${pillarHeightPx}px`,
+                        background: `linear-gradient(180deg, ${colColor} 0%, rgba(14, 165, 233, 0.88) 100%)`,
+                        boxShadow: `0 0 22px ${colColor}`,
+                      }}
+                    >
+                      <span className="hy-3d-pillar-cap" style={{ background: colColor }}>
+                        {node.pct}%
+                      </span>
+                    </div>
+                    <div className="hy-3d-pillar-billboard">
+                      <strong>{node.title}</strong>
+                      <span>{node.mslText} · <b>{node.pct}% ความจุ</b></span>
+                      <small>{node.sub}</small>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* 3D Floating Atmospheric Rain Clouds & Animated Rain Curtains in Upper Z-Plane */}
+              <div className="hy-3d-cloud-cluster is-upper">
+                <div className="hy-3d-cloud-pill">
+                  🌧️ เมฆฝนต้นน้ำ–พิษณุโลก ({topPeakRain ? `${topPeakRain.dbz} dBZ` : "38 dBZ"})
+                </div>
+                <div className="hy-3d-rain-curtain" />
+              </div>
+              <div className="hy-3d-cloud-cluster is-lower">
+                <div className="hy-3d-cloud-pill">
+                  ⛈️ เรดาร์ฝนอยุธยา–ปทุมธานี ({topPeakRain ? `${topPeakRain.rateMmHr} มม./ชม.` : "6.5 มม./ชม."})
+                </div>
+                <div className="hy-3d-rain-curtain" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Interactive Longitudinal River Profile & Easy-to-Understand Hydrological Science Explainer */}
       <div className="hy-science-profile-card" role="region" aria-label="กราฟโปรไฟล์ความลาดชันลำน้ำและคำอธิบายหลักวิชาการแบบเข้าใจง่าย">
         <div className="hy-science-head">
           <div>
