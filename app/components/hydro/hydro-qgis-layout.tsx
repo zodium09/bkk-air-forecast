@@ -1484,7 +1484,7 @@ export default function HydroQgisLayout({
       </div>
 
       {/* PRO 3D ANIMATED DIGITAL TWIN OF THE 7 RIVER BASINS */}
-      <div className="hy-3d-twin-card" role="region" aria-label="แบบจำลองลุ่มน้ำ 3 มิติแบบอนิเมชัน">
+      <div className="hy-3d-twin-card" id="hy-3d-twin" role="region" aria-label="แบบจำลองลุ่มน้ำ 3 มิติแบบอนิเมชัน">
         <div className="hy-3d-twin-head">
           <div>
             <span className="hy-eyebrow">🌐 3D HYDROLOGICAL DIGITAL TWIN · แบบจำลองลุ่มน้ำ 3 มิติแบบอนิเมชัน</span>

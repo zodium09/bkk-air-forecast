@@ -2005,3 +2005,62 @@ html[data-theme="dark"] .hy-confluence-pill {
     transform: scale(0.72) rotateX(50deg) rotateZ(-12deg) !important;
   }
 }
+
+
+/* 3D Navigation & Cross-Browser 3D Viewport Hardware Acceleration */
+.hy-header-3d-pill {
+  padding: 5px 12px;
+  border-radius: 99px;
+  background: linear-gradient(135deg, #0284c7 0%, #06b6d4 100%);
+  color: #ffffff !important;
+  font-size: 11.5px;
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.4);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hy-3d-jump-btn {
+  padding: 5px 12px;
+  border-radius: 99px;
+  background: linear-gradient(135deg, #0284c7 0%, #06b6d4 100%);
+  color: #ffffff !important;
+  font-size: 11px;
+  font-weight: 800;
+  text-decoration: none;
+  border: 1px solid #7dd3fc;
+  box-shadow: 0 3px 10px rgba(6, 182, 212, 0.35);
+  display: inline-flex;
+  align-items: center;
+}
+
+.hy-3d-viewport {
+  -webkit-perspective: 1200px;
+  perspective: 1200px;
+  -webkit-transform-style: preserve-3d;
+  transform-style: preserve-3d;
+  overflow: clip !important;
+}
+
+.hy-3d-scene,
+.hy-3d-slab,
+.hy-3d-terrace,
+.hy-3d-dam-marker,
+.hy-3d-station-anchor,
+.hy-3d-monsoon-plane {
+  -webkit-transform-style: preserve-3d !important;
+  transform-style: preserve-3d !important;
+}
+
+@media (max-width: 768px) {
+  .hy-3d-viewport {
+    height: 380px !important;
+  }
+  .hy-3d-scene {
+    width: 360px !important;
+    height: 270px !important;
+    transform: translateY(14px) rotateX(52deg) rotateZ(-12deg) scale(0.66) !important;
+  }
+}

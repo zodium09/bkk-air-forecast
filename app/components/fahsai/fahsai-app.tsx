@@ -536,6 +536,7 @@ export default function FahSaiApp() {
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
   // 3D Digital Twin camera state & live clock
+  const [mainViewMode, setMainViewMode] = useState<"2d" | "3d">("2d");
   const [twinCamera, setTwinCamera] = useState<TwinCameraMode>("iso");
   const [twinAutoRotate, setTwinAutoRotate] = useState<boolean>(false);
   const [nowClockText, setNowClockText] = useState<string>(() => getBangkokClockText());
@@ -780,6 +781,9 @@ export default function FahSaiApp() {
         </div>
 
         <div className="fs-header-actions">
+          <a href="#fs-3d-twin" className="fs-header-3d-pill" onClick={() => setMainViewMode("3d")}>
+            🌐 แบบจำลอง 3D Twin
+          </a>
           <a href="/" className="fs-sister-link">
             🌊 เปิดแอปสายน้ำเจ้าพระยา (7 ลุ่มน้ำ) ↗
           </a>
@@ -826,6 +830,27 @@ export default function FahSaiApp() {
             );
           })}
         </section>
+
+        {/* 3D DIGITAL TWIN QUICK LAUNCHER & MODE TOGGLE */}
+        <div className="fs-3d-quick-banner" role="region" aria-label="แถบทางลัดแบบจำลอง 3 มิติ">
+          <div className="fs-3d-quick-text">
+            <span className="fs-3d-badge-pulse">3D LIVE</span>
+            <span><b>แบบจำลอง 3 มิติ (Digital Twin):</b> จำลองชั้นบรรยากาศ เมฆฝนเรดาร์ ฝาชีครอบฝุ่น PM2.5 และอ่าวไทย</span>
+          </div>
+          <div className="fs-3d-quick-actions">
+            <button
+              type="button"
+              className="fs-3d-tab-toggle"
+              aria-pressed={mainViewMode === "3d"}
+              onClick={() => setMainViewMode(m => m === "3d" ? "2d" : "3d")}
+            >
+              {mainViewMode === "3d" ? "🗺️ สลับดูแผนที่ 2D" : "🌐 เปิดมุมมอง 3D ในการ์ดหลัก"}
+            </button>
+            <a href="#fs-3d-twin" className="fs-3d-jump-btn">
+              ดูแบบจำลอง 3D เต็มจอ ↓
+            </a>
+          </div>
+        </div>
 
         {/* PRIORITY 2: MAIN HERO CARDS (Primary Area Hero Card on Left + Geospatial Satellite Map Card on Right) */}
         <section className="fs-hero-grid">
@@ -1060,10 +1085,18 @@ export default function FahSaiApp() {
                 </button>
                 <button
                   type="button"
-                  aria-pressed={basemap === "dark"}
-                  onClick={() => setBasemap("dark")}
+                  aria-pressed={mainViewMode === "2d" && basemap === "dark"}
+                  onClick={() => { setMainViewMode("2d"); setBasemap("dark"); }}
                 >
                   🌑 แผนที่มืดเน้นสัญลักษณ์
+                </button>
+                <button
+                  type="button"
+                  className="fs-3d-toggle-btn"
+                  aria-pressed={mainViewMode === "3d"}
+                  onClick={() => setMainViewMode(m => m === "3d" ? "2d" : "3d")}
+                >
+                  🌐 แบบจำลอง 3D Twin
                 </button>
               </div>
             </div>
@@ -1093,7 +1126,150 @@ export default function FahSaiApp() {
               </div>
             </div>
 
-            <div className="fs-svg-map-wrap is-qgis">
+            {mainViewMode === "3d" ? (
+              <div className="fs-map-embedded-3d">
+                <div className="fs-3d-inline-header">
+                  <span>🌐 กำลังแสดงแบบจำลอง 3 มิติแบบอนิเมชัน ({activeArea.name} · ณ เวลา {nowClockText} น.)</span>
+                  <div className="fs-3d-btn-group" role="group" aria-label="เลือกมุมกล้อง 3 มิติ">
+                    <button type="button" aria-pressed={twinCamera === "iso"} onClick={() => setTwinCamera("iso")}>📐 3D Iso</button>
+                    <button type="button" aria-pressed={twinCamera === "atmosphere"} onClick={() => setTwinCamera("atmosphere")}>🌩️ บรรยากาศ</button>
+                    <button type="button" aria-pressed={twinCamera === "coastal"} onClick={() => setTwinCamera("coastal")}>🌊 อ่าวไทย</button>
+                    <button type="button" aria-pressed={twinCamera === "top"} onClick={() => setTwinCamera("top")}>🦅 มุมสูง</button>
+                    <button type="button" aria-pressed={twinAutoRotate} onClick={() => setTwinAutoRotate(v => !v)}>
+                      {twinAutoRotate ? "⏸️ หยุด" : "🔄 หมุน"}
+                    </button>
+                  </div>
+                </div>
+                <div className="fs-3d-viewport">
+            <div className="fs-3d-hud">
+              <span>🎯 พื้นที่โฟกัส: <b>{activeArea.name} ({activeArea.lat.toFixed(2)}°N, {activeArea.lng.toFixed(2)}°E)</b></span>
+              <span>🚨 ความเสี่ยงตอนนี้ ({nowClockText} น.): <b style={{ color: activeTierColor }}>ระดับ {activeTier}/5</b></span>
+              <span>📡 เรดาร์: <b>{radarAndSchedule.dbz} dBZ</b> · ลม{activeArea.current.windDirLabel} <b>{activeArea.current.windKmh} กม./ชม.</b></span>
+              <span>🌊 น้ำทะเล: <b>{activeHour.tideMsl >= 0 ? "+" : ""}{activeHour.tideMsl} ม. รทก.</b> (เวลาเลือก {activeHour.hourLabel} น.)</span>
+            </div>
+
+            <div className={`fs-3d-scene cam-${twinCamera} ${twinAutoRotate ? "is-autorotate" : ""}`}>
+              {/* 3D Terrain & Upper Gulf Base Slab */}
+              <div className="fs-3d-slab">
+                <div className="fs-3d-slab-grid" />
+
+                {/* Landmass Zone (Bangkok & Metro Plains) */}
+                <div className="fs-3d-land-zone">
+                  <span className="fs-3d-zone-label">🏙️ แอ่งที่ราบกรุงเทพฯ · ปริมณฑล & ปากแม่น้ำ 4 สาย</span>
+
+                  {/* 3D Extruded Urban Skyline Blocks (Bangkok Core) */}
+                  <div className="fs-3d-skyline">
+                    <div className="fs-3d-bldg b1" />
+                    <div className="fs-3d-bldg b2" />
+                    <div className="fs-3d-bldg b3" />
+                    <div className="fs-3d-bldg b4" />
+                    <div className="fs-3d-bldg b5" />
+                  </div>
+                </div>
+
+                {/* Upper Gulf of Thailand 3D Animated Water Body */}
+                <div
+                  className="fs-3d-sea-zone"
+                  style={{
+                    transform: `translateZ(${Math.max(4, Math.round((activeHour.tideMsl + 1.4) * 7))}px)`,
+                  }}
+                >
+                  <div className="fs-3d-sea-wave w1" />
+                  <div className="fs-3d-sea-wave w2" />
+                  <span className="fs-3d-zone-label">
+                    🌊 อ่าวไทยตอนบน · คลื่น {activeArea.current.waveHeightM} ม. · ระดับน้ำ {activeHour.tideMsl >= 0 ? "+" : ""}{activeHour.tideMsl} ม. รทก.
+                  </span>
+                </div>
+
+                {/* 3D PM2.5 Inversion Layer Dome ("ฝาชีครอบ 3 มิติ") */}
+                <div
+                  className="fs-3d-inversion-dome"
+                  style={{
+                    opacity: topic === "air" ? 0.85 : activeArea.current.pm25 > 28 ? 0.55 : 0.28,
+                    borderColor: activeArea.current.pm25 > 37.5 ? "#f97316" : "#10b981",
+                    background:
+                      activeArea.current.pm25 > 37.5
+                        ? "radial-gradient(ellipse at center, rgba(249, 115, 22, 0.34), rgba(234, 179, 8, 0.12) 70%, transparent)"
+                        : "radial-gradient(ellipse at center, rgba(16, 185, 129, 0.22), rgba(6, 182, 212, 0.08) 70%, transparent)",
+                  }}
+                >
+                  <span className="fs-3d-dome-tag">
+                    😷 ชั้นฝาชีครอบ (Mixing Height) · PM2.5 {activeHour.pm25} µg/m³
+                  </span>
+                </div>
+
+                {/* 3D Extruded Province Metric Pillars for All 10 Areas */}
+                {filteredAreas.map(area => {
+                  const xPct = ((area.lng - FAHSAI_BBOX.minLng) / (FAHSAI_BBOX.maxLng - FAHSAI_BBOX.minLng)) * 100;
+                  const yPct = (1 - (area.lat - FAHSAI_BBOX.minLat) / (FAHSAI_BBOX.maxLat - FAHSAI_BBOX.minLat)) * 100;
+                  const rTier = classifyAreaRisk(area, topic);
+                  const col = bands.find(b => b.tier === rTier)?.color ?? "#0ea5e9";
+                  const isSel = area.id === activeArea.id;
+                  const metricText = pinMetricLabel(area, topic);
+                  const heightPx = isSel ? 88 : 34 + rTier * 11;
+
+                  return (
+                    <div
+                      key={`twin-area-${area.id}`}
+                      className={`fs-3d-area-anchor ${isSel ? "is-selected" : ""}`}
+                      style={{ left: `${Math.min(92, Math.max(8, xPct))}%`, top: `${Math.min(90, Math.max(10, yPct))}%` }}
+                      onClick={() => setSelectedId(area.id)}
+                      onKeyDown={e => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setSelectedId(area.id);
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`เลือกพื้นที่ 3 มิติ ${area.name}`}
+                    >
+                      <div className="fs-3d-area-ring" style={{ borderColor: col }} />
+                      <div
+                        className="fs-3d-area-pillar"
+                        style={{
+                          height: `${heightPx}px`,
+                          background: `linear-gradient(180deg, ${col} 0%, rgba(14, 165, 233, 0.85) 100%)`,
+                          boxShadow: `0 0 18px ${col}`,
+                        }}
+                      />
+                      <div className="fs-3d-area-label" style={{ borderColor: isSel ? "#ffffff" : col }}>
+                        <strong>{AREA_LABEL_OFFSETS[area.id]?.shortName ?? area.name}</strong>
+                        <span>{metricText} · ระดับ {rTier}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Upper Atmospheric Plane (Z = +118px): 3D Storm Clouds, Rain Shafts, Solar UV & Wind Streamlines */}
+                <div className="fs-3d-upper-air">
+                  <div className="fs-3d-storm-cell">
+                    <div className="fs-3d-cloud-badge">
+                      ⛈️ เมฆฝนเรดาร์ {radarAndSchedule.dbz} dBZ · ฝน {activeHour.rainProb}% (~{radarAndSchedule.rainRateMmHr} มม./ชม.)
+                    </div>
+                    {activeHour.rainProb >= 25 && <div className="fs-3d-rain-shaft" />}
+                  </div>
+
+                  <div className="fs-3d-solar-badge">
+                    ☀️ รังสี UV {activeArea.current.uvIndex} · ร้อนจริง {activeHour.feelsLikeC}°C
+                  </div>
+
+                  <div
+                    className="fs-3d-wind-ribbon"
+                    style={{
+                      transform: `rotateZ(${activeArea.current.windDeg + 180}deg)`,
+                    }}
+                  >
+                    <span>💨 กระแสลม{activeArea.current.windDirLabel} {activeHour.windKmh} กม./ชม. ➔</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+              </div>
+            ) : (
+              <>
+                <div className="fs-svg-map-wrap is-qgis">
               <svg
                 viewBox="0 0 520 352"
                 className="fs-svg-map"
@@ -1456,6 +1632,8 @@ export default function FahSaiApp() {
                 );
               })}
             </div>
+              </>
+            )}
           </article>
         </section>
 
@@ -1501,7 +1679,7 @@ export default function FahSaiApp() {
         </section>
 
         {/* PRO 3D ANIMATED ATMOSPHERIC, URBAN & COASTAL DIGITAL TWIN */}
-        <section className="fs-3d-twin-section" aria-label="แบบจำลองบรรยากาศ เมือง และอ่าวไทย 3 มิติแบบอนิเมชัน">
+        <section className="fs-3d-twin-section" id="fs-3d-twin" aria-label="แบบจำลองบรรยากาศ เมือง และอ่าวไทย 3 มิติแบบอนิเมชัน">
           <div className="fs-3d-twin-head">
             <div>
               <span className="fs-eyebrow">🌐 3D ATMOSPHERIC, URBAN & COASTAL DIGITAL TWIN · แบบจำลอง 3 มิติแบบอนิเมชัน</span>
