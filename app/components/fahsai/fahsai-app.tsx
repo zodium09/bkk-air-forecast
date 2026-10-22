@@ -1863,6 +1863,7 @@ export default function FahSaiApp() {
           </div>
 
           {/* Animated SVG Curve Chart with Threshold Line */}
+          <p className="fs-mobile-chart-hint">เลื่อนกราฟและแถบชั่วโมงซ้าย–ขวาเพื่อดูครบ 24 ชั่วโมง</p>
           <div className="fs-curve-svg-wrap">
             <svg viewBox="0 0 760 135" className="fs-curve-svg" role="img" aria-label={`กราฟเส้นโค้งรายชั่วโมง 24 ชั่วโมงของ ${activeArea.name}`}>
               <defs>

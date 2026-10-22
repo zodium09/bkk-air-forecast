@@ -2002,7 +2002,7 @@ html[data-theme="dark"] .hy-confluence-pill {
     height: 420px;
   }
   .hy-3d-scene {
-    transform: scale(0.72) rotateX(50deg) rotateZ(-12deg) !important;
+    scale: 0.78;
   }
 }
 
@@ -2061,6 +2061,72 @@ html[data-theme="dark"] .hy-confluence-pill {
   .hy-3d-scene {
     width: 360px !important;
     height: 270px !important;
-    transform: translateY(14px) rotateX(52deg) rotateZ(-12deg) scale(0.66) !important;
+    scale: 1;
   }
+  .hy-3d-scene.preset-iso {
+    transform: translateY(14px) rotateX(52deg) rotateZ(-12deg) scale(0.66);
+  }
+}
+
+/* Mobile navigation, readable data, and safe space above the home indicator. */
+@media (max-width: 980px) {
+  .hy-qgis-sheet { grid-template-columns: minmax(0, 1fr); }
+  .hy-qgis-sheet > *, .hy-summary-stage > *, .hy-workspace-grid > * { min-width: 0; }
+}
+
+@media (max-width: 768px), (max-width: 980px) and (max-height: 500px) {
+  .hy-app { padding-inline: env(safe-area-inset-left) env(safe-area-inset-right); padding-bottom: calc(104px + env(safe-area-inset-bottom)); }
+  .hy-header, .hy-toolbar, .hy-source-stamp, .hy-hero, .hy-section, .hy-follow-onboarding, .hy-context-strip, .hy-page-title, .hy-basin-facts, .hy-workspace, .hy-footer { width: calc(100% - 24px); }
+  .hy-header { display: grid; grid-template-columns: minmax(0, 1fr) 44px; gap: 12px 8px; padding: 12px; }
+  .hy-brand { min-width: 0; white-space: normal; gap: 8px; font-size: 18px; line-height: 1.4; }
+  .hy-brand small { font-size: 12px; line-height: 1.5; }
+  .hy-mark { width: 40px; height: 40px; flex: none; }
+  .hy-header .theme-toggle { grid-column: 2; grid-row: 1; }
+  .hy-header nav { grid-column: 1 / -1; min-width: 0; width: 100%; margin: 0; padding: 2px 0 6px; scrollbar-width: thin; scrollbar-color: var(--hy-accent) var(--hy-paper); }
+  .hy-header nav a { flex: none; min-height: 44px; font-size: 14px; }
+  .hy-mode { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hy-mode a { min-width: 0; white-space: normal; text-align: center; min-height: 44px; padding: 8px; font-size: 14px; line-height: 1.5; }
+  .hy-toolbar { flex-wrap: wrap; }
+  .hy-toolbar label { min-width: 0; flex: 1 1 180px; margin-left: 0; }
+  .hy-toolbar select { min-width: 0; max-width: 100%; font-size: 16px; }
+  .hy-app :is(button, select, .hy-outline-button), .hy-jump-nav a { min-height: 44px; }
+  .hy-stitch-hero-banner { padding: 20px; }
+  .hy-stitch-hero-banner h1 { font-size: clamp(26px, 7vw, 36px); }
+  .hy-stitch-hero-banner p, .hy-science-concept p { font-size: 16px; line-height: 1.65; }
+  .hy-app :is(h1, h2, h3, h4) { overflow-wrap: anywhere; }
+  .hy-section-head, .hy-workspace-head { gap: 12px; }
+  .hy-qgis-toolbar, .hy-qgis-sheet, .hy-qgis-legend-card, .hy-qgis-analysis-card, .hy-3d-twin-card { padding: 12px; border-radius: 16px; min-width: 0; }
+  .hy-qgis-btn-group { gap: 8px; width: 100%; }
+  .hy-qgis-btn-group button { font-size: 14px; max-width: 100%; white-space: normal; text-align: left; }
+  .hy-qgis-group-label { flex-basis: 100%; font-size: 14px; }
+  .hy-qgis-titleblock, .hy-qgis-meta-right, .hy-qgis-now-status code { overflow-wrap: anywhere; min-width: 0; }
+  .hy-qgis-titleblock strong, .hy-qgis-tier-info strong, .hy-qgis-tier-info small, .hy-symbology-key-grid { font-size: 14px; }
+  .hy-qgis-analysis-list, .hy-qgis-radar-summary, .hy-qgis-schedule-metrics p, .hy-qgis-schedule-action { font-size: 16px; line-height: 1.65; }
+  .hy-qgis-tier-row { grid-template-columns: 18px minmax(0, 1fr) auto; }
+  .hy-symbology-key-grid { grid-template-columns: minmax(0, 1fr); }
+  .hy-qgis-focus-metrics { min-width: 0; }
+  .hy-3d-twin-head, .hy-3d-twin-head > *, .hy-3d-controls, .hy-3d-btn-row { min-width: 0; max-width: 100%; width: 100%; }
+  .hy-3d-twin-card { grid-template-columns: minmax(0, 1fr); }
+  .hy-3d-twin-card .hy-eyebrow { overflow-wrap: anywhere; }
+  .hy-3d-twin-head h3 { font-size: 20px; line-height: 1.45; }
+  .hy-3d-twin-head p { font-size: 14px; }
+  .hy-3d-btn-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .hy-3d-btn-row button { min-width: 0; padding: 8px; font-size: 14px; border-radius: 10px; }
+  .hy-3d-viewport { height: auto !important; display: block; }
+  .hy-3d-hud-overlay { position: relative; inset: auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 10px; }
+  .hy-3d-hud-overlay span { padding: 6px 8px; border-radius: 8px; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+  .hy-3d-scene { margin: 24px auto; }
+  .hy-3d-scene.preset-north-dams { transform: translateY(24px) rotateX(60deg) rotateZ(12deg) scale(0.62); }
+  .hy-3d-scene.preset-delta-gulf { transform: translateY(-4px) rotateX(58deg) rotateZ(-24deg) scale(0.62); }
+  .hy-3d-scene.preset-top-tilt { transform: translateY(10px) rotateX(34deg) rotateZ(0deg) scale(0.62); }
+  @keyframes hy-3d-orbit {
+    0%, 100% { transform: translateY(14px) rotateX(52deg) rotateZ(-26deg) scale(0.62); }
+    50% { transform: translateY(14px) rotateX(48deg) rotateZ(24deg) scale(0.62); }
+  }
+  .hy-scenario-tabs { gap: 8px; }
+  .hy-scenario-tabs button { font-size: 14px; }
+  .hy-profile-svg-wrap, .hy-coverage-table { scrollbar-width: thin; scrollbar-color: var(--hy-accent) var(--hy-paper); }
+  .hy-bottom-nav { left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); bottom: max(8px, env(safe-area-inset-bottom)); width: auto; transform: none; border-radius: 16px; gap: 4px; padding: 6px; }
+  .hy-bottom-nav a { flex: 1 1 0; min-width: 0; min-height: 52px; padding: 6px 2px; white-space: normal; text-align: center; font-size: 12px; line-height: 1.4; }
+  .hy-bottom-nav-icon { font-size: 18px; }
 }
