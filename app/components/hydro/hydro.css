@@ -1481,3 +1481,138 @@ html[data-theme="dark"] .hy-confluence-pill {
 @media(prefers-reduced-motion:reduce) {
   .hy-app *,.hy-flow-path,.hy-stream-line,.hy-anim-wave-front,.hy-anim-wave-back,.hy-dam-wave,.hy-qgis-ring,.ra-marker-pulse { scroll-behavior:auto!important; animation:none!important; transition-duration:.01ms!important; }
 }
+
+
+.hy-symbology-key-grid {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6px 10px;
+  margin-top:10px;
+  padding-top:10px;
+  border-top:1px dashed var(--hy-line);
+  font-size:11.5px;
+  color:var(--hy-muted);
+}
+.hy-symbology-key-grid > div {
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.hy-sym-diamond {
+  width:10px;
+  height:10px;
+  background:#0284c7;
+  border:1.5px solid #fff;
+  transform:rotate(45deg);
+  flex:none;
+}
+.hy-sym-river {
+  width:16px;
+  height:3px;
+  border-radius:99px;
+  background:#38bdf8;
+  flex:none;
+}
+.hy-sym-radar {
+  width:12px;
+  height:10px;
+  border-radius:50%;
+  background:radial-gradient(circle, #f97316 35%, #22c55e 100%);
+  flex:none;
+}
+.hy-sym-wind {
+  width:14px;
+  height:2px;
+  border-top:2px dashed #38bdf8;
+  flex:none;
+}
+
+.hy-science-profile-card {
+  margin-top:18px;
+  padding:20px 22px;
+  border-radius:18px;
+  background:var(--hy-surface);
+  border:1.5px solid var(--hy-line);
+  box-shadow:0 12px 28px rgba(2,132,199,0.08);
+  display:grid;
+  gap:16px;
+}
+.hy-science-head {
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  flex-wrap:wrap;
+  gap:14px;
+}
+.hy-science-head h3 {
+  font-size:18px;
+  margin:4px 0;
+  color:var(--hy-ink);
+}
+.hy-science-head p {
+  margin:0;
+  font-size:13px;
+  color:var(--hy-muted);
+}
+.hy-scenario-tabs {
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+}
+.hy-scenario-tabs button {
+  padding:7px 12px;
+  border-radius:99px;
+  border:1px solid var(--hy-line);
+  background:var(--hy-bg);
+  color:var(--hy-ink);
+  font-size:12px;
+  font-weight:700;
+  cursor:pointer;
+}
+.hy-scenario-tabs button[aria-pressed="true"] {
+  background:linear-gradient(135deg, #0284c7, #0d9488);
+  color:#ffffff;
+  border-color:transparent;
+  box-shadow:0 6px 14px rgba(2,132,199,0.22);
+}
+.hy-profile-svg-wrap {
+  padding:14px;
+  border-radius:14px;
+  background:linear-gradient(180deg, #e0f2fe 0%, #f0f9ff 65%, #e2e8f0 100%);
+  border:1px solid var(--hy-line);
+  overflow-x:auto;
+}
+.hy-profile-svg {
+  width:100%;
+  min-width:640px;
+  height:auto;
+  display:block;
+}
+.hy-science-concepts-grid {
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+  gap:12px;
+}
+.hy-science-concept {
+  padding:14px 16px;
+  border-radius:13px;
+  background:var(--hy-bg);
+  border:1px solid var(--hy-line);
+  border-left:4px solid #0284c7;
+}
+.hy-science-concept strong {
+  display:block;
+  font-size:13.5px;
+  margin-bottom:6px;
+  color:var(--hy-ink);
+}
+.hy-science-concept p {
+  margin:0;
+  font-size:12.5px;
+  line-height:1.6;
+  color:var(--hy-muted);
+}
+
+@media(max-width:960px) {
+  .hy-science-concepts-grid { grid-template-columns:1fr; }
+}

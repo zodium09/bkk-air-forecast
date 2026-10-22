@@ -563,7 +563,7 @@ export default function HydroApp({ view = "summary", initialBasin = "all", initi
             </div>
 
             <nav className="hy-jump-nav" aria-label="ทางลัดไปยังส่วนต่างๆ ในหน้านี้">
-              <a href="#hy-qgis-layout">🛰️ แผนที่ภาพถ่ายวิเคราะห์ QGIS</a>
+              <a href="#hy-qgis-layout">🛰️ แผนที่ดาวเทียม & แจ้งเตือนรายช่วงเวลา</a>
               <a href="#hy-quick-map">📍 แผนที่และสถานี</a>
               <a href="#hy-basins-overview">🌿 รายลุ่มน้ำ ({selectedBasins.length})</a>
               {(basinId === "all" || basinId === "chao-phraya") && <a href="#hy-weather-title">🌧️ เรดาร์และพยากรณ์ฝน</a>}
