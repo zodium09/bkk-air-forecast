@@ -1,7 +1,11 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { NextResponse } from "next/server";
 import {
   buildFallbackPayload,
   buildSyntheticTide24h,
+  getBangkokHour,
   UPPER_GULF_AREAS,
   windDirectionThai,
   type AreaForecast,
@@ -75,7 +79,7 @@ export async function GET() {
         uvMax: Number((w?.daily?.uv_index_max?.[d] ?? fb.daily[d].uvMax).toFixed(1)),
       }));
 
-      const nowHour = new Date().getHours();
+      const nowHour = getBangkokHour();
       const curTide = tide.hourlyTide[nowHour] ?? tide.hourlyTide[14];
       const nextTide = tide.hourlyTide[(nowHour + 1) % 24] ?? curTide;
 
@@ -124,7 +128,11 @@ export async function GET() {
       areas,
     };
 
-    return NextResponse.json(payload);
+    return NextResponse.json(payload, {
+      headers: {
+        "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+      },
+    });
   } catch {
     return NextResponse.json(buildFallbackPayload());
   }

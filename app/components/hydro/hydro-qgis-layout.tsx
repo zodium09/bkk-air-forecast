@@ -5,7 +5,7 @@ import upstreamBasinsGeo from "../../data/chao-phraya-upstream-basins.json";
 import coreGeographyGeo from "../../data/chao-phraya-geography.json";
 import type { HydroBasin } from "../../lib/hydro/model";
 import { formatWaterValue, waterBankDifference, waterRisk, type WaterStation } from "../../lib/water-levels";
-import { thaiObservationTime } from "../../lib/observation-time";
+import { thaiObservationTime, getBangkokHour, getBangkokClockText } from "../../lib/observation-time";
 
 type BasemapStyle = "satellite" | "topo" | "dark";
 type ProfileScenario = "live" | "upstream-surge" | "high-tide";
@@ -367,10 +367,7 @@ export default function HydroQgisLayout({
   // 3D Digital Twin interactive camera state
   const [twinPreset, setTwinPreset] = useState<TwinCameraPreset>("iso");
   const [twinAutoRotate, setTwinAutoRotate] = useState<boolean>(false);
-  const [nowClockText, setNowClockText] = useState<string>(() => {
-    const d = new Date();
-    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-  });
+  const [nowClockText, setNowClockText] = useState<string>(() => getBangkokClockText());
 
   const [radarMeta, setRadarMeta] = useState<{
     statusText: string;
@@ -388,8 +385,7 @@ export default function HydroQgisLayout({
 
   useEffect(() => {
     const updateClock = () => {
-      const d = new Date();
-      setNowClockText(`${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`);
+      setNowClockText(getBangkokClockText());
     };
     updateClock();
     const interval = window.setInterval(updateClock, 30000);
@@ -668,7 +664,7 @@ export default function HydroQgisLayout({
 
   // Dynamic Time-Window & Quantitative Alert Schedule
   const timeWindowAlerts = useMemo(() => {
-    const nowHour = new Date().getHours();
+    const nowHour = getBangkokHour();
     const fmtWindow = (offsetStart: number, offsetEnd: number) => {
       const s = (nowHour + offsetStart) % 24;
       const e = (nowHour + offsetEnd) % 24;

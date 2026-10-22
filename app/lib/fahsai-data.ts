@@ -341,8 +341,8 @@ export function buildFallbackPayload(): FahSaiPayload {
         windDirLabel: windDirectionThai(windDeg),
         windDeg,
         coolIndexLabel: minMorningC <= 23.5 ? "เช้าอากาศเย็นสบาย ลมโชยสดชื่น" : "อากาศอุ่นมีลมทะเลขับความร้อน",
-        tideMsl: tide.hourlyTide[14],
-        tideTrend: tide.hourlyTide[15] >= tide.hourlyTide[14] ? "rising" : "falling",
+        tideMsl: tide.hourlyTide[getBangkokHour()] ?? tide.hourlyTide[14],
+        tideTrend: (tide.hourlyTide[(getBangkokHour() + 1) % 24] ?? 0) >= (tide.hourlyTide[getBangkokHour()] ?? 0) ? "rising" : "falling",
         highTideMsl: tide.highTideMsl,
         highTideTime: tide.highTideTime,
         lowTideMsl: tide.lowTideMsl,
@@ -360,4 +360,34 @@ export function buildFallbackPayload(): FahSaiPayload {
     sourceMode: "hybrid-fallback",
     areas,
   };
+}
+/** Always compute Bangkok (UTC+7) hour (0..23) regardless of server/cloud timezone (Vercel UTC). */
+export function getBangkokHour(date = new Date()): number {
+  try {
+    const formatter = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Bangkok",
+      hour: "2-digit",
+      hour12: false,
+    });
+    return parseInt(formatter.format(date), 10) % 24;
+  } catch {
+    return (date.getUTCHours() + 7) % 24;
+  }
+}
+
+/** Always compute Bangkok (UTC+7) clock string "HH:MM" regardless of server/cloud timezone. */
+export function getBangkokClockText(date = new Date()): string {
+  try {
+    const formatter = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Bangkok",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+    return formatter.format(date);
+  } catch {
+    const h = String((date.getUTCHours() + 7) % 24).padStart(2, "0");
+    const m = String(date.getUTCMinutes()).padStart(2, "0");
+    return `${h}:${m}`;
+  }
 }

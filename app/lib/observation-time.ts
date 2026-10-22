@@ -24,3 +24,34 @@ export function observationAge(observedAt: string | null, now = Date.now()) {
 export function thaiObservationTime(value: string | null) {
   return value && Number.isFinite(Date.parse(value)) ? new Intl.DateTimeFormat("th-TH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" }).format(new Date(value)) : "ไม่ระบุเวลา";
 }
+
+/** Always compute Bangkok (UTC+7) hour (0..23) regardless of server/cloud timezone (Vercel UTC). */
+export function getBangkokHour(date = new Date()): number {
+  try {
+    const formatter = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Bangkok",
+      hour: "2-digit",
+      hour12: false,
+    });
+    return parseInt(formatter.format(date), 10) % 24;
+  } catch {
+    return (date.getUTCHours() + 7) % 24;
+  }
+}
+
+/** Always compute Bangkok (UTC+7) clock string "HH:MM" regardless of server/cloud timezone. */
+export function getBangkokClockText(date = new Date()): string {
+  try {
+    const formatter = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Bangkok",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+    return formatter.format(date);
+  } catch {
+    const h = String((date.getUTCHours() + 7) % 24).padStart(2, "0");
+    const m = String(date.getUTCMinutes()).padStart(2, "0");
+    return `${h}:${m}`;
+  }
+}

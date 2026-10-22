@@ -2,8 +2,11 @@
 /* eslint-disable @next/next/no-html-link-for-pages */
 
 import { useEffect, useMemo, useState } from "react";
+
 import {
   buildFallbackPayload,
+  getBangkokHour,
+  getBangkokClockText,
   type AreaForecast,
   type FahSaiPayload,
   type TopicId,
@@ -528,17 +531,14 @@ export default function FahSaiApp() {
   const [showRadarWind, setShowRadarWind] = useState<boolean>(true);
   const [showBuffer, setShowBuffer] = useState<boolean>(true);
   const [showGrid, setShowGrid] = useState<boolean>(true);
-  const [hourIdx, setHourIdx] = useState<number>(12);
+  const [hourIdx, setHourIdx] = useState<number>(() => getBangkokHour());
   const [dark, setDark] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
   // 3D Digital Twin camera state & live clock
   const [twinCamera, setTwinCamera] = useState<TwinCameraMode>("iso");
   const [twinAutoRotate, setTwinAutoRotate] = useState<boolean>(false);
-  const [nowClockText, setNowClockText] = useState<string>(() => {
-    const d = new Date();
-    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-  });
+  const [nowClockText, setNowClockText] = useState<string>(() => getBangkokClockText());
 
   const loadData = async () => {
     setRefreshing(true);
@@ -557,11 +557,10 @@ export default function FahSaiApp() {
 
   useEffect(() => {
     const updateClock = () => {
-      const d = new Date();
-      setNowClockText(`${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`);
+      setNowClockText(getBangkokClockText());
     };
     const timer = window.setTimeout(() => {
-      setHourIdx(new Date().getHours());
+      setHourIdx(getBangkokHour());
       updateClock();
       void loadData();
     }, 0);
@@ -608,7 +607,7 @@ export default function FahSaiApp() {
           ? "เคลื่อนตัวจากอ่าวไทยขึ้นสู่ฝั่งตอนบนตามแนวลมใต้–ตะวันออกเฉียงใต้"
           : "เคลื่อนตัวตามแนวลมมรสุมผ่านพื้นที่กรุงเทพฯ และปริมณฑล";
 
-    const nowH = new Date().getHours();
+    const nowH = getBangkokHour();
     const sliceWindow = (startOffset: number, len: number, title: string, tag: string) => {
       const startH = (nowH + startOffset) % 24;
       const endH = (nowH + startOffset + len) % 24;
