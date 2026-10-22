@@ -333,6 +333,16 @@ function formatDms(deg: number, isLat: boolean): string {
   return `${d}°${String(m).padStart(2, "0")}'${dir}`;
 }
 
+const BASIN_CENTROIDS: Record<string, { lat: number; lng: number }> = {
+  "06": { lat: 18.25, lng: 98.98 },
+  "07": { lat: 18.28, lng: 99.52 },
+  "08": { lat: 17.55, lng: 99.82 },
+  "09": { lat: 17.76, lng: 100.55 },
+  "11": { lat: 15.38, lng: 99.85 },
+  "12": { lat: 15.65, lng: 101.15 },
+  "chao-phraya": { lat: 14.35, lng: 100.56 },
+};
+
 export default function HydroQgisLayout({
   basins,
   activeBasinId,
@@ -595,25 +605,29 @@ export default function HydroQgisLayout({
 
   const rainCells = useMemo(() => {
     const measured = scopedBasins
-      .flatMap(b => b.rain.map(r => ({ basinId: b.id, basinName: b.name, ...r })))
-      .filter(r => Number.isFinite(r.lat) && Number.isFinite(r.lng) && r.mm > 0)
-      .sort((a, b) => b.mm - a.mm)
+      .filter(b => b.peakRain && b.peakRain.mm > 0)
+      .map(b => {
+        const r = b.peakRain!;
+        const centroid = BASIN_CENTROIDS[b.id] ?? { lat: 15.0, lng: 100.5 };
+        return {
+          id: `rain-${b.id}-${r.id}`,
+          name: `${r.name} (ลุ่มน้ำ${b.name})`,
+          basinName: b.name,
+          lat: centroid.lat,
+          lng: centroid.lng,
+          mm24h: r.mm,
+          rateMmHr: Math.max(2, Number((r.mm / 3.2).toFixed(1))),
+          dbz: r.mm >= 35 ? 48 : r.mm >= 15 ? 40 : 32,
+          moveDirLabel: "เคลื่อนตัวไปทางทิศตะวันตกเฉียงใต้ (SW)",
+          speedKmh: 22,
+          etaMin: 40,
+        };
+      })
+      .sort((a, b) => b.mm24h - a.mm24h)
       .slice(0, 5);
 
     if (measured.length > 0) {
-      return measured.map(r => ({
-        id: r.id,
-        name: r.name,
-        basinName: r.basinName,
-        lat: r.lat,
-        lng: r.lng,
-        mm24h: r.mm,
-        rateMmHr: Math.max(2, Number((r.mm / 3.2).toFixed(1))),
-        dbz: r.mm >= 35 ? 48 : r.mm >= 15 ? 40 : 32,
-        moveDirLabel: "เคลื่อนตัวไปทางทิศตะวันตกเฉียงใต้ (SW)",
-        speedKmh: 22,
-        etaMin: 40,
-      }));
+      return measured;
     }
 
     return [
