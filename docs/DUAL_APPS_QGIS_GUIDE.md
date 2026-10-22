@@ -5,6 +5,7 @@
 2. **ระบุเวลาปัจจุบันกำกับคู่กับระดับความเสี่ยงเสมอ (`ณ เวลา HH:MM น.`)** และเชื่อมโยงค่าระดับความเสี่ยงตอนนี้ให้สอดคล้องกับตารางช่วงเวลาแรก (`ตอนนี้ – 1 ชม.`) 100%
 3. **ปรับพิกัดแม่น้ำและแผนที่ดาวเทียมในแอปลุ่มน้ำให้ตรงกับภูมิประเทศจริง 100% (True 1:1 Aspect-Locked WGS84)** พร้อมแสดงขอบเขต 7 ลุ่มน้ำจริง และอัลกอริทึมจัดเรียงป้ายกำกับไม่ให้ทับซ้อนหรือล้นขอบ
 4. **เพิ่มแบบจำลอง 3 มิติแบบอนิเมชัน (Interactive 3D Digital Twin)** ในทั้ง 2 แอป สามารถปรับหมุนมุมมอง 3 มิติและจำลองสถานการณ์ได้แบบระดับมืออาชีพ (Pro)
+5. **แก้ปัญหาข้อมูลไม่ตรงกันระหว่าง Local และ Vercel (Bangkok Timezone Lock)**: ปรับปรุงการคำนวณเวลาและสถิติให้ล็อกโซนเวลาประเทศไทย (`Asia/Bangkok` UTC+7) ตลอดทั้งกระบวนการ ทำให้ข้อมูลตรงกัน 100%
 
 ---
 
@@ -29,3 +30,27 @@
 - **แบบจำลอง 3 มิติแบบอนิเมชัน (`3D Digital Twin`) ทั้ง 2 แอป**:
   - **สายน้ำเจ้าพระยา**: `3D Hydrological Digital Twin` จำลองภูมิประเทศ 3 มิติ เขื่อนหลัก แท่งระดับน้ำรายสถานี เมฆฝนเรดาร์ และน้ำทะเลหนุนปากอ่าว
   - **ฟ้าใส**: `3D Atmospheric, Urban & Coastal Digital Twin` จำลองชั้นบรรยากาศ 3 มิติ โดมฝาชีครอบฝุ่น `PM2.5` เมฆฝนเรดาร์ รังสีความร้อน `UV` และคลื่นน้ำทะเลอ่าวไทยตอนบน
+
+---
+
+## 3. สาเหตุที่ข้อมูลระหว่าง Local กับ Web App เคยไม่ตรงกัน และการแก้ไขเบ็ดเสร็จ
+
+### สาเหตุหลัก (Root Cause)
+1. **Server Cloud Timezone (UTC vs Asia/Bangkok)**:
+   - เครื่อง Local ทำงานในเขตเวลาประเทศไทย (`UTC+7`) ทำให้ `new Date().getHours()` ใน JavaScript คืนค่าเวลาช่วงบ่าย (เช่น 13:xx หรือ 14:xx น.)
+   - แต่เซิร์ฟเวอร์ Vercel Cloud ทำงานในเขตเวลาสากล (`UTC 0 GMT`) ทำให้ `new Date().getHours()` ใน SSR และ Route Handler คืนค่าช่วงเช้า (เช่น 06:xx หรือ 07:xx น.)
+   - ส่งผลให้บน Vercel ดึงข้อมูลพยากรณ์ฝนและระดับน้ำทะเลของ 6 โมงเช้าแทนที่จะเป็นช่วงบ่าย ทำให้ตัวเลขน้ำทะเล, ปริมาณฝน และกรอบเวลาเตือนภัยล่วงหน้า (07:00–10:00 น. แทนที่จะเป็น 14:00–17:00 น.) ไม่ตรงกับ Local
+2. **Edge Route Caching**:
+   - Route Handler ขาดการระบุ `export const dynamic = "force-dynamic";` ทำให้ในบางช่วงเวลา Vercel เสิร์ฟแคชของ build ก่อนหน้า
+
+### การแก้ไขและตรวจสอบความตรงกัน (Resolution & Parity Verification)
+1. **Unified Bangkok Timezone Engine**:
+   - เพิ่มฟังก์ชัน `getBangkokHour()` และ `getBangkokClockText()` ที่ใช้ `Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Bangkok" })` คำนวณเวลาประเทศไทยอย่างแม่นยำ ไม่ว่าโค้ดจะรันบน Local หรือ Cloud
+   - นำไปใช้ใน `app/api/fahsai/route.ts`, `app/components/fahsai/fahsai-app.tsx`, `app/lib/fahsai-data.ts` และ `app/components/hydro/hydro-qgis-layout.tsx`
+2. **Force-Dynamic & Cache Headers**:
+   - กำหนด `export const dynamic = "force-dynamic";` และ `export const revalidate = 0;` พร้อมส่ง Header `Cache-Control: public, s-maxage=60, stale-while-revalidate=300`
+3. **ผลการทดสอบเปรียบเทียบสด (Live Verification Test)**:
+   - ตรวจสอบเปรียบเทียบระหว่าง `http://localhost:3001/` และ `https://bkkplus-airforecast.vercel.app/fahsai`:
+     - ค่าระดับน้ำทะเล (`tideMsl`): **ตรงกัน 100%**
+     - นาฬิกาแสดงเวลาปัจจุบัน (`ณ เวลา HH:MM น.`): **ตรงกัน 100%**
+     - หน้าต่างการแจ้งเตือน 1–3 ชม. ข้างหน้า: **ตรงกัน 100%**
