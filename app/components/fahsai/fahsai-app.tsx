@@ -12,6 +12,7 @@ import {
   type TopicId,
 } from "../../lib/fahsai-data";
 import "./fahsai.css";
+import FahSaiTwinScene from "./fahsai-twin-scene";
 
 type TwinCameraMode = "iso" | "atmosphere" | "coastal" | "top";
 
@@ -1140,7 +1141,7 @@ export default function FahSaiApp() {
                     </button>
                   </div>
                 </div>
-                <div className="fs-3d-viewport">
+                <FahSaiTwinScene camera={twinCamera} autoRotate={twinAutoRotate} onManualMove={() => setTwinAutoRotate(false)} hud={
             <div className="fs-3d-hud">
               <span>🎯 พื้นที่โฟกัส: <b>{activeArea.name} ({activeArea.lat.toFixed(2)}°N, {activeArea.lng.toFixed(2)}°E)</b></span>
               <span>🚨 ความเสี่ยงตอนนี้ ({nowClockText} น.): <b style={{ color: activeTierColor }}>ระดับ {activeTier}/5</b></span>
@@ -1148,7 +1149,7 @@ export default function FahSaiApp() {
               <span>🌊 น้ำทะเล: <b>{activeHour.tideMsl >= 0 ? "+" : ""}{activeHour.tideMsl} ม. รทก.</b> (เวลาเลือก {activeHour.hourLabel} น.)</span>
             </div>
 
-            <div className={`fs-3d-scene cam-${twinCamera} ${twinAutoRotate ? "is-autorotate" : ""}`}>
+            }>
               {/* 3D Terrain & Upper Gulf Base Slab */}
               <div className="fs-3d-slab">
                 <div className="fs-3d-slab-grid" />
@@ -1264,8 +1265,7 @@ export default function FahSaiApp() {
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
+            </FahSaiTwinScene>
               </div>
             ) : (
               <>
@@ -1715,7 +1715,7 @@ export default function FahSaiApp() {
             </div>
           </div>
 
-          <div className="fs-3d-viewport">
+          <FahSaiTwinScene camera={twinCamera} autoRotate={twinAutoRotate} onManualMove={() => setTwinAutoRotate(false)} hud={
             <div className="fs-3d-hud">
               <span>🎯 พื้นที่โฟกัส: <b>{activeArea.name} ({activeArea.lat.toFixed(2)}°N, {activeArea.lng.toFixed(2)}°E)</b></span>
               <span>🚨 ความเสี่ยงตอนนี้ ({nowClockText} น.): <b style={{ color: activeTierColor }}>ระดับ {activeTier}/5</b></span>
@@ -1723,7 +1723,7 @@ export default function FahSaiApp() {
               <span>🌊 น้ำทะเล: <b>{activeHour.tideMsl >= 0 ? "+" : ""}{activeHour.tideMsl} ม. รทก.</b> (เวลาเลือก {activeHour.hourLabel} น.)</span>
             </div>
 
-            <div className={`fs-3d-scene cam-${twinCamera} ${twinAutoRotate ? "is-autorotate" : ""}`}>
+            }>
               {/* 3D Terrain & Upper Gulf Base Slab */}
               <div className="fs-3d-slab">
                 <div className="fs-3d-slab-grid" />
@@ -1839,8 +1839,7 @@ export default function FahSaiApp() {
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
+            </FahSaiTwinScene>
         </section>
 
         {/* PRIORITY 3: Interactive 24-Hour Animated Curve & Bar Scrubber */}
