@@ -334,6 +334,8 @@ export function FahSaiTopicPresentation({
               {scopedAreas.slice(0, 6).map((area) => {
                 const pct = Math.min(100, Math.max(15, (area.current.highTideMsl / 2.2) * 100));
                 const isSel = area.id === activeArea.id;
+                const aTier = classifyAreaRisk(area, "tide");
+                const aCol = bands.find((b) => b.tier === aTier)?.color ?? "#0284c7";
                 return (
                   <button
                     key={area.id}
@@ -348,11 +350,13 @@ export function FahSaiTopicPresentation({
                       <i
                         style={{
                           width: `${pct}%`,
-                          background: area.current.highTideMsl >= 1.45 ? "#f97316" : "#0284c7",
+                          background: aCol,
                         }}
                       />
                     </div>
-                    <strong className="fahsai-rb-val">+{area.current.highTideMsl} ม.</strong>
+                    <strong className="fahsai-rb-val" style={{ color: aCol }}>
+                      +{area.current.highTideMsl} ม. (Lv.{aTier})
+                    </strong>
                   </button>
                 );
               })}
@@ -512,6 +516,8 @@ export function FahSaiTopicPresentation({
             <div className="fahsai-ranked-bars">
               {scopedAreas.slice(0, 6).map((area) => {
                 const isSel = area.id === activeArea.id;
+                const aTier = classifyAreaRisk(area, "winter");
+                const aCol = bands.find((b) => b.tier === aTier)?.color ?? "#0891b2";
                 return (
                   <button
                     key={area.id}
@@ -526,11 +532,13 @@ export function FahSaiTopicPresentation({
                       <i
                         style={{
                           width: `${Math.min(100, Math.max(20, (30 - area.current.minMorningC) * 5.5))}%`,
-                          background: "#0891b2",
+                          background: aCol,
                         }}
                       />
                     </div>
-                    <strong className="fahsai-rb-val">เช้า {area.current.minMorningC}°C</strong>
+                    <strong className="fahsai-rb-val" style={{ color: aCol }}>
+                      เช้า {area.current.minMorningC}°C (Lv.{aTier})
+                    </strong>
                   </button>
                 );
               })}
@@ -605,7 +613,7 @@ export function FahSaiTopicPresentation({
               {scopedAreas.slice(0, 6).map((area) => {
                 const isSel = area.id === activeArea.id;
                 const t = area.current.multiHazardTier;
-                const col = t >= 4 ? "#ef4444" : t === 3 ? "#f59e0b" : "#0ea5e9";
+                const col = bands.find((b) => b.tier === t)?.color ?? "#ef4444";
                 return (
                   <button
                     key={area.id}
@@ -616,6 +624,14 @@ export function FahSaiTopicPresentation({
                     <span className="fahsai-rb-name">
                       {area.name} <small>({area.current.primaryHazardLabel})</small>
                     </span>
+                    <div className="fahsai-rb-track">
+                      <i
+                        style={{
+                          width: `${t * 20}%`,
+                          background: col,
+                        }}
+                      />
+                    </div>
                     <strong className="fahsai-rb-val" style={{ color: col }}>
                       ระดับ {t}/5
                     </strong>
@@ -653,6 +669,8 @@ export function FahSaiTopicPresentation({
             <div className="fahsai-ranked-bars">
               {scopedAreas.slice(0, 6).map((area, idx) => {
                 const isSel = area.id === activeArea.id;
+                const aTier = classifyAreaRisk(area, "suitable");
+                const aCol = bands.find((b) => b.tier === aTier)?.color ?? "#10b981";
                 return (
                   <button
                     key={area.id}
@@ -667,17 +685,68 @@ export function FahSaiTopicPresentation({
                       <i
                         style={{
                           width: `${area.current.suitabilityScore}%`,
-                          background: "#10b981",
+                          background: aCol,
                         }}
                       />
                     </div>
-                    <strong className="fahsai-rb-val" style={{ color: "#16a34a" }}>
-                      {area.current.suitabilityScore}%
+                    <strong className="fahsai-rb-val" style={{ color: aCol }}>
+                      {area.current.suitabilityScore}% (Lv.{aTier})
                     </strong>
                   </button>
                 );
               })}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* SEVERITY-COLORED PROVINCE COMPARISON CHART FOR RAIN, SKY, WAVE, AIR, HEAT, TOURISM */}
+      {["rain", "sky", "wave", "air", "heat", "tourism"].includes(topic) && (
+        <div className="fahsai-subpanel fahsai-severity-compare-panel">
+          <h3>
+            📊 กราฟแยกสีความรุนแรงเปรียบเทียบจังหวัด ({topicMeta.label})
+          </h3>
+          <div className="fahsai-ranked-bars">
+            {scopedAreas.slice(0, 6).map((area) => {
+              const isSel = area.id === activeArea.id;
+              const aTier = classifyAreaRisk(area, topic);
+              const aCol = bands.find((b) => b.tier === aTier)?.color ?? topicMeta.color;
+              const pct =
+                topic === "rain"
+                  ? Math.max(12, area.current.rainProb)
+                  : topic === "sky"
+                    ? Math.max(15, 100 - area.current.cloudCoverPct)
+                    : topic === "wave"
+                      ? Math.min(100, Math.max(15, (area.current.waveHeightM / 2.2) * 100))
+                      : topic === "air"
+                        ? Math.min(100, Math.max(14, (area.current.pm25 / 70) * 100))
+                        : topic === "heat"
+                          ? Math.min(100, Math.max(20, ((area.current.feelsLikeC - 24) / 20) * 100))
+                          : area.current.tourismScore;
+              return (
+                <button
+                  key={area.id}
+                  type="button"
+                  className={`fahsai-ranked-bar-row ${isSel ? "is-selected" : ""}`}
+                  onClick={() => onSelectArea(area.id)}
+                >
+                  <span className="fahsai-rb-name">
+                    {area.name} <small>({area.regionName})</small>
+                  </span>
+                  <div className="fahsai-rb-track">
+                    <i
+                      style={{
+                        width: `${pct}%`,
+                        background: aCol,
+                      }}
+                    />
+                  </div>
+                  <strong className="fahsai-rb-val" style={{ color: aCol }}>
+                    {pinMetricLabel(area, topic)} · Lv.{aTier}
+                  </strong>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

@@ -7,6 +7,8 @@ import {
 } from "../../app/lib/fahsai-data.ts";
 import {
   classifyAreaRisk,
+  classifyDailyPointRisk,
+  classifyHourlyPointRisk,
   getFriendlyAdvice,
   getNearbyAreas,
   getScienceExplainer,
@@ -14,6 +16,7 @@ import {
   getTopicRiskBands,
   getTopicScopeConfig,
   pinMetricLabel,
+  projectAreaAtDayHour,
   projectThailandGeo,
   REGION_BBOXES,
   TOPICS,
@@ -132,4 +135,31 @@ test("buildFallbackPayload computes complete nationwide intelligence, tourism, r
     const pt = projectThailandGeo(area.lat, area.lng, REGION_BBOXES.all);
     assert.ok(Number.isFinite(pt.x) && Number.isFinite(pt.y));
   }
+});
+
+test("classifyHourlyPointRisk, classifyDailyPointRisk, and projectAreaAtDayHour support severity-colored charts and map day/time forecast selection", () => {
+  const payload = buildFallbackPayload();
+  const bkk = payload.areas.find(a => a.id === "bangkok");
+  assert.ok(bkk);
+
+  for (const t of TOPICS) {
+    for (const h of bkk.hourly) {
+      const hSev = classifyHourlyPointRisk(bkk, h, t.id);
+      assert.ok(hSev.tier >= 1 && hSev.tier <= 5);
+      assert.ok(hSev.color.startsWith("#"));
+      assert.ok(hSev.shortTag.length > 0);
+    }
+    for (const d of bkk.daily) {
+      const dSev = classifyDailyPointRisk(bkk, d, t.id);
+      assert.ok(dSev.tier >= 1 && dSev.tier <= 5);
+      assert.ok(dSev.color.startsWith("#"));
+      assert.ok(dSev.shortTag.length > 0);
+    }
+  }
+
+  // Projecting to Tomorrow (dayIdx=1) at 16:00 (hourIdx=16) updates current metrics to match that forecast slot
+  const tomorrow16 = projectAreaAtDayHour(bkk, 1, 16, false);
+  assert.equal(tomorrow16.hourly.length, 24);
+  assert.equal(tomorrow16.current.tempC, tomorrow16.hourly[16].tempC);
+  assert.equal(tomorrow16.current.rainProb, tomorrow16.hourly[16].rainProb);
 });

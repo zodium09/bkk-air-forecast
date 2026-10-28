@@ -13,11 +13,14 @@ import {
 } from "../../lib/fahsai-data";
 import {
   classifyAreaRisk,
+  classifyDailyPointRisk,
+  classifyHourlyPointRisk,
   getNearbyAreas,
   getScienceExplainer,
   getTopicRelevantAreas,
   getTopicRiskBands,
   getTopicScopeConfig,
+  projectAreaAtDayHour,
   projectFahSaiGeo,
   TOPICS,
   type RiskBandInfo,
@@ -28,10 +31,13 @@ import { FahSaiTopicPresentation } from "./fahsai-topic-presentation";
 
 export {
   classifyAreaRisk,
+  classifyDailyPointRisk,
+  classifyHourlyPointRisk,
   getNearbyAreas,
   getTopicRelevantAreas,
   getTopicRiskBands,
   getTopicScopeConfig,
+  projectAreaAtDayHour,
   projectFahSaiGeo,
   type RiskBandInfo,
 };
@@ -46,12 +52,47 @@ export default function FahSaiApp() {
   // Default to true so all 77 provinces are shown clearly on the map!
   const [showAllProvincesScope, setShowAllProvincesScope] = useState<boolean>(true);
   const [isMapExpandedWide, setIsMapExpandedWide] = useState<boolean>(false);
+  const [dayIdx, setDayIdx] = useState<number>(0);
   const [hourIdx, setHourIdx] = useState<number>(() => getBangkokHour());
+  const [isLiveNow, setIsLiveNow] = useState<boolean>(true);
+  const [isPlayingTime, setIsPlayingTime] = useState<boolean>(false);
   const [dark, setDark] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [locating, setLocating] = useState<boolean>(false);
   const [gpsStatus, setGpsStatus] = useState<string>("");
   const [nowClockText, setNowClockText] = useState<string>(() => getBangkokClockText());
+
+  const handleSelectDay = (nextDayIdx: number) => {
+    setDayIdx(nextDayIdx);
+    setIsLiveNow(false);
+  };
+
+  const handleSelectHour = (nextHourIdx: number) => {
+    setHourIdx(nextHourIdx);
+    setIsLiveNow(false);
+  };
+
+  const handleResetLiveNow = () => {
+    setIsPlayingTime(false);
+    setDayIdx(0);
+    setHourIdx(getBangkokHour());
+    setIsLiveNow(true);
+  };
+
+  useEffect(() => {
+    if (!isPlayingTime) return;
+    const timer = window.setInterval(() => {
+      setIsLiveNow(false);
+      setHourIdx((prevH) => {
+        if (prevH >= 23) {
+          setDayIdx((prevD) => (prevD + 1) % 7);
+          return 0;
+        }
+        return prevH + 1;
+      });
+    }, 950);
+    return () => window.clearInterval(timer);
+  }, [isPlayingTime]);
 
   const loadData = async () => {
     setRefreshing(true);
@@ -84,17 +125,23 @@ export default function FahSaiApp() {
     };
   }, []);
 
+  // Project all 77 provinces to the selected Forecast Day (0..6) and Hour (0..23)
+  const projectedAreas = useMemo(
+    () => payload.areas.map((a) => projectAreaAtDayHour(a, dayIdx, hourIdx, isLiveNow)),
+    [payload.areas, dayIdx, hourIdx, isLiveNow]
+  );
+
   // Areas displayed on the map & province list (all 77 provinces by default, or filtered by region/topic/search)
   const topicScopedAreas = useMemo(() => {
     const baseList = showAllProvincesScope
       ? regionFilter === "all"
-        ? payload.areas
-        : payload.areas.filter((a) => a.regionId === regionFilter)
-      : getTopicRelevantAreas(payload.areas, topic, regionFilter);
+        ? projectedAreas
+        : projectedAreas.filter((a) => a.regionId === regionFilter)
+      : getTopicRelevantAreas(projectedAreas, topic, regionFilter);
 
     const q = searchQuery.trim().toLowerCase();
     if (!q) return baseList;
-    const searched = payload.areas.filter(
+    const searched = projectedAreas.filter(
       (a) =>
         a.name.toLowerCase().includes(q) ||
         a.subtitle.toLowerCase().includes(q) ||
@@ -102,12 +149,12 @@ export default function FahSaiApp() {
         a.tourismHighlights.some((h) => h.toLowerCase().includes(q))
     );
     return searched.length > 0 ? searched : baseList;
-  }, [payload.areas, topic, regionFilter, showAllProvincesScope, searchQuery]);
+  }, [projectedAreas, topic, regionFilter, showAllProvincesScope, searchQuery]);
 
   // Switch topic handler: if selected province isn't in the topic's primary relevant areas, pick the #1 relevant province
   const handleSelectTopic = (nextTopic: TopicId) => {
     setTopic(nextTopic);
-    const nextRelevant = getTopicRelevantAreas(payload.areas, nextTopic, regionFilter);
+    const nextRelevant = getTopicRelevantAreas(projectedAreas, nextTopic, regionFilter);
     if (nextRelevant.length > 0 && !nextRelevant.some((a) => a.id === selectedId)) {
       setSelectedId(nextRelevant[0].id);
     }
@@ -115,10 +162,10 @@ export default function FahSaiApp() {
 
   const activeArea = useMemo(
     () =>
-      payload.areas.find((a) => a.id === selectedId) ??
+      projectedAreas.find((a) => a.id === selectedId) ??
       topicScopedAreas[0] ??
-      payload.areas[0],
-    [payload.areas, topicScopedAreas, selectedId]
+      projectedAreas[0],
+    [projectedAreas, topicScopedAreas, selectedId]
   );
 
   const handleFindMyLocation = () => {
@@ -166,18 +213,18 @@ export default function FahSaiApp() {
   const activeTierColor = bands.find((b) => b.tier === activeTier)?.color ?? "#0284c7";
   const science = useMemo(() => getScienceExplainer(topic), [topic]);
 
-  // Top Suitable vs Top Risk areas across all 77 provinces
+  // Top Suitable vs Top Risk areas across all 77 provinces for the selected forecast day & time
   const topSuitableAreas = useMemo(
     () =>
-      [...payload.areas]
+      [...projectedAreas]
         .sort((a, b) => b.current.suitabilityScore - a.current.suitabilityScore)
         .slice(0, 6),
-    [payload.areas]
+    [projectedAreas]
   );
 
   const topRiskAreas = useMemo(
     () =>
-      [...payload.areas]
+      [...projectedAreas]
         .sort(
           (a, b) =>
             b.current.multiHazardTier * 100 +
@@ -186,7 +233,7 @@ export default function FahSaiApp() {
             (a.current.multiHazardTier * 100 + a.current.rainProb + a.current.pm25)
         )
         .slice(0, 6),
-    [payload.areas]
+    [projectedAreas]
   );
 
   const getTopicQuickValue = (tId: TopicId): string => {
@@ -334,9 +381,12 @@ export default function FahSaiApp() {
     };
   }, [activeArea, activeTier, activeTierColor, bands, topic, nowClockText]);
 
-  // Build SVG path for the 24-hour animated curve chart
+  // Build SVG path and per-hour severity colors for the 24-hour animated curve chart ("กราฟแยกสีความรุนแรง")
   const hourlyCurve = useMemo(() => {
+    const tierCounts: Record<1 | 2 | 3 | 4 | 5, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
     const pts = activeArea.hourly.map((h, i) => {
+      const sev = classifyHourlyPointRisk(activeArea, h, topic);
+      tierCounts[sev.tier] = (tierCounts[sev.tier] ?? 0) + 1;
       const val =
         topic === "rain"
           ? h.rainProb
@@ -365,7 +415,7 @@ export default function FahSaiApp() {
                 : Math.min(1, Math.max(0, (val + 1.8) / 3.8));
       const x = 28 + (i / 23) * 704;
       const y = 112 - norm * 88;
-      return { x, y, val: Number(val.toFixed(2)), label: h.hourLabel };
+      return { x, y, val: Number(val.toFixed(2)), label: h.hourLabel, sev };
     });
     const linePath = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
     const areaPath = `${linePath} L${pts[pts.length - 1].x.toFixed(1)},122 L${pts[0].x.toFixed(1)},122 Z`;
@@ -390,8 +440,21 @@ export default function FahSaiApp() {
               ? "เกณฑ์อากาศหนาวเย็น 20°C"
               : "เกณฑ์อ้างอิงมาตรฐาน";
 
-    return { pts, linePath, areaPath, thresholdY, thresholdLabel };
-  }, [activeArea.hourly, topic]);
+    // 5 horizontal background severity bands from top (y=24) to bottom (y=112)
+    // Order bands from top to bottom (for winter, lower temp = higher tier at bottom; for others, higher value = higher tier at top)
+    const orderedBands =
+      topic === "winter" ? [...bands].reverse() : bands;
+    const bandHeight = 88 / orderedBands.length;
+    const zoneBands = orderedBands.map((b, idx) => ({
+      tier: b.tier,
+      color: b.color,
+      label: b.label.split("·")[0]?.trim() ?? `ระดับ ${b.tier}`,
+      yTop: 24 + idx * bandHeight,
+      height: bandHeight,
+    }));
+
+    return { pts, linePath, areaPath, thresholdY, thresholdLabel, tierCounts, zoneBands };
+  }, [activeArea, bands, topic]);
 
   return (
     <div className={`fs-app theme-${topic} ${dark ? "is-dark" : ""}`}>
@@ -590,7 +653,7 @@ export default function FahSaiApp() {
 
             <FahSaiLeafletMap
               areas={topicScopedAreas}
-              allAreas={payload.areas}
+              allAreas={projectedAreas}
               selectedArea={activeArea}
               onSelectArea={setSelectedId}
               activeTopic={topic}
@@ -601,6 +664,14 @@ export default function FahSaiApp() {
               onToggleAllProvincesScope={() => setShowAllProvincesScope((v) => !v)}
               isExpandedWide={isMapExpandedWide}
               onToggleExpandedWide={() => setIsMapExpandedWide((v) => !v)}
+              dayIdx={dayIdx}
+              onChangeDayIdx={handleSelectDay}
+              hourIdx={hourIdx}
+              onChangeHourIdx={handleSelectHour}
+              isLiveNow={isLiveNow}
+              onResetLiveNow={handleResetLiveNow}
+              isPlayingTime={isPlayingTime}
+              onTogglePlayTime={() => setIsPlayingTime((v) => !v)}
             />
           </article>
 
@@ -610,29 +681,36 @@ export default function FahSaiApp() {
               topic={topic}
               activeArea={activeArea}
               scopedAreas={topicScopedAreas}
-              allAreas={payload.areas}
+              allAreas={projectedAreas}
               onSelectArea={setSelectedId}
               onSelectTopic={handleSelectTopic}
-              nowClockText={nowClockText}
+              nowClockText={
+                dayIdx === 0 && isLiveNow
+                  ? nowClockText
+                  : `${activeArea.daily[dayIdx]?.dayLabel ?? "วันนี้"} ${String(hourIdx).padStart(2, "0")}:00`
+              }
               radarAndSchedule={radarAndSchedule}
             />
           </article>
         </section>
 
-        {/* SECTION 4: INTERACTIVE 24-HOUR ANIMATED CURVE & SCRUBBER */}
+        {/* SECTION 4: INTERACTIVE 24-HOUR SEVERITY-COLORED CURVE & BAR CHART ("กราฟแยกสีความรุนแรง") */}
         <section className="fs-timeline-section" aria-labelledby="fs-hourly-title">
           <div className="fs-section-head">
             <div>
               <span className="fs-eyebrow">
-                📈 กราฟโต้ตอบรายชั่วโมง 24 ชม. (Interactive 24-Hour Curve & Scrubber)
+                📈 กราฟแยกสีความรุนแรงรายชั่วโมง 24 ชม. ({activeArea.daily[dayIdx]?.dayLabel ?? "วันนี้"})
               </span>
               <h2 id="fs-hourly-title">
-                เส้นแนวโน้มรายชั่วโมงของ จ.{activeArea.name} ({activeTopicMeta.label})
+                เส้นแนวโน้มและกราฟแท่งแยกสีความรุนแรง 5 ระดับ · จ.{activeArea.name} ({activeTopicMeta.label})
               </h2>
             </div>
             <div className="fs-hour-readout">
               <span>
-                เวลาที่เลือก: <strong>{activeHour.hourLabel} น.</strong>
+                วัน/เวลาที่เลือก:{" "}
+                <strong>
+                  {activeArea.daily[dayIdx]?.dayLabel ?? "วันนี้"} · {activeHour.hourLabel} น.
+                </strong>
               </span>
               <b>
                 🌡️ {activeHour.tempC}°C (ร้อนจริง {activeHour.feelsLikeC}°C) · 🌧️ ฝน{" "}
@@ -643,29 +721,85 @@ export default function FahSaiApp() {
             </div>
           </div>
 
+          {/* 5-LEVEL SEVERITY COLOR SUMMARY BAR */}
+          <div className="fs-severity-legend-strip" role="group" aria-label="สรุปจำนวนชั่วโมงแยกตามสีระดับความรุนแรง">
+            {bands.map((b) => {
+              const count = hourlyCurve.tierCounts[b.tier] ?? 0;
+              return (
+                <div
+                  key={b.tier}
+                  className={`fs-sev-chip ${count > 0 ? "has-hours" : ""}`}
+                  style={{ borderColor: `${b.color}66`, background: `${b.color}12` }}
+                >
+                  <span className="fs-sev-dot" style={{ background: b.color }} />
+                  <div className="fs-sev-text">
+                    <strong style={{ color: b.color }}>{b.label}</strong>
+                    <small>
+                      {b.rangeText} · <b>{count} ชม./วัน</b>
+                    </small>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
           <p className="fs-mobile-chart-hint">
-            คลิกที่จุดชั่วโมงหรือเลื่อนแถบด้านล่างเพื่อดูการเปลี่ยนแปลงตลอด 24 ชั่วโมง
+            คลิกที่จุดชั่วโมงหรือแท่งกราฟสีความรุนแรงด้านล่าง เพื่อซิงค์เวลาพยากรณ์กับแผนที่ประเทศไทยทันที
           </p>
           <div className="fs-curve-svg-wrap">
             <svg
               viewBox="0 0 760 135"
               className="fs-curve-svg"
               role="img"
-              aria-label={`กราฟเส้นโค้งรายชั่วโมง 24 ชั่วโมงของ ${activeArea.name}`}
+              aria-label={`กราฟเส้นโค้งแยกสีความรุนแรงรายชั่วโมง 24 ชั่วโมงของ ${activeArea.name}`}
             >
               <defs>
                 <linearGradient id="fs-curve-fill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={activeTierColor} stopOpacity="0.42" />
-                  <stop offset="100%" stopColor={activeTierColor} stopOpacity="0.03" />
+                  <stop offset="0%" stopColor={activeTierColor} stopOpacity="0.28" />
+                  <stop offset="100%" stopColor={activeTierColor} stopOpacity="0.02" />
                 </linearGradient>
               </defs>
+
+              {/* 5 Horizontal Severity Color Zone Backgrounds */}
+              {hourlyCurve.zoneBands.map((z) => (
+                <g key={z.tier}>
+                  <rect
+                    x="24"
+                    y={z.yTop}
+                    width="712"
+                    height={z.height}
+                    fill={z.color}
+                    fillOpacity="0.09"
+                  />
+                  <line
+                    x1="24"
+                    y1={z.yTop}
+                    x2="736"
+                    y2={z.yTop}
+                    stroke={z.color}
+                    strokeOpacity="0.25"
+                    strokeWidth="0.8"
+                  />
+                  <text
+                    x="30"
+                    y={z.yTop + 11}
+                    fill={z.color}
+                    fontSize="8.2"
+                    fontWeight="800"
+                    opacity="0.85"
+                  >
+                    {z.label}
+                  </text>
+                </g>
+              ))}
+
               <line
                 x1="24"
                 y1={hourlyCurve.thresholdY}
                 x2="736"
                 y2={hourlyCurve.thresholdY}
                 stroke="#f43f5e"
-                strokeWidth="1.4"
+                strokeWidth="1.5"
                 strokeDasharray="5 4"
               />
               <text
@@ -680,14 +814,35 @@ export default function FahSaiApp() {
               </text>
 
               <path d={hourlyCurve.areaPath} fill="url(#fs-curve-fill)" />
-              <path
-                d={hourlyCurve.linePath}
-                fill="none"
-                stroke={activeTierColor}
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
+
+              {/* Per-Hour Severity-Colored Vertical Stems & Line Segments */}
+              {hourlyCurve.pts.map((p, idx) => {
+                const nextP = hourlyCurve.pts[idx + 1];
+                return (
+                  <g key={`seg-${p.label}`}>
+                    <line
+                      x1={p.x}
+                      y1={p.y}
+                      x2={p.x}
+                      y2={122}
+                      stroke={p.sev.color}
+                      strokeOpacity={idx === hourIdx ? "0.65" : "0.24"}
+                      strokeWidth={idx === hourIdx ? "3" : "1.5"}
+                    />
+                    {nextP && (
+                      <line
+                        x1={p.x}
+                        y1={p.y}
+                        x2={nextP.x}
+                        y2={nextP.y}
+                        stroke={nextP.sev.color}
+                        strokeWidth="3.4"
+                        strokeLinecap="round"
+                      />
+                    )}
+                  </g>
+                );
+              })}
 
               {hourlyCurve.pts.map((p, idx) => {
                 const isSel = idx === hourIdx;
@@ -695,22 +850,22 @@ export default function FahSaiApp() {
                   <g
                     key={p.label}
                     transform={`translate(${p.x}, ${p.y})`}
-                    onClick={() => setHourIdx(idx)}
+                    onClick={() => handleSelectHour(idx)}
                     style={{ cursor: "pointer" }}
                   >
-                    {isSel && <circle r="10" fill={activeTierColor} opacity="0.25" />}
+                    {isSel && <circle r="10.5" fill={p.sev.color} opacity="0.28" />}
                     <circle
-                      r={isSel ? 5.5 : 3}
-                      fill={isSel ? "#ffffff" : activeTierColor}
-                      stroke={activeTierColor}
-                      strokeWidth={isSel ? "3" : "1.5"}
+                      r={isSel ? 5.8 : 3.6}
+                      fill={isSel ? "#ffffff" : p.sev.color}
+                      stroke={p.sev.color}
+                      strokeWidth={isSel ? "3.2" : "1.6"}
                     />
                     {(isSel || idx % 3 === 0) && (
                       <text
                         x="0"
                         y="-9"
                         textAnchor="middle"
-                        fill={isSel ? "#0f172a" : "#64748b"}
+                        fill={isSel ? p.sev.color : "#334155"}
                         fontSize={isSel ? "10.5" : "8.8"}
                         fontWeight="800"
                       >
@@ -732,7 +887,7 @@ export default function FahSaiApp() {
             min={0}
             max={23}
             value={hourIdx}
-            onChange={(e) => setHourIdx(Number(e.target.value))}
+            onChange={(e) => handleSelectHour(Number(e.target.value))}
             className="fs-time-slider"
             aria-label="เลื่อนเลือกชั่วโมงพยากรณ์"
           />
@@ -740,6 +895,7 @@ export default function FahSaiApp() {
           <div className="fs-hourly-bars">
             {activeArea.hourly.map((h, idx) => {
               const selected = idx === hourIdx;
+              const hSev = classifyHourlyPointRisk(activeArea, h, topic);
               const val =
                 topic === "rain"
                   ? h.rainProb
@@ -754,23 +910,29 @@ export default function FahSaiApp() {
                           : h.tideMsl;
               const heightPct =
                 topic === "rain"
-                  ? Math.max(8, h.rainProb)
+                  ? Math.max(10, h.rainProb)
                   : topic === "air"
-                    ? Math.min(100, Math.max(10, (h.pm25 / 60) * 100))
+                    ? Math.min(100, Math.max(12, (h.pm25 / 60) * 100))
                     : topic === "heat" || topic === "winter" || topic === "sky"
-                      ? Math.min(100, Math.max(15, ((val - 14) / 28) * 100))
+                      ? Math.min(100, Math.max(16, ((val - 14) / 28) * 100))
                       : topic === "wave"
                         ? Math.min(100, Math.max(14, (h.waveM / 2.2) * 100))
-                        : Math.min(100, Math.max(12, ((h.tideMsl + 1.6) / 3.2) * 100));
+                        : Math.min(100, Math.max(14, ((h.tideMsl + 1.6) / 3.2) * 100));
 
               return (
                 <button
                   key={h.hourLabel}
                   type="button"
                   className={`fs-hour-col ${selected ? "is-selected" : ""}`}
-                  onClick={() => setHourIdx(idx)}
+                  style={
+                    selected
+                      ? { borderColor: hSev.color, background: `${hSev.color}16` }
+                      : undefined
+                  }
+                  onClick={() => handleSelectHour(idx)}
+                  title={`${h.hourLabel} น. · ระดับ ${hSev.tier}/5 (${hSev.shortTag})`}
                 >
-                  <small className="fs-hour-val">
+                  <small className="fs-hour-val" style={{ color: hSev.color }}>
                     {topic === "rain"
                       ? `${h.rainProb}%`
                       : topic === "air"
@@ -782,8 +944,19 @@ export default function FahSaiApp() {
                             : `${Math.round(val)}°`}
                   </small>
                   <div className="fs-hour-bar-track">
-                    <i style={{ height: `${heightPct}%` }} />
+                    <i
+                      style={{
+                        height: `${heightPct}%`,
+                        background: hSev.color,
+                      }}
+                    />
                   </div>
+                  <span
+                    className="fs-hour-sev-pill"
+                    style={{ background: `${hSev.color}22`, color: hSev.color }}
+                  >
+                    Lv.{hSev.tier}
+                  </span>
                   <span className="fs-hour-time">{h.hourLabel.slice(0, 2)}</span>
                 </button>
               );
@@ -999,24 +1172,88 @@ export default function FahSaiApp() {
           </div>
         </section>
 
-        {/* SECTION 8: 7-DAY OUTLOOK & REGIONAL SUMMARY */}
+        {/* SECTION 8: 7-DAY SEVERITY-COLORED OUTLOOK & REGIONAL SUMMARY */}
         <section className="fs-bottom-grid">
           <article className="fs-daily-card">
-            <span className="fs-eyebrow">📅 พยากรณ์ล่วงหน้า 7 วัน (7-Day Outlook)</span>
-            <h3>แนวโน้มรายวัน & คะแนนน่าเที่ยว · จ.{activeArea.name}</h3>
+            <span className="fs-eyebrow">📅 พยากรณ์ล่วงหน้า 7 วัน & กราฟแยกสีความรุนแรงรายวัน (คลิกเลือกวันเพื่อดูบนแผนที่)</span>
+            <h3>แนวโน้มรายวัน & ระดับสีความรุนแรง · จ.{activeArea.name} ({activeTopicMeta.label})</h3>
+
+            {/* 7-Day Severity Column Bar Chart */}
+            <div className="fs-daily-severity-chart" role="group" aria-label="กราฟแท่งแยกสีความรุนแรงล่วงหน้า 7 วัน">
+              {activeArea.daily.map((d, idx) => {
+                const dSev = classifyDailyPointRisk(activeArea, d, topic);
+                const isDaySel = idx === dayIdx;
+                const barPct =
+                  topic === "rain"
+                    ? Math.max(16, d.rainProb)
+                    : topic === "air"
+                      ? Math.min(100, Math.max(18, (d.pm25Avg / 65) * 100))
+                      : topic === "heat"
+                        ? Math.min(100, Math.max(22, ((d.maxTempC - 22) / 18) * 100))
+                        : topic === "winter"
+                          ? Math.min(100, Math.max(22, ((30 - d.minTempC) / 16) * 100))
+                          : topic === "wave"
+                            ? Math.min(100, Math.max(18, (d.waveMaxM / 2.2) * 100))
+                            : topic === "tourism" || topic === "suitable"
+                              ? d.tourismScore
+                              : dSev.tier * 20;
+                return (
+                  <button
+                    key={`chart-${d.dayLabel}`}
+                    type="button"
+                    className={`fs-dsc-col ${isDaySel ? "is-active" : ""}`}
+                    onClick={() => handleSelectDay(idx)}
+                  >
+                    <span className="fs-dsc-tier" style={{ color: dSev.color }}>
+                      Lv.{dSev.tier}
+                    </span>
+                    <div className="fs-dsc-track">
+                      <i style={{ height: `${barPct}%`, background: dSev.color }} />
+                    </div>
+                    <strong className="fs-dsc-day">{d.dayLabel}</strong>
+                    <small className="fs-dsc-tag" style={{ color: dSev.color }}>
+                      {dSev.shortTag}
+                    </small>
+                  </button>
+                );
+              })}
+            </div>
+
             <div className="fs-daily-list">
-              {activeArea.daily.map((d) => (
-                <div key={d.dayLabel} className="fs-daily-row">
-                  <strong>{d.dayLabel}</strong>
-                  <span className="fs-daily-rain">
-                    🌧️ {d.rainProb}% ({d.rainMm} มม.)
-                  </span>
-                  <span className="fs-daily-temp">
-                    🍃 <b>{d.minTempC}°C</b> — ☀️ <b>{d.maxTempC}°C</b>
-                  </span>
-                  <span className="fs-daily-uv">🏖️ น่าเที่ยว {d.tourismScore}%</span>
-                </div>
-              ))}
+              {activeArea.daily.map((d, idx) => {
+                const dSev = classifyDailyPointRisk(activeArea, d, topic);
+                const isDaySel = idx === dayIdx;
+                return (
+                  <button
+                    key={d.dayLabel}
+                    type="button"
+                    className={`fs-daily-row ${isDaySel ? "is-selected" : ""}`}
+                    style={
+                      isDaySel
+                        ? { borderColor: dSev.color, background: `${dSev.color}12` }
+                        : undefined
+                    }
+                    onClick={() => handleSelectDay(idx)}
+                  >
+                    <div className="fs-daily-day-col">
+                      <span className="fs-daily-sev-dot" style={{ background: dSev.color }} />
+                      <strong>{d.dayLabel}</strong>
+                    </div>
+                    <span className="fs-daily-rain">
+                      🌧️ {d.rainProb}% ({d.rainMm} มม.)
+                    </span>
+                    <span className="fs-daily-temp">
+                      🍃 <b>{d.minTempC}°C</b> — ☀️ <b>{d.maxTempC}°C</b>
+                    </span>
+                    <span
+                      className="fs-daily-sev-badge"
+                      style={{ background: `${dSev.color}1f`, color: dSev.color }}
+                    >
+                      ระดับ {dSev.tier}/5 · {dSev.shortTag}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </article>
 

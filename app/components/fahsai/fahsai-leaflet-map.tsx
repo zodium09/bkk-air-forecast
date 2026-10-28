@@ -6,6 +6,8 @@ import "leaflet/dist/leaflet.css";
 import type { AreaForecast, RegionId, TopicId } from "../../lib/fahsai-data";
 import {
   classifyAreaRisk,
+  classifyDailyPointRisk,
+  classifyHourlyPointRisk,
   getTopicRiskBands,
   getTopicScopeConfig,
   pinMetricLabel,
@@ -31,6 +33,14 @@ interface FahSaiLeafletMapProps {
   onToggleAllProvincesScope: () => void;
   isExpandedWide?: boolean;
   onToggleExpandedWide?: () => void;
+  dayIdx?: number;
+  onChangeDayIdx?: (dayIdx: number) => void;
+  hourIdx?: number;
+  onChangeHourIdx?: (hourIdx: number) => void;
+  isLiveNow?: boolean;
+  onResetLiveNow?: () => void;
+  isPlayingTime?: boolean;
+  onTogglePlayTime?: () => void;
 }
 
 interface ProvinceFeatureProps {
@@ -93,6 +103,14 @@ export function FahSaiLeafletMap({
   onToggleAllProvincesScope,
   isExpandedWide = false,
   onToggleExpandedWide,
+  dayIdx = 0,
+  onChangeDayIdx,
+  hourIdx = 14,
+  onChangeHourIdx,
+  isLiveNow = true,
+  onResetLiveNow,
+  isPlayingTime = false,
+  onTogglePlayTime,
 }: FahSaiLeafletMapProps) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const leafletRef = useRef<typeof Leaflet | null>(null);
@@ -610,6 +628,116 @@ export function FahSaiLeafletMap({
         </div>
       </div>
 
+      {/* MAP FORECAST DAY & TIME SELECTOR DECK ("แผนที่เลือกวันเวลาพยากรณ์ได้") */}
+      <div className="fahsai-map-time-deck" role="region" aria-label="เลือกวันและเวลาพยากรณ์บนแผนที่ประเทศไทย">
+        <div className="fahsai-map-time-top">
+          <div className="fahsai-map-day-pills" role="group" aria-label="เลือกวันพยากรณ์ 7 วันบนแผนที่">
+            <span className="fahsai-toolbar-label">📅 เลือกวันพยากรณ์:</span>
+            {selectedArea.daily.map((d, idx) => {
+              const daySev = classifyDailyPointRisk(selectedArea, d, activeTopic);
+              const isDayActive = idx === dayIdx;
+              return (
+                <button
+                  key={d.dayLabel}
+                  type="button"
+                  className={`fahsai-day-pill ${isDayActive ? "is-active" : ""}`}
+                  aria-pressed={isDayActive}
+                  style={
+                    isDayActive
+                      ? { background: daySev.color, borderColor: daySev.color, color: "#ffffff" }
+                      : undefined
+                  }
+                  onClick={() => onChangeDayIdx?.(idx)}
+                >
+                  <span
+                    className="fahsai-day-pill-dot"
+                    style={{ background: isDayActive ? "#ffffff" : daySev.color }}
+                  />
+                  <strong>{d.dayLabel}</strong>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="fahsai-map-hour-presets" role="group" aria-label="เลือกช่วงเวลาพยากรณ์อย่างรวดเร็ว">
+            <button
+              type="button"
+              className={`fahsai-time-preset-btn ${dayIdx === 0 && isLiveNow ? "is-live" : ""}`}
+              onClick={() => onResetLiveNow?.()}
+            >
+              🟢 ตอนนี้ (สด)
+            </button>
+            {[
+              { h: 6, label: "🌅 เช้า 06:00" },
+              { h: 9, label: "🌤️ สาย 09:00" },
+              { h: 12, label: "☀️ เที่ยง 12:00" },
+              { h: 15, label: "🌧️ บ่าย 15:00" },
+              { h: 18, label: "🌇 เย็น 18:00" },
+              { h: 21, label: "🌙 ดึก 21:00" },
+            ].map((preset) => (
+              <button
+                key={preset.h}
+                type="button"
+                className={`fahsai-time-preset-btn ${!isLiveNow && hourIdx === preset.h ? "is-active" : ""}`}
+                onClick={() => onChangeHourIdx?.(preset.h)}
+              >
+                {preset.label}
+              </button>
+            ))}
+            {onTogglePlayTime && (
+              <button
+                type="button"
+                className={`fahsai-time-play-btn ${isPlayingTime ? "is-playing" : ""}`}
+                onClick={onTogglePlayTime}
+              >
+                {isPlayingTime ? "⏸️ หยุดเล่นเวลา" : "▶️ เล่นเวลาพยากรณ์"}
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="fahsai-map-scrubber-row">
+          <div className="fahsai-map-scrubber-label">
+            <span>
+              🕒 เวลาพยากรณ์บนแผนที่:{" "}
+              <strong>
+                {selectedArea.daily[dayIdx]?.dayLabel ?? "วันนี้"} ·{" "}
+                {String(hourIdx).padStart(2, "0")}:00 น.
+              </strong>
+              {dayIdx === 0 && isLiveNow ? " (ข้อมูลเวลาปัจจุบัน)" : " (โหมดพยากรณ์ล่วงหน้า)"}
+            </span>
+            <small>เลื่อนแถบหรือคลิกช่วงเวลาเพื่อดูสีความรุนแรงทั้ง 77 จังหวัดเปลี่ยนตามวันและเวลา</small>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={23}
+            value={hourIdx}
+            onChange={(e) => onChangeHourIdx?.(Number(e.target.value))}
+            className="fahsai-map-hour-slider"
+            aria-label="เลื่อนเวลาพยากรณ์รายชั่วโมงบนแผนที่"
+          />
+          <div className="fahsai-map-hour-ticks" aria-hidden="true">
+            {selectedArea.hourly.map((h, i) => {
+              const sev = classifyHourlyPointRisk(selectedArea, h, activeTopic);
+              const isCurH = i === hourIdx;
+              return (
+                <button
+                  key={h.hourLabel}
+                  type="button"
+                  className={`fahsai-map-tick ${isCurH ? "is-active" : ""}`}
+                  onClick={() => onChangeHourIdx?.(i)}
+                  title={`${h.hourLabel} น. · ${sev.shortTag}`}
+                >
+                  <i style={{ background: sev.color }} />
+                  {i % 3 === 0 && <span>{h.hourLabel.slice(0, 2)}</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
       {/* Large, High-Clarity Interactive Leaflet Map Viewport */}
       <div className="fahsai-leaflet-stage">
         <div
@@ -621,11 +749,23 @@ export function FahSaiLeafletMap({
         {/* Floating Active Province Summary Overlay */}
         <div className="fahsai-map-floating-card">
           <div className="fahsai-map-floating-head">
-            <span className="fahsai-map-floating-tag">{selectedArea.regionName}</span>
+            <span className="fahsai-map-floating-tag">
+              📅 {selectedArea.daily[dayIdx]?.dayLabel ?? "วันนี้"} · {String(hourIdx).padStart(2, "0")}:00 น.
+            </span>
             <strong>📍 จ.{selectedArea.name}</strong>
           </div>
-          <div className="fahsai-map-floating-metric" style={{ color: topicMeta.color }}>
-            {topicMeta.icon} {pinMetricLabel(selectedArea, activeTopic)}
+          <div
+            className="fahsai-map-floating-metric"
+            style={{
+              color:
+                riskBands.find((b) => b.tier === classifyAreaRisk(selectedArea, activeTopic))
+                  ?.color ?? topicMeta.color,
+            }}
+          >
+            {topicMeta.icon} {pinMetricLabel(selectedArea, activeTopic)}{" "}
+            <small className="fahsai-map-floating-tier">
+              (ระดับ {classifyAreaRisk(selectedArea, activeTopic)}/5)
+            </small>
           </div>
           <div className="fahsai-map-floating-sub">
             🌡️ {selectedArea.current.tempC}°C · 🌧️ ฝน {selectedArea.current.rainProb}% · 😷 PM2.5 {selectedArea.current.pm25} µg/m³

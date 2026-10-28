@@ -1,4 +1,4 @@
-import type { AreaForecast, RegionId, TopicId } from "../../lib/fahsai-data";
+import type { AreaForecast, DailyPoint, HourlyPoint, RegionId, TopicId } from "../../lib/fahsai-data";
 
 export interface TopicCardConfig {
   id: TopicId;
@@ -1090,4 +1090,354 @@ export function getNearbyAreas(
 
   return result;
 }
+
+// ============================================================================
+// SEVERITY CLASSIFICATION FOR HOURLY & DAILY CHARTS ("กราฟแยกสีความรุนแรง")
+// & MAP FORECAST DAY/TIME PROJECTION ("แผนที่เลือกวันเวลาพยากรณ์ได้")
+// ============================================================================
+
+export interface SeverityInfo {
+  tier: 1 | 2 | 3 | 4 | 5;
+  color: string;
+  label: string;
+  shortTag: string;
+}
+
+const SHORT_SEVERITY_TAGS: Record<TopicId, Record<1 | 2 | 3 | 4 | 5, string>> = {
+  rain: { 1: "ไร้ฝน", 2: "ฝนเล็กน้อย", 3: "มีฝนบางแห่ง", 4: "ฝนฟ้าคะนอง", 5: "ฝนตกหนักมาก" },
+  sky: { 1: "ฟ้าใสมาก", 2: "ฟ้าโปร่ง", 3: "เมฆบางส่วน", 4: "เมฆครึ้ม", 5: "พายุเมฆทึบ" },
+  tide: { 1: "พ้นน้ำหนุน", 2: "น้ำปกติ", 3: "น้ำขึ้นปานกลาง", 4: "น้ำหนุนสูง", 5: "หนุนวิกฤต" },
+  wave: { 1: "ทะเลเรียบ", 2: "คลื่นเล็กน้อย", 3: "คลื่นปานกลาง", 4: "คลื่นแรง", 5: "งดเดินเรือ" },
+  air: { 1: "ดีมาก", 2: "อากาศดี", 3: "ปานกลาง", 4: "เริ่มมีผล", 5: "มีผลกระทบสูง" },
+  heat: { 1: "เย็นสบาย", 2: "อบอุ่น", 3: "เฝ้าระวังร้อน", 4: "ร้อนจัด", 5: "อันตรายฮีทสโตรก" },
+  winter: { 1: "อบอุ่น", 2: "โปร่งสบาย", 3: "เย็นสดชื่น", 4: "อากาศหนาว", 5: "หนาวจัด/หมอกหนา" },
+  tourism: { 1: "ควรเลี่ยง", 2: "เช็กเวลา", 3: "เที่ยวได้", 4: "น่าเที่ยวมาก", 5: "สวรรค์นักเดินทาง" },
+  risk: { 1: "ปลอดภัย", 2: "เสี่ยงต่ำ", 3: "เฝ้าระวัง", 4: "เตือนภัย", 5: "เสี่ยงวิกฤต" },
+  suitable: { 1: "ในร่ม", 2: "พอใช้", 3: "ปานกลาง", 4: "เหมาะสมดี", 5: "เหมาะสมสูงสุด" },
+};
+
+export function getSeverityInfoFromTier(topic: TopicId, tier: 1 | 2 | 3 | 4 | 5): SeverityInfo {
+  const bands = getTopicRiskBands(topic);
+  const found = bands.find((b) => b.tier === tier) ?? bands[0];
+  return {
+    tier,
+    color: found.color,
+    label: found.label,
+    shortTag: SHORT_SEVERITY_TAGS[topic]?.[tier] ?? `ระดับ ${tier}`,
+  };
+}
+
+export function classifyHourlyPointRisk(
+  area: AreaForecast,
+  h: HourlyPoint,
+  topic: TopicId
+): SeverityInfo {
+  let tier: 1 | 2 | 3 | 4 | 5 = 1;
+  if (topic === "rain") {
+    if (h.rainProb > 75 || h.rainMm >= 8) tier = 5;
+    else if (h.rainProb >= 55 || h.rainMm >= 3) tier = 4;
+    else if (h.rainProb >= 35) tier = 3;
+    else if (h.rainProb >= 15) tier = 2;
+    else tier = 1;
+  } else if (topic === "sky") {
+    if (h.cloudPct > 85) tier = 5;
+    else if (h.cloudPct >= 70) tier = 4;
+    else if (h.cloudPct >= 45) tier = 3;
+    else if (h.cloudPct >= 25) tier = 2;
+    else tier = 1;
+  } else if (topic === "tide") {
+    if (!area.isCoastal && area.current.highTideMsl <= 0.05) tier = 1;
+    else if (h.tideMsl > 1.7) tier = 5;
+    else if (h.tideMsl >= 1.42) tier = 4;
+    else if (h.tideMsl >= 1.15) tier = 3;
+    else tier = 2;
+  } else if (topic === "wave") {
+    if (!area.isCoastal) tier = 1;
+    else if (h.waveM > 2.0) tier = 5;
+    else if (h.waveM >= 1.3) tier = 4;
+    else if (h.waveM >= 0.85) tier = 3;
+    else if (h.waveM >= 0.4) tier = 2;
+    else tier = 1;
+  } else if (topic === "air") {
+    if (h.pm25 > 75) tier = 5;
+    else if (h.pm25 > 37.5) tier = 4;
+    else if (h.pm25 > 25) tier = 3;
+    else if (h.pm25 > 15) tier = 2;
+    else tier = 1;
+  } else if (topic === "heat") {
+    if (h.feelsLikeC > 42) tier = 5;
+    else if (h.feelsLikeC >= 38) tier = 4;
+    else if (h.feelsLikeC >= 34) tier = 3;
+    else if (h.feelsLikeC >= 30) tier = 2;
+    else tier = 1;
+  } else if (topic === "winter") {
+    if (h.tempC <= 17.5) tier = 5;
+    else if (h.tempC <= 20.5) tier = 4;
+    else if (h.tempC <= 23.0) tier = 3;
+    else if (h.tempC <= 25.0) tier = 2;
+    else tier = 1;
+  } else if (topic === "tourism" || topic === "suitable") {
+    const score = Math.round(
+      94 -
+        (h.rainProb > 55 ? 28 : h.rainProb > 35 ? 14 : h.rainProb * 0.2) -
+        (h.pm25 > 37.5 ? 18 : h.pm25 > 25 ? 8 : 0) -
+        (h.feelsLikeC > 38 ? 14 : h.feelsLikeC > 35 ? 6 : 0)
+    );
+    if (score >= 88) tier = 5;
+    else if (score >= 78) tier = 4;
+    else if (score >= 65) tier = 3;
+    else if (score >= 50) tier = 2;
+    else tier = 1;
+  } else {
+    // multi-hazard risk at hour h
+    const rT = h.rainProb > 75 ? 5 : h.rainProb >= 55 ? 4 : h.rainProb >= 35 ? 3 : h.rainProb >= 20 ? 2 : 1;
+    const aT = h.pm25 > 75 ? 5 : h.pm25 > 37.5 ? 4 : h.pm25 > 25 ? 3 : h.pm25 > 15 ? 2 : 1;
+    const hT = h.feelsLikeC > 42 ? 5 : h.feelsLikeC >= 38 ? 4 : h.feelsLikeC >= 34 ? 3 : h.feelsLikeC >= 30 ? 2 : 1;
+    const sT = area.isCoastal ? (h.waveM > 2.0 || h.tideMsl > 1.7 ? 5 : h.waveM >= 1.3 || h.tideMsl >= 1.42 ? 4 : h.waveM >= 0.85 ? 3 : 2) : 1;
+    tier = Math.max(rT, aT, hT, sT) as 1 | 2 | 3 | 4 | 5;
+  }
+  return getSeverityInfoFromTier(topic, tier);
+}
+
+export function classifyDailyPointRisk(
+  area: AreaForecast,
+  d: DailyPoint,
+  topic: TopicId
+): SeverityInfo {
+  let tier: 1 | 2 | 3 | 4 | 5 = 1;
+  if (topic === "rain") {
+    if (d.rainProb > 75 || d.rainMm > 35) tier = 5;
+    else if (d.rainProb >= 55 || d.rainMm >= 15) tier = 4;
+    else if (d.rainProb >= 35) tier = 3;
+    else if (d.rainProb >= 15) tier = 2;
+    else tier = 1;
+  } else if (topic === "sky") {
+    if (d.rainProb > 75) tier = 5;
+    else if (d.rainProb >= 55) tier = 4;
+    else if (d.rainProb >= 35) tier = 3;
+    else if (d.rainProb >= 18) tier = 2;
+    else tier = 1;
+  } else if (topic === "tide") {
+    if (!area.isCoastal && area.current.highTideMsl <= 0.05) tier = 1;
+    else if (area.current.highTideMsl > 1.7) tier = 5;
+    else if (area.current.highTideMsl >= 1.42) tier = 4;
+    else if (area.current.highTideMsl >= 1.15) tier = 3;
+    else tier = 2;
+  } else if (topic === "wave") {
+    if (!area.isCoastal) tier = 1;
+    else if (d.waveMaxM > 2.0) tier = 5;
+    else if (d.waveMaxM >= 1.3) tier = 4;
+    else if (d.waveMaxM >= 0.85) tier = 3;
+    else if (d.waveMaxM >= 0.4) tier = 2;
+    else tier = 1;
+  } else if (topic === "air") {
+    if (d.pm25Avg > 75) tier = 5;
+    else if (d.pm25Avg > 37.5) tier = 4;
+    else if (d.pm25Avg > 25) tier = 3;
+    else if (d.pm25Avg > 15) tier = 2;
+    else tier = 1;
+  } else if (topic === "heat") {
+    const feels = d.maxTempC + (area.isCoastal ? 3.5 : 3.0);
+    if (feels > 42) tier = 5;
+    else if (feels >= 38) tier = 4;
+    else if (feels >= 34) tier = 3;
+    else if (feels >= 30) tier = 2;
+    else tier = 1;
+  } else if (topic === "winter") {
+    if (d.minTempC <= 17.5) tier = 5;
+    else if (d.minTempC <= 20.5) tier = 4;
+    else if (d.minTempC <= 23.0) tier = 3;
+    else if (d.minTempC <= 25.0) tier = 2;
+    else tier = 1;
+  } else if (topic === "tourism" || topic === "suitable") {
+    if (d.tourismScore >= 88) tier = 5;
+    else if (d.tourismScore >= 78) tier = 4;
+    else if (d.tourismScore >= 65) tier = 3;
+    else if (d.tourismScore >= 50) tier = 2;
+    else tier = 1;
+  } else {
+    const rT = d.rainProb > 75 ? 5 : d.rainProb >= 55 ? 4 : d.rainProb >= 35 ? 3 : d.rainProb >= 20 ? 2 : 1;
+    const aT = d.pm25Avg > 75 ? 5 : d.pm25Avg > 37.5 ? 4 : d.pm25Avg > 25 ? 3 : d.pm25Avg > 15 ? 2 : 1;
+    const hT = d.maxTempC + 3 > 42 ? 5 : d.maxTempC + 3 >= 38 ? 4 : d.maxTempC + 3 >= 34 ? 3 : 2;
+    const sT = area.isCoastal ? (d.waveMaxM > 2.0 ? 5 : d.waveMaxM >= 1.3 ? 4 : d.waveMaxM >= 0.85 ? 3 : 2) : 1;
+    tier = Math.max(rT, aT, hT, sT) as 1 | 2 | 3 | 4 | 5;
+  }
+  return getSeverityInfoFromTier(topic, tier);
+}
+
+/**
+ * Projects an AreaForecast to a specific forecast day (0..6) and hour (0..23)
+ * so the Interactive Map, pins, polygons, and charts reflect the user's chosen forecast day & time!
+ */
+export function projectAreaAtDayHour(
+  area: AreaForecast,
+  dayIdx: number,
+  hourIdx: number,
+  isLiveNow = false
+): AreaForecast {
+  if (dayIdx === 0 && isLiveNow) {
+    return area;
+  }
+
+  const baseDay = area.daily[0] ?? {
+    dayLabel: "วันนี้",
+    maxTempC: area.current.maxAfternoonC,
+    minTempC: area.current.minMorningC,
+    rainProb: area.current.rainProb,
+    rainMm: area.current.rain24hMm,
+    pm25Avg: area.current.pm25,
+    uvMax: area.current.uvIndex,
+    tourismScore: area.current.tourismScore,
+    waveMaxM: area.current.waveHeightM,
+  };
+  const targetDay = area.daily[dayIdx] ?? baseDay;
+
+  const dTempDelta = Number((targetDay.maxTempC - baseDay.maxTempC).toFixed(1));
+  const dMinDelta = Number((targetDay.minTempC - baseDay.minTempC).toFixed(1));
+  const dRainDelta = targetDay.rainProb - baseDay.rainProb;
+  const dPmDelta = Number((targetDay.pm25Avg - baseDay.pm25Avg).toFixed(1));
+  const dWaveDelta = area.isCoastal ? Number((targetDay.waveMaxM - baseDay.waveMaxM).toFixed(2)) : 0;
+
+  // Shift hourly series for the chosen day (including lunar tidal shift ~1 hour per day)
+  const projectedHourly: HourlyPoint[] = area.hourly.map((h, idx) => {
+    const shiftedTideHour = (idx - dayIdx + 24) % 24;
+    const baseTide = area.hourly[shiftedTideHour]?.tideMsl ?? h.tideMsl;
+    const springMod = 1 + Math.sin(dayIdx * 0.65) * 0.08;
+    const tideMsl =
+      area.isCoastal || area.current.highTideMsl > 0
+        ? Number((baseTide * springMod).toFixed(2))
+        : 0;
+    const tempC = Number((h.tempC + (idx <= 8 ? dMinDelta : dTempDelta)).toFixed(1));
+    const feelsLikeC = Number((h.feelsLikeC + dTempDelta).toFixed(1));
+    const rainProb = Math.max(4, Math.min(96, Math.round(h.rainProb + dRainDelta)));
+    const rainMm = rainProb >= 40 ? Number(Math.max(0.2, ((rainProb - 30) * 0.16)).toFixed(1)) : 0;
+    const pm25 = Number(Math.max(6, h.pm25 + dPmDelta).toFixed(1));
+    const waveM = area.isCoastal ? Number(Math.max(0.15, h.waveM + dWaveDelta).toFixed(2)) : 0;
+    const cloudPct = Math.min(98, Math.max(10, Math.round(rainProb * 0.88 + 14)));
+    return {
+      ...h,
+      tempC,
+      feelsLikeC,
+      rainProb,
+      rainMm,
+      pm25,
+      tideMsl,
+      waveM,
+      cloudPct,
+    };
+  });
+
+  const activeH = projectedHourly[hourIdx] ?? projectedHourly[0];
+  const nextH = projectedHourly[(hourIdx + 1) % 24] ?? activeH;
+
+  let highTideMsl = area.current.highTideMsl;
+  let highTideTime = area.current.highTideTime;
+  let lowTideMsl = area.current.lowTideMsl;
+  let lowTideTime = area.current.lowTideTime;
+
+  if (area.isCoastal || area.current.highTideMsl > 0) {
+    let maxT = -99;
+    let maxIdx = 0;
+    let minT = 99;
+    let minIdx = 0;
+    projectedHourly.forEach((p, idx) => {
+      if (p.tideMsl > maxT) {
+        maxT = p.tideMsl;
+        maxIdx = idx;
+      }
+      if (p.tideMsl < minT) {
+        minT = p.tideMsl;
+        minIdx = idx;
+      }
+    });
+    highTideMsl = maxT;
+    highTideTime = `${String(maxIdx).padStart(2, "0")}:00 น.`;
+    lowTideMsl = minT;
+    lowTideTime = `${String(minIdx).padStart(2, "0")}:00 น.`;
+  }
+
+  // Re-evaluate multi-hazard and suitability for the selected day & hour
+  const rainRisk =
+    activeH.rainProb > 75 || targetDay.rainMm > 35
+      ? 5
+      : activeH.rainProb >= 55 || targetDay.rainMm >= 15
+        ? 4
+        : activeH.rainProb >= 35
+          ? 3
+          : activeH.rainProb >= 18
+            ? 2
+            : 1;
+  const airRisk =
+    activeH.pm25 > 75 ? 5 : activeH.pm25 > 37.5 ? 4 : activeH.pm25 > 25 ? 3 : activeH.pm25 > 15 ? 2 : 1;
+  const heatRisk =
+    activeH.feelsLikeC > 42
+      ? 5
+      : activeH.feelsLikeC >= 38
+        ? 4
+        : activeH.feelsLikeC >= 34
+          ? 3
+          : activeH.feelsLikeC >= 30
+            ? 2
+            : 1;
+  const seaRisk = area.isCoastal
+    ? activeH.waveM > 2.0 || highTideMsl > 1.72
+      ? 5
+      : activeH.waveM >= 1.3 || highTideMsl >= 1.44
+        ? 4
+        : activeH.waveM >= 0.85
+          ? 3
+          : 2
+    : 1;
+
+  const multiHazardTier = Math.max(rainRisk, airRisk, heatRisk, seaRisk) as 1 | 2 | 3 | 4 | 5;
+  const rainPenalty = activeH.rainProb > 60 ? 30 : activeH.rainProb > 40 ? 16 : activeH.rainProb > 25 ? 7 : 0;
+  const pmPenalty = activeH.pm25 > 50 ? 26 : activeH.pm25 > 37.5 ? 15 : activeH.pm25 > 25 ? 5 : 0;
+  const heatPenalty = activeH.feelsLikeC > 41 ? 20 : activeH.feelsLikeC > 38 ? 11 : activeH.feelsLikeC > 35 ? 4 : 0;
+  const wavePenalty = area.isCoastal && activeH.waveM > 1.5 ? 18 : area.isCoastal && activeH.waveM > 1.1 ? 7 : 0;
+  const coolBonus = activeH.tempC <= 20 ? 10 : activeH.tempC <= 23 ? 6 : 0;
+
+  const tourismScore = Math.max(
+    35,
+    Math.min(99, Math.round(92 - rainPenalty - pmPenalty - heatPenalty - wavePenalty + coolBonus))
+  );
+  const suitabilityScore = Math.max(
+    36,
+    Math.min(
+      99,
+      Math.round(94 - rainPenalty * 0.9 - pmPenalty * 1.1 - heatPenalty * 0.9 - wavePenalty * 0.8 + coolBonus * 0.8)
+    )
+  );
+
+  return {
+    ...area,
+    current: {
+      ...area.current,
+      tempC: activeH.tempC,
+      feelsLikeC: activeH.feelsLikeC,
+      minMorningC: targetDay.minTempC,
+      maxAfternoonC: targetDay.maxTempC,
+      cloudCoverPct: activeH.cloudPct,
+      rainProb: activeH.rainProb,
+      rain24hMm: targetDay.rainMm,
+      radarDbz: activeH.rainProb >= 65 ? 46 : activeH.rainProb >= 45 ? 37 : activeH.rainProb >= 30 ? 28 : 14,
+      pm25: activeH.pm25,
+      aqi: Math.round(activeH.pm25 * 2.55),
+      uvIndex: activeH.uvIndex,
+      windKmh: activeH.windKmh,
+      windGustKmh: Number((activeH.windKmh * 1.4).toFixed(1)),
+      tideMsl: activeH.tideMsl,
+      tideTrend: nextH.tideMsl >= activeH.tideMsl ? "rising" : "falling",
+      highTideMsl,
+      highTideTime,
+      lowTideMsl,
+      lowTideTime,
+      waveHeightM: activeH.waveM,
+      tourismScore,
+      suitabilityScore,
+      multiHazardTier,
+    },
+    hourly: projectedHourly,
+  };
+}
+
 
