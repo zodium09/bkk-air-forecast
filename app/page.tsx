@@ -1,5 +1,5 @@
-import HydroApp from "./components/hydro/hydro-app";
+import FahSaiApp from "./components/fahsai/fahsai-app";
 
 export default function Home() {
-  return <HydroApp />;
+  return <FahSaiApp />;
 }

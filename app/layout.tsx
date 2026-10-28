@@ -10,8 +10,9 @@ export async function generateMetadata(): Promise<Metadata> {
   const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "localhost:5173";
   const protocol = requestHeaders.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
   const origin = `${protocol}://${host}`;
-  const title = "สายน้ำเจ้าพระยา (ChaoPhraya Flow) · ฝนและน้ำทั้ง 7 ลุ่มน้ำ";
-  const description = "แอปติดตามเส้นทางสายน้ำเจ้าพระยา ปิง วัง ยม น่าน ป่าสัก และสะแกกรัง รูปแบบสีสันสดใส เข้าใจง่าย พร้อมอนิเมชันการไหลของน้ำ เขื่อน และระดับตลิ่ง";
+  const title = "ฟ้าใส ทั่วไทย (FahSai Thailand) · แผนที่ Interactive & 3D Digital Twin อากาศ ทะเล ท่องเที่ยว ครบวงจร";
+  const description =
+    "แอปฟ้าใสสำหรับประชาชนทั่วไปแบบเข้าใจง่าย ครอบคลุมพื้นที่ทั้งประเทศไทย (6 ภูมิภาค 24 จังหวัดหลัก) ครบทั้งเรื่องฝน ฟ้า อากาศ น้ำทะเลหนุน คลื่นลม ฝุ่น PM2.5 ความร้อน ลมหนาว การท่องเที่ยว พื้นที่เสี่ยง และพื้นที่เหมาะสม";
 
   return {
     metadataBase: new URL(origin),

@@ -1732,3 +1732,769 @@ body:has(.fs-app) {
 @media (prefers-reduced-motion: reduce) {
   .fs-app *, .fs-app *::before, .fs-app *::after { animation: none !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
+
+
+/* ============================================================================
+   FAHSAI THAILAND NATIONWIDE REDESIGN: 10 STORY TOPIC CARDS, REGIONS,
+   RISK VS SUITABLE SPOTLIGHT, LIFESTYLE PLANNER & SPLIT DIGITAL TWIN
+   ============================================================================ */
+
+.fs-app.theme-sky {
+  --fs-bg: #f0f7ff;
+  --fs-line: #bfdbfe;
+  --fs-primary: #0ea5e9;
+  --fs-secondary: #6366f1;
+}
+.fs-app.theme-tide,
+.fs-app.theme-wave {
+  --fs-bg: #eff6ff;
+  --fs-line: #bae6fd;
+  --fs-primary: #1d4ed8;
+  --fs-secondary: #06b6d4;
+}
+.fs-app.theme-tourism {
+  --fs-bg: #faf5ff;
+  --fs-line: #e9d5ff;
+  --fs-primary: #7c3aed;
+  --fs-secondary: #ec4899;
+}
+.fs-app.theme-risk {
+  --fs-bg: #fff1f2;
+  --fs-line: #fecdd3;
+  --fs-primary: #dc2626;
+  --fs-secondary: #f97316;
+}
+.fs-app.theme-suitable {
+  --fs-bg: #f0fdf4;
+  --fs-line: #bbf7d0;
+  --fs-primary: #16a34a;
+  --fs-secondary: #0ea5e9;
+}
+
+.fs-orb-3 {
+  width: 280px;
+  height: 280px;
+  bottom: 12%;
+  left: 38%;
+  background: var(--fs-primary);
+  opacity: 0.22;
+  animation-delay: -7s;
+}
+
+.fs-brand-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.fs-nationwide-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #0284c7, #10b981);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.28);
+}
+
+.fs-gps-btn,
+.fs-header-rank-pill {
+  min-height: 40px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 160ms ease;
+}
+
+.fs-gps-btn {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+}
+
+.fs-header-rank-pill {
+  background: linear-gradient(135deg, #7c3aed, #ec4899);
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.32);
+}
+
+.fs-gps-btn:hover,
+.fs-header-rank-pill:hover {
+  transform: translateY(-2px);
+}
+
+/* 10 Vibrant Story Topic Cards Deck */
+.fs-topic-deck-section {
+  margin: 20px 0 18px;
+  padding: 20px 22px;
+  border-radius: 24px;
+  background: var(--fs-surface);
+  backdrop-filter: blur(18px);
+  border: 1.5px solid var(--fs-line);
+  box-shadow: var(--fs-shadow);
+}
+
+.fs-deck-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.fs-deck-header h2 {
+  font-size: 19px;
+  margin: 4px 0 0;
+}
+
+.fs-deck-live-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: var(--fs-card-solid);
+  border: 1px solid var(--fs-line);
+  font-size: 12.5px;
+}
+
+.fs-live-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.25);
+  animation: fs-pulse-glow 2s infinite;
+}
+
+.fs-topic-card-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.fs-story-topic-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  padding: 15px 16px;
+  border-radius: 18px;
+  border: 1.5px solid var(--fs-line);
+  background:
+    radial-gradient(180px 120px at 95% 5%, var(--card-bg-tint, rgba(14, 165, 233, 0.14)), transparent 75%),
+    var(--fs-card-solid);
+  color: var(--fs-ink);
+  cursor: pointer;
+  transition: all 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow: 0 8px 22px -10px rgba(15, 41, 66, 0.12);
+}
+
+.fs-story-topic-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--card-accent, var(--fs-primary));
+  box-shadow: 0 16px 32px -10px rgba(2, 132, 199, 0.25);
+}
+
+.fs-story-topic-card.is-active {
+  transform: translateY(-4px) scale(1.01);
+  box-shadow: 0 18px 36px -8px rgba(2, 132, 199, 0.45);
+}
+
+.fs-stc-top {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.fs-stc-icon {
+  font-size: 28px;
+  line-height: 1;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.12));
+}
+
+.fs-stc-badge {
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 800;
+  background: rgba(15, 23, 42, 0.08);
+  color: inherit;
+}
+
+.fs-story-topic-card.is-active .fs-stc-badge {
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+}
+
+.fs-stc-title {
+  display: block;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.3;
+  margin-bottom: 4px;
+}
+
+.fs-stc-desc {
+  display: block;
+  font-size: 11.5px;
+  line-height: 1.42;
+  opacity: 0.84;
+  margin-bottom: 10px;
+}
+
+.fs-stc-live-metric {
+  margin-top: auto;
+  width: 100%;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(148, 163, 184, 0.35);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.fs-story-topic-card.is-active .fs-stc-live-metric {
+  border-top-color: rgba(255, 255, 255, 0.35);
+}
+
+.fs-stc-live-metric b {
+  font-weight: 800;
+  color: var(--card-accent, var(--fs-primary));
+}
+
+.fs-story-topic-card.is-active .fs-stc-live-metric b {
+  color: #ffffff;
+}
+
+/* Nationwide Region Selector & Search Ribbon */
+.fs-control-ribbon {
+  margin-bottom: 20px;
+  padding: 16px 20px;
+  border-radius: 20px;
+  background: var(--fs-surface);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--fs-line);
+  box-shadow: var(--fs-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fs-region-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fs-region-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--fs-line);
+  background: var(--fs-card-solid);
+  color: var(--fs-ink);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.fs-region-pill:hover {
+  border-color: var(--fs-primary);
+  transform: translateY(-1px);
+}
+
+.fs-region-pill.is-active {
+  background: linear-gradient(135deg, var(--fs-primary), var(--fs-secondary));
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 6px 16px -4px rgba(2, 132, 199, 0.42);
+}
+
+.fs-search-and-mode {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.fs-search-box {
+  flex: 1 1 320px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 14px;
+  background: var(--fs-card-solid);
+  border: 1.5px solid var(--fs-line);
+}
+
+.fs-search-box input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--fs-ink);
+  font: inherit;
+  font-size: 13.5px;
+  outline: none;
+}
+
+.fs-search-box button {
+  border: none;
+  background: rgba(148, 163, 184, 0.2);
+  color: var(--fs-ink);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.fs-viewmode-pills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.fs-vm-btn {
+  padding: 8px 14px;
+  border-radius: 12px;
+  border: 1.5px solid var(--fs-line);
+  background: var(--fs-card-solid);
+  color: var(--fs-ink);
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.fs-vm-btn.is-active {
+  background: var(--fs-primary);
+  color: #ffffff;
+  border-color: var(--fs-primary);
+}
+
+.fs-gps-feedback {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--fs-primary);
+}
+
+/* Tourism Strip & 10-Topic Mini Matrix inside Hero Card */
+.fs-tourism-strip {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--fs-card-solid);
+  border: 1px solid var(--fs-line);
+  margin-bottom: 14px;
+}
+
+.fs-tourism-strip-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.fs-tourism-strip-head span {
+  color: var(--fs-muted);
+}
+
+.fs-landmark-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.fs-landmark-pill,
+.fs-suit-pill {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.fs-landmark-pill {
+  background: color-mix(in srgb, var(--fs-primary) 12%, var(--fs-card-solid));
+  color: var(--fs-primary);
+  border: 1px solid var(--fs-line);
+}
+
+.fs-suit-pill {
+  background: rgba(16, 185, 129, 0.14);
+  color: #059669;
+}
+
+.fs-ten-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.fs-ten-strip button {
+  padding: 8px 6px;
+  border-radius: 11px;
+  border: 1px solid var(--fs-line);
+  background: var(--fs-card-solid);
+  color: var(--fs-ink);
+  cursor: pointer;
+  text-align: center;
+  transition: all 150ms ease;
+}
+
+.fs-ten-strip button.is-selected {
+  border-color: var(--fs-primary);
+  background: color-mix(in srgb, var(--fs-primary) 15%, var(--fs-card-solid));
+  box-shadow: 0 4px 10px rgba(2, 132, 199, 0.15);
+}
+
+.fs-ten-strip small {
+  display: block;
+  font-size: 10.5px;
+  color: var(--fs-muted);
+}
+
+.fs-ten-strip b {
+  display: block;
+  font: 800 13.5px/1.3 "Manrope", sans-serif;
+  margin-top: 2px;
+}
+
+/* Thailand SVG Map Sizing & Split 2D+3D Stage */
+.fs-svg-map.is-thailand {
+  max-height: 620px;
+  margin: 0 auto;
+}
+
+.fs-split-stage {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.fs-split-3d-pane .fs-3d-viewport {
+  height: 480px;
+}
+
+.fs-zoom-reset-btn {
+  background: linear-gradient(135deg, #0284c7, #10b981) !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+
+.fs-3d-mountain-zone {
+  position: absolute;
+  top: 10px;
+  left: 16px;
+  right: 16px;
+  height: 66px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.42), rgba(5, 150, 105, 0.22));
+  border: 1px solid rgba(110, 231, 183, 0.45);
+  transform: translateZ(34px);
+  padding: 6px 12px;
+  pointer-events: none;
+}
+
+/* Risk vs Suitable Spotlight Section */
+.fs-risk-suitable-section {
+  margin-top: 22px;
+}
+
+.fs-rs-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.fs-rs-card {
+  padding: 22px 24px;
+  border-radius: 22px;
+  background: var(--fs-surface);
+  backdrop-filter: blur(16px);
+  border: 1.5px solid var(--fs-line);
+  box-shadow: var(--fs-shadow);
+}
+
+.fs-rs-card.is-suitable {
+  border-top: 5px solid #10b981;
+}
+
+.fs-rs-card.is-risk {
+  border-top: 5px solid #f97316;
+}
+
+.fs-rs-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.fs-rs-head h2 {
+  font-size: 18px;
+  margin: 4px 0 0;
+}
+
+.fs-rs-mode-btn {
+  padding: 7px 13px;
+  border-radius: 999px;
+  border: none;
+  background: #10b981;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.fs-rs-mode-btn.is-warn {
+  background: #f97316;
+}
+
+.fs-rs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fs-rs-item {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--fs-card-solid);
+  border: 1px solid var(--fs-line);
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.fs-rs-item:hover,
+.fs-rs-item.is-active {
+  border-color: var(--fs-primary);
+  transform: translateX(3px);
+  box-shadow: 0 6px 16px rgba(2, 132, 199, 0.12);
+}
+
+.fs-rs-rank {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font: 800 13px "Manrope", sans-serif;
+  color: #ffffff;
+  background: #0284c7;
+}
+
+.fs-rs-rank.is-good {
+  background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.fs-rs-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.fs-rs-title-row strong {
+  font-size: 14.5px;
+}
+
+.fs-rs-title-row small {
+  font-size: 11.5px;
+  color: var(--fs-muted);
+}
+
+.fs-rs-info p {
+  margin: 3px 0;
+  font-size: 12.5px;
+  color: var(--fs-muted);
+}
+
+.fs-rs-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 4px;
+}
+
+.fs-rs-tags span {
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.fs-rs-submetrics {
+  display: block;
+  font-size: 11.5px;
+  color: var(--fs-primary);
+}
+
+.fs-rs-score {
+  text-align: right;
+}
+
+.fs-rs-score strong {
+  display: block;
+  font: 800 18px "Manrope", sans-serif;
+}
+
+.fs-rs-score.is-good strong {
+  color: #059669;
+}
+
+.fs-rs-score small {
+  font-size: 11px;
+  color: var(--fs-muted);
+}
+
+/* 6-Card Smart Lifestyle & Daily Planner Section */
+.fs-lifestyle-section {
+  margin-top: 22px;
+  padding: 22px 24px;
+  border-radius: 22px;
+  background: var(--fs-surface);
+  backdrop-filter: blur(16px);
+  border: 1.5px solid var(--fs-line);
+  box-shadow: var(--fs-shadow);
+}
+
+.fs-lifestyle-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.fs-lifestyle-card {
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: var(--fs-card-solid);
+  border: 1px solid var(--fs-line);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fs-lc-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.fs-lc-icon {
+  font-size: 28px;
+}
+
+.fs-lc-badge {
+  padding: 3px 10px;
+  border-radius: 999px;
+  color: #ffffff;
+  font: 800 12px "Manrope", sans-serif;
+}
+
+.fs-lifestyle-card h3 {
+  font-size: 15px;
+  margin: 2px 0 0;
+}
+
+.fs-lifestyle-card p {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--fs-primary);
+  margin: 0;
+}
+
+.fs-lc-bar {
+  height: 7px;
+  border-radius: 99px;
+  background: rgba(148, 163, 184, 0.22);
+  overflow: hidden;
+  margin: 4px 0;
+}
+
+.fs-lc-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+}
+
+.fs-lifestyle-card small {
+  font-size: 11.5px;
+  color: var(--fs-muted);
+}
+
+.fs-footer-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fs-footer-badges span {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--fs-card-solid);
+  border: 1px solid var(--fs-line);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--fs-primary);
+}
+
+@media (max-width: 1140px) {
+  .fs-topic-card-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 980px) {
+  .fs-topic-card-grid,
+  .fs-lifestyle-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .fs-rs-grid,
+  .fs-split-stage {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .fs-topic-card-grid,
+  .fs-lifestyle-grid {
+    grid-template-columns: 1fr;
+  }
+  .fs-ten-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

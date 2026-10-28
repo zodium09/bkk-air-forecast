@@ -20,18 +20,35 @@ const executionContext = {
   passThroughOnException() {},
 };
 
-test("hydro home renders a basin-first summary and preserves links into deep monitoring", async () => {
+test("fahsai home renders nationwide Thailand interactive map dashboard, 10 topic cards, and 3D digital twin without Chao Phraya basin links", async () => {
   const worker = await loadWorker();
-  const response = await worker.fetch(new Request("http://localhost/", { headers: { accept: "text/html" } }), environment, executionContext);
-  assert.equal(response.status, 200);
-  const html = await response.text();
-  for (const label of ["เจ้าพระยา", "ฝนและน้ำ", "สรุปทั่วไป", "ติดตามเชิงลึก", "ทั้งลุ่มเจ้าพระยา", "แผนที่และกราฟ", "แหล่งข้อมูล", "กำลังอ่านค่าตรวจวัดฝน น้ำ และอ่าง"]) assert.ok(html.includes(label), label);
-  for (const id of ["chao-phraya", "06", "07", "08", "09", "11", "12"]) assert.ok(html.includes(`value="${id}"`), id);
-  assert.match(html, /href="\/explore"/);
-  assert.match(html, /href="\/watchlist"/);
-  assert.match(html, /href="\/sources"/);
-  assert.doesNotMatch(html, /BKK AIR FORECAST · RAIN|ฝุ่น PM2\.5.*ความร้อน.*ฝน/);
-  assert.equal((html.match(/<h1[ >]/g) ?? []).length, 0, "loading state does not invent a live headline");
+  for (const path of ["/", "/fahsai"]) {
+    const response = await worker.fetch(new Request(`http://localhost${path}`, { headers: { accept: "text/html" } }), environment, executionContext);
+    assert.equal(response.status, 200, path);
+    const html = await response.text();
+    for (const label of [
+      "ฟ้าใส ทั่วไทย",
+      "ฝน &amp; พายุฟ้าคะนอง",
+      "ฟ้า &amp; สภาพอากาศ",
+      "น้ำทะเลหนุน &amp; น้ำขึ้นลง",
+      "คลื่นลม &amp; การเดินเรือ",
+      "ฝุ่น PM2.5 &amp; อากาศ",
+      "ความร้อน &amp; รังสี UV",
+      "ลมหนาว &amp; ทะเลหมอก",
+      "การท่องเที่ยวทั่วไทย",
+      "พื้นที่เสี่ยงภัยวันนี้",
+      "พื้นที่เหมาะสม &amp; น่าไป",
+      "3D Digital Twin",
+      "เชียงใหม่",
+      "ขอนแก่น",
+      "กรุงเทพมหานคร",
+      "ชลบุรี",
+      "ภูเก็ต",
+    ]) {
+      assert.ok(html.includes(label), `${path}: ${label}`);
+    }
+    assert.doesNotMatch(html, /สายน้ำเจ้าพระยา|ทั้ง 7 ลุ่มน้ำ/);
+  }
 });
 
 test("hydro routes serve deep, basin, station, watchlist, and source views", async () => {
