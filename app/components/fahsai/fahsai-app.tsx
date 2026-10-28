@@ -456,6 +456,110 @@ export default function FahSaiApp() {
     return { pts, linePath, areaPath, thresholdY, thresholdLabel, tierCounts, zoneBands };
   }, [activeArea, bands, topic]);
 
+  // Build SVG path and per-day severity colors for the 7-Day Daily Forecast Curve & Bar Chart ("กราฟพยากรณ์รายวัน")
+  const dailyCurve = useMemo(() => {
+    const tierCounts: Record<1 | 2 | 3 | 4 | 5, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    const pts = activeArea.daily.map((d, i) => {
+      const sev = classifyDailyPointRisk(activeArea, d, topic);
+      tierCounts[sev.tier] = (tierCounts[sev.tier] ?? 0) + 1;
+      const highTideDay = Number(
+        (activeArea.current.highTideMsl * (1 + Math.sin(i * 0.65) * 0.08)).toFixed(2)
+      );
+      const feelsMax = Number(
+        (d.maxTempC + (activeArea.isCoastal ? 3.5 : 3.0)).toFixed(1)
+      );
+      const clearSkyPct = Math.max(12, 100 - Math.round(d.rainProb * 0.85));
+
+      const val =
+        topic === "rain"
+          ? d.rainProb
+          : topic === "sky"
+            ? clearSkyPct
+            : topic === "tide"
+              ? highTideDay
+              : topic === "wave"
+                ? d.waveMaxM
+                : topic === "air"
+                  ? d.pm25Avg
+                  : topic === "heat"
+                    ? feelsMax
+                    : topic === "winter"
+                      ? d.minTempC
+                      : topic === "tourism" || topic === "suitable"
+                        ? d.tourismScore
+                        : sev.tier * 20;
+
+      const valLabel =
+        topic === "rain"
+          ? `${d.rainProb}%`
+          : topic === "sky"
+            ? `ฟ้าใส ${clearSkyPct}%`
+            : topic === "tide"
+              ? activeArea.isCoastal || highTideDay > 0
+                ? `+${highTideDay}ม.`
+                : "พื้นที่ดอน"
+              : topic === "wave"
+                ? activeArea.isCoastal
+                  ? `${d.waveMaxM}ม.`
+                  : "น้ำจืด"
+                : topic === "air"
+                  ? `${Math.round(d.pm25Avg)} µg`
+                  : topic === "heat"
+                    ? `${feelsMax}°C`
+                    : topic === "winter"
+                      ? `เช้า ${d.minTempC}°C`
+                      : topic === "tourism" || topic === "suitable"
+                        ? `${d.tourismScore}%`
+                        : `ระดับ ${sev.tier}/5`;
+
+      const subLabel =
+        topic === "rain"
+          ? `ฝนสะสม ${d.rainMm} มม.`
+          : topic === "sky"
+            ? `${d.minTempC}°–${d.maxTempC}°C`
+            : topic === "tide"
+              ? `ฝน ${d.rainProb}% · ${d.maxTempC}°C`
+              : topic === "wave"
+                ? `ฝน ${d.rainProb}% · UV ${d.uvMax}`
+                : topic === "air"
+                  ? `AQI ~${Math.round(d.pm25Avg * 2.55)}`
+                  : topic === "heat"
+                    ? `วัดจริง ${d.maxTempC}°C · UV ${d.uvMax}`
+                    : topic === "winter"
+                      ? `บ่าย ${d.maxTempC}°C · ฝน ${d.rainProb}%`
+                      : `🌧️ ${d.rainProb}% · 🌡️ ${d.minTempC}°–${d.maxTempC}°C`;
+
+      const norm =
+        topic === "rain" || topic === "sky" || topic === "tourism" || topic === "suitable" || topic === "risk"
+          ? Math.min(1, Math.max(0.06, val / 100))
+          : topic === "air"
+            ? Math.min(1, Math.max(0.08, val / 80))
+            : topic === "heat" || topic === "winter"
+              ? Math.min(1, Math.max(0.08, (val - 14) / 30))
+              : topic === "wave"
+                ? Math.min(1, Math.max(0.08, val / 2.5))
+                : Math.min(1, Math.max(0.08, (val + 0.5) / 2.6));
+
+      const x = 68 + (i / Math.max(1, activeArea.daily.length - 1)) * 624;
+      const y = 112 - norm * 84;
+      const barPct = Math.round(norm * 100);
+      return {
+        x,
+        y,
+        val: Number(val.toFixed(2)),
+        valLabel,
+        subLabel,
+        barPct: Math.max(16, Math.min(100, barPct)),
+        day: d,
+        sev,
+      };
+    });
+
+    const linePath = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+    const areaPath = `${linePath} L${pts[pts.length - 1].x.toFixed(1)},122 L${pts[0].x.toFixed(1)},122 Z`;
+    return { pts, linePath, areaPath, tierCounts };
+  }, [activeArea, topic]);
+
   return (
     <div className={`fs-app theme-${topic} ${dark ? "is-dark" : ""}`}>
       {/* Ambient Dynamic Weather Particle Background */}
@@ -958,6 +1062,247 @@ export default function FahSaiApp() {
                     Lv.{hSev.tier}
                   </span>
                   <span className="fs-hour-time">{h.hourLabel.slice(0, 2)}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* SECTION 4B: INTERACTIVE 7-DAY DAILY FORECAST SEVERITY CURVE & BAR CHART ("กราฟพยากรณ์รายวันด้วย") */}
+        <section className="fs-timeline-section fs-daily-forecast-section" aria-labelledby="fs-daily-chart-title">
+          <div className="fs-section-head">
+            <div>
+              <span className="fs-eyebrow">
+                📅 กราฟพยากรณ์รายวัน 7 วัน แยกสีความรุนแรง (Interactive 7-Day Daily Forecast Graph)
+              </span>
+              <h2 id="fs-daily-chart-title">
+                กราฟเส้นแนวโน้มและแท่งความรุนแรงรายวัน (7 วันล่วงหน้า) · จ.{activeArea.name} ({activeTopicMeta.label})
+              </h2>
+            </div>
+            <div className="fs-hour-readout">
+              <span>
+                วันที่เลือกบนแผนที่:{" "}
+                <strong>{activeArea.daily[dayIdx]?.dayLabel ?? "วันนี้"}</strong>
+              </span>
+              <b>
+                🌧️ โอกาสฝน {activeArea.daily[dayIdx]?.rainProb ?? activeArea.current.rainProb}% (
+                {activeArea.daily[dayIdx]?.rainMm ?? activeArea.current.rain24hMm} มม.) · 🌡️{" "}
+                {activeArea.daily[dayIdx]?.minTempC ?? activeArea.current.minMorningC}°C –{" "}
+                {activeArea.daily[dayIdx]?.maxTempC ?? activeArea.current.maxAfternoonC}°C · 😷 PM2.5 เฉลี่ย{" "}
+                {activeArea.daily[dayIdx]?.pm25Avg ?? activeArea.current.pm25} µg/m³
+              </b>
+            </div>
+          </div>
+
+          {/* 5-LEVEL DAILY SEVERITY SUMMARY STRIP */}
+          <div className="fs-severity-legend-strip" role="group" aria-label="สรุปจำนวนวันแยกตามสีระดับความรุนแรงใน 7 วัน">
+            {bands.map((b) => {
+              const count = dailyCurve.tierCounts[b.tier] ?? 0;
+              return (
+                <div
+                  key={`daily-band-${b.tier}`}
+                  className={`fs-sev-chip ${count > 0 ? "has-hours" : ""}`}
+                  style={{ borderColor: `${b.color}66`, background: `${b.color}12` }}
+                >
+                  <span className="fs-sev-dot" style={{ background: b.color }} />
+                  <div className="fs-sev-text">
+                    <strong style={{ color: b.color }}>{b.label}</strong>
+                    <small>
+                      {b.rangeText} · <b>{count} วัน/สัปดาห์</b>
+                    </small>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <p className="fs-mobile-chart-hint">
+            คลิกที่จุดวันหรือการ์ดแท่งรายวันด้านล่าง เพื่อเปลี่ยนวันพยากรณ์บนแผนที่ทั้ง 77 จังหวัดและกราฟรายชั่วโมงทันที
+          </p>
+
+          {/* 7-DAY DAILY SVG CURVE WITH 5 SEVERITY ZONES */}
+          <div className="fs-curve-svg-wrap">
+            <svg
+              viewBox="0 0 760 148"
+              className="fs-curve-svg"
+              role="img"
+              aria-label={`กราฟพยากรณ์รายวัน 7 วันแยกสีความรุนแรงของ ${activeArea.name}`}
+            >
+              <defs>
+                <linearGradient id="fs-daily-curve-fill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={activeTierColor} stopOpacity="0.26" />
+                  <stop offset="100%" stopColor={activeTierColor} stopOpacity="0.02" />
+                </linearGradient>
+              </defs>
+
+              {/* 5 Horizontal Severity Color Zone Backgrounds */}
+              {hourlyCurve.zoneBands.map((z) => (
+                <g key={`dzone-${z.tier}`}>
+                  <rect
+                    x="24"
+                    y={z.yTop}
+                    width="712"
+                    height={z.height}
+                    fill={z.color}
+                    fillOpacity="0.09"
+                  />
+                  <line
+                    x1="24"
+                    y1={z.yTop}
+                    x2="736"
+                    y2={z.yTop}
+                    stroke={z.color}
+                    strokeOpacity="0.25"
+                    strokeWidth="0.8"
+                  />
+                  <text
+                    x="30"
+                    y={z.yTop + 11}
+                    fill={z.color}
+                    fontSize="8.2"
+                    fontWeight="800"
+                    opacity="0.85"
+                  >
+                    {z.label}
+                  </text>
+                </g>
+              ))}
+
+              <line
+                x1="24"
+                y1={hourlyCurve.thresholdY}
+                x2="736"
+                y2={hourlyCurve.thresholdY}
+                stroke="#f43f5e"
+                strokeWidth="1.5"
+                strokeDasharray="5 4"
+              />
+              <text
+                x="732"
+                y={Math.max(12, hourlyCurve.thresholdY - 5)}
+                textAnchor="end"
+                fill="#f43f5e"
+                fontSize="9.5"
+                fontWeight="800"
+              >
+                --- {hourlyCurve.thresholdLabel}
+              </text>
+
+              <path d={dailyCurve.areaPath} fill="url(#fs-daily-curve-fill)" />
+
+              {/* Per-Day Severity-Colored Columns & Connecting Line Segments */}
+              {dailyCurve.pts.map((p, idx) => {
+                const nextP = dailyCurve.pts[idx + 1];
+                const isSel = idx === dayIdx;
+                return (
+                  <g key={`dseg-${p.day.dayLabel}`}>
+                    <rect
+                      x={p.x - 16}
+                      y={p.y}
+                      width="32"
+                      height={Math.max(4, 122 - p.y)}
+                      rx="6"
+                      fill={p.sev.color}
+                      fillOpacity={isSel ? "0.38" : "0.18"}
+                      stroke={p.sev.color}
+                      strokeOpacity={isSel ? "0.85" : "0.35"}
+                      strokeWidth={isSel ? "2" : "1"}
+                      style={{ cursor: "pointer" }}
+                      onClick={() => handleSelectDay(idx)}
+                    />
+                    {nextP && (
+                      <line
+                        x1={p.x}
+                        y1={p.y}
+                        x2={nextP.x}
+                        y2={nextP.y}
+                        stroke={nextP.sev.color}
+                        strokeWidth="3.8"
+                        strokeLinecap="round"
+                      />
+                    )}
+                  </g>
+                );
+              })}
+
+              {/* Interactive Day Nodes & Labels */}
+              {dailyCurve.pts.map((p, idx) => {
+                const isSel = idx === dayIdx;
+                return (
+                  <g
+                    key={`dpt-${p.day.dayLabel}`}
+                    transform={`translate(${p.x}, ${p.y})`}
+                    onClick={() => handleSelectDay(idx)}
+                    style={{ cursor: "pointer" }}
+                  >
+                    {isSel && <circle r="12" fill={p.sev.color} opacity="0.28" />}
+                    <circle
+                      r={isSel ? 6.5 : 4.8}
+                      fill={isSel ? "#ffffff" : p.sev.color}
+                      stroke={p.sev.color}
+                      strokeWidth={isSel ? "3.5" : "2"}
+                    />
+                    <text
+                      x="0"
+                      y="-11"
+                      textAnchor="middle"
+                      fill={p.sev.color}
+                      fontSize={isSel ? "11" : "9.8"}
+                      fontWeight="900"
+                    >
+                      {p.valLabel}
+                    </text>
+                    <text
+                      x="0"
+                      y={138 - p.y}
+                      textAnchor="middle"
+                      fill={isSel ? p.sev.color : "#334155"}
+                      fontSize={isSel ? "11" : "10"}
+                      fontWeight={isSel ? "900" : "700"}
+                    >
+                      {p.day.dayLabel} (Lv.{p.sev.tier})
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+
+          {/* 7-DAY INTERACTIVE SEVERITY BAR CARDS */}
+          <div className="fs-daily-bars-grid" role="group" aria-label="การ์ดกราฟแท่งพยากรณ์รายวัน 7 วันแยกสีความรุนแรง">
+            {dailyCurve.pts.map((p, idx) => {
+              const isSel = idx === dayIdx;
+              return (
+                <button
+                  key={`dbar-${p.day.dayLabel}`}
+                  type="button"
+                  className={`fs-daily-bar-card ${isSel ? "is-selected" : ""}`}
+                  style={
+                    isSel
+                      ? { borderColor: p.sev.color, background: `${p.sev.color}15` }
+                      : undefined
+                  }
+                  onClick={() => handleSelectDay(idx)}
+                >
+                  <div className="fs-dbc-head">
+                    <strong>{p.day.dayLabel}</strong>
+                    <span
+                      className="fs-dbc-lv"
+                      style={{ background: `${p.sev.color}22`, color: p.sev.color }}
+                    >
+                      Lv.{p.sev.tier}
+                    </span>
+                  </div>
+                  <div className="fs-dbc-val" style={{ color: p.sev.color }}>
+                    {p.valLabel}
+                  </div>
+                  <div className="fs-dbc-bar-track">
+                    <i style={{ height: `${p.barPct}%`, background: p.sev.color }} />
+                  </div>
+                  <span className="fs-dbc-tag" style={{ color: p.sev.color }}>
+                    {p.sev.shortTag}
+                  </span>
+                  <small className="fs-dbc-sub">{p.subLabel}</small>
                 </button>
               );
             })}
