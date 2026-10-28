@@ -763,3 +763,331 @@ export const THAILAND_LABEL_OFFSETS: Record<string, { dx: number; dy: number; sh
   krabi: { dx: 56, dy: 24, shortName: "กระบี่·พีพี" },
   phuket: { dx: -52, dy: 18, shortName: "ภูเก็ต" },
 };
+
+// ============================================================================
+// TOPIC-SPECIFIC GEOGRAPHIC SCOPE & BESPOKE PRESENTATION CONFIG
+// ============================================================================
+export interface TopicScopeConfig {
+  topic: TopicId;
+  scopeBadge: string;
+  scopeTitle: string;
+  scopeDescription: string;
+  presentationStyle: string;
+  defaultBounds: [[number, number], [number, number]]; // [[southLat, westLng], [northLat, eastLng]]
+}
+
+export function getTopicScopeConfig(topic: TopicId): TopicScopeConfig {
+  switch (topic) {
+    case "tide":
+      return {
+        topic,
+        scopeBadge: "🌊 เฉพาะพื้นที่ชายฝั่ง & ปากแม่น้ำ (14 จังหวัด)",
+        scopeTitle: "พื้นที่อิทธิพลน้ำทะเลหนุน & ปากแม่น้ำ",
+        scopeDescription: "แสดงเฉพาะจังหวัดชายฝั่งทะเลและลุ่มน้ำเจ้าพระยาตอนล่างที่ได้รับอิทธิพลน้ำขึ้น–น้ำลงจริง (ตัดพื้นที่ภูเขา/ดอนในแผ่นดินออก)",
+        presentationStyle: "Tidal Harmonic Clock & Estuary Monitor",
+        defaultBounds: [[6.8, 98.0], [14.6, 102.9]],
+      };
+    case "wave":
+      return {
+        topic,
+        scopeBadge: "⛵ เฉพาะจังหวัดชายฝั่งทะเล & หมู่เกาะ (11 จังหวัด)",
+        scopeTitle: "น่านน้ำทะเลอ่าวไทย & อันดามัน",
+        scopeDescription: "แสดงเฉพาะจังหวัดชายฝั่งทะเลและหมู่เกาะท่องเที่ยวทางทะเล เพื่อประเมินความปลอดภัยการเดินเรือและกิจกรรมชายหาด",
+        presentationStyle: "Marine Navigation & Boat Safety Deck",
+        defaultBounds: [[6.8, 98.0], [13.9, 102.9]],
+      };
+    case "winter":
+      return {
+        topic,
+        scopeBadge: "🍃 เฉพาะยอดดอย ขุนเขา & ระเบียงลมหนาว (10 จังหวัด)",
+        scopeTitle: "พื้นที่ยอดดอย หุบเขา & เส้นทางลมมรสุมตะวันออกเฉียงเหนือ",
+        scopeDescription: "คัดเฉพาะจังหวัดภาคเหนือ ภาคอีสาน และผืนป่าตะวันตกที่มีอากาศเย็นยามเช้าและมีโอกาสเกิดทะเลหมอก",
+        presentationStyle: "Morning Mist Hunter & Summit Lapse Rate",
+        defaultBounds: [[13.8, 97.5], [20.5, 105.4]],
+      };
+    case "air":
+      return {
+        topic,
+        scopeBadge: "😷 เขตเมืองใหญ่ แอ่งหุบเขา & จุดเปรียบเทียบอากาศสะอาด (16 จังหวัด)",
+        scopeTitle: "พื้นที่เฝ้าระวังฝุ่น PM2.5 & เขตระบายอากาศ",
+        scopeDescription: "โฟกัสเขตมหานคร แอ่งกระทะภาคเหนือ–อีสาน เปรียบเทียบกับพื้นที่ต้นแบบอากาศบริสุทธิ์ชายฝั่ง",
+        presentationStyle: "AQI Health Shield & Mixing Dome",
+        defaultBounds: [[7.5, 97.8], [20.4, 105.2]],
+      };
+    case "heat":
+      return {
+        topic,
+        scopeBadge: "☀️ พื้นที่เกาะความร้อนเมือง & ที่ราบลุ่มรับแดดจัด (16 จังหวัด)",
+        scopeTitle: "พื้นที่เฝ้าระวังดัชนีความร้อน (RealFeel) & รังสี UV",
+        scopeDescription: "คัดพื้นที่เมืองและที่ราบลุ่มที่มีค่าความรู้สึกร้อนจริงสูง เปรียบเทียบกับพื้นที่ตากอากาศ",
+        presentationStyle: "Thermal Stress & UV Shield",
+        defaultBounds: [[7.2, 98.0], [19.8, 105.2]],
+      };
+    case "tourism":
+      return {
+        topic,
+        scopeBadge: "🏖️ เมืองท่องเที่ยวหลัก 3 สไตล์: ทะเล · ภูเขา · มรดกโลก (18 จังหวัด)",
+        scopeTitle: "จุดหมายปลายทางท่องเที่ยวยอดนิยมทั่วไทย",
+        scopeDescription: "จัดอันดับเมืองท่องเที่ยวทะเลอันดามัน–อ่าวไทย ยอดดอยภาคเหนือ และเมืองวัฒนธรรมตามคะแนนความน่าเที่ยววันนี้",
+        presentationStyle: "Smart Travel Concierge & Landmark Guide",
+        defaultBounds: [[6.8, 97.6], [20.4, 105.4]],
+      };
+    case "risk":
+      return {
+        topic,
+        scopeBadge: "⚠️ คัดเฉพาะจังหวัดเฝ้าระวังความเสี่ยงสูงสุดวันนี้ (Watchlist)",
+        scopeTitle: "พื้นที่เฝ้าระวังภัยธรรมชาติหลายมิติ (Multi-Hazard Watchlist)",
+        scopeDescription: "เรียงลำดับเฉพาะจังหวัดที่มีสัญญาณเฝ้าระวังฝนตกหนัก น้ำทะเลหนุน คลื่นลม ฝุ่น หรือความร้อนสูงที่สุดในวันนี้",
+        presentationStyle: "Multi-Hazard Early Warning Matrix",
+        defaultBounds: [[6.5, 97.6], [20.4, 105.4]],
+      };
+    case "suitable":
+      return {
+        topic,
+        scopeBadge: "✨ คัดเฉพาะจังหวัดที่ฟ้าใส อากาศดีที่สุดวันนี้ (Top Best Places)",
+        scopeTitle: "จัดอันดับพื้นที่เหมาะสมและอากาศดีที่สุดวันนี้",
+        scopeDescription: "คัดจังหวัดที่ท้องฟ้าโปร่ง ไร้ฝน ฝุ่นต่ำ และคลื่นลมสงบ เหมาะแก่การพักผ่อนและทำกิจกรรมกลางแจ้งที่สุด",
+        presentationStyle: "Best Places Leaderboard & Activity Matcher",
+        defaultBounds: [[6.5, 97.6], [20.4, 105.4]],
+      };
+    case "sky":
+      return {
+        topic,
+        scopeBadge: "🌤️ เครือข่ายตรวจวัดสภาพท้องฟ้าและทัศนวิสัยทั่วไทย (24 จังหวัด)",
+        scopeTitle: "ความโปร่งของท้องฟ้า ความกดอากาศ และความสบายตัว",
+        scopeDescription: "ครอบคลุมสถานีหลักทั้ง 6 ภูมิภาค เพื่อดูสภาวะเมฆ ทัศนวิสัย และแสงแดดทั่วประเทศ",
+        presentationStyle: "Sky Clarity & Atmospheric Comfort Studio",
+        defaultBounds: [[6.5, 97.6], [20.4, 105.4]],
+      };
+    case "rain":
+    default:
+      return {
+        topic: "rain",
+        scopeBadge: "🌧️ เครือข่ายเรดาร์ฝนและร่องมรสุมทั่วประเทศ (24 จังหวัด)",
+        scopeTitle: "เรดาร์ตรวจอากาศ โอกาสเกิดฝน และปริมาณฝนสะสมทั่วไทย",
+        scopeDescription: "ติดตามกลุ่มเมฆฝนตามแนวร่องมรสุมและลมทะเลทั่วประเทศ เรียงตามโอกาสเกิดฝนสูงสุด",
+        presentationStyle: "Radar Storm Tracker & Rain Schedule",
+        defaultBounds: [[6.5, 97.6], [20.4, 105.4]],
+      };
+  }
+}
+
+export function getTopicRelevantAreas(
+  areas: AreaForecast[],
+  topic: TopicId,
+  regionFilter: RegionId = "all"
+): AreaForecast[] {
+  let scoped: AreaForecast[] = [];
+
+  if (topic === "tide") {
+    // Only coastal or tidal estuary areas (14 areas)
+    scoped = areas
+      .filter((a) => a.isCoastal || a.current.highTideMsl > 0.1)
+      .sort((a, b) => b.current.highTideMsl - a.current.highTideMsl);
+  } else if (topic === "wave") {
+    // Strictly coastal/marine & island provinces (11 areas)
+    scoped = areas
+      .filter((a) => a.isCoastal)
+      .sort((a, b) => b.current.waveHeightM - a.current.waveHeightM);
+  } else if (topic === "winter") {
+    // Only mountain, highland, and cool-breeze northern/isan/western areas (10 areas)
+    const winterIds = new Set([
+      "mae-hong-son",
+      "chiang-rai",
+      "chiang-mai",
+      "nan",
+      "phetchabun",
+      "loei",
+      "nakhon-ratchasima",
+      "kanchanaburi",
+      "ubon-ratchathani",
+      "khon-kaen",
+    ]);
+    scoped = areas
+      .filter((a) => winterIds.has(a.id) || a.zoneType === "mountain")
+      .sort((a, b) => a.current.minMorningC - b.current.minMorningC);
+  } else if (topic === "air") {
+    // Metro, inland basins, northern valleys + clean air coastal benchmarks (16 areas)
+    const airIds = new Set([
+      "bangkok",
+      "nonthaburi",
+      "ayutthaya",
+      "samut-prakan",
+      "chiang-mai",
+      "chiang-rai",
+      "mae-hong-son",
+      "nan",
+      "khon-kaen",
+      "nakhon-ratchasima",
+      "loei",
+      "kanchanaburi",
+      "chonburi",
+      "rayong",
+      "nakhon-si",
+      "phuket",
+    ]);
+    scoped = areas
+      .filter((a) => airIds.has(a.id))
+      .sort((a, b) => b.current.pm25 - a.current.pm25);
+  } else if (topic === "heat") {
+    // Urban heat islands, central plains & high-UV destinations (16 areas)
+    const heatIds = new Set([
+      "bangkok",
+      "nonthaburi",
+      "ayutthaya",
+      "samut-prakan",
+      "khon-kaen",
+      "ubon-ratchathani",
+      "kanchanaburi",
+      "chonburi",
+      "rayong",
+      "prachuap",
+      "phuket",
+      "krabi",
+      "surat-thani",
+      "songkhla",
+      "chiang-mai",
+      "nakhon-ratchasima",
+    ]);
+    scoped = areas
+      .filter((a) => heatIds.has(a.id))
+      .sort((a, b) => b.current.feelsLikeC - a.current.feelsLikeC);
+  } else if (topic === "tourism") {
+    // Top 18 signature travel destinations across Sea, Mountain, and Heritage
+    const tourismIds = new Set([
+      "phuket",
+      "krabi",
+      "phang-nga",
+      "surat-thani",
+      "trat",
+      "rayong",
+      "chonburi",
+      "prachuap",
+      "chiang-mai",
+      "chiang-rai",
+      "mae-hong-son",
+      "nan",
+      "phetchabun",
+      "loei",
+      "nakhon-ratchasima",
+      "kanchanaburi",
+      "ayutthaya",
+      "bangkok",
+    ]);
+    scoped = areas
+      .filter((a) => tourismIds.has(a.id))
+      .sort((a, b) => b.current.tourismScore - a.current.tourismScore);
+  } else if (topic === "risk") {
+    // Top watchlist areas sorted by multi-hazard severity (top 12 areas)
+    scoped = [...areas]
+      .sort(
+        (a, b) =>
+          b.current.multiHazardTier - a.current.multiHazardTier ||
+          b.current.rainProb + b.current.pm25 - (a.current.rainProb + a.current.pm25)
+      )
+      .slice(0, 12);
+  } else if (topic === "suitable") {
+    // Top suitable areas sorted by suitability score descending (top 12 areas)
+    scoped = [...areas]
+      .sort((a, b) => b.current.suitabilityScore - a.current.suitabilityScore)
+      .slice(0, 12);
+  } else if (topic === "sky") {
+    scoped = [...areas].sort((a, b) => a.current.cloudCoverPct - b.current.cloudCoverPct);
+  } else {
+    // rain
+    scoped = [...areas].sort((a, b) => b.current.rainProb - a.current.rainProb);
+  }
+
+  if (regionFilter !== "all") {
+    const regional = scoped.filter((a) => a.regionId === regionFilter);
+    if (regional.length > 0) return regional;
+  }
+  return scoped;
+}
+
+// ============================================================================
+// LOCAL-PROXIMITY 3D DIGITAL TWIN NEIGHBORHOOD ENGINE
+// ============================================================================
+export interface NearbyAreaNode {
+  area: AreaForecast;
+  isCenter: boolean;
+  distanceKm: number;
+  compassLabel: string;
+  relX: number; // normalized -1..1 for 3D scene X
+  relZ: number; // normalized -1..1 for 3D scene Z
+}
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+}
+
+function bearingCompassThai(lat1: number, lng1: number, lat2: number, lng2: number): string {
+  const dLat = lat2 - lat1;
+  const dLng = lng2 - lng1;
+  const angle = ((Math.atan2(dLng, dLat) * 180) / Math.PI + 360) % 360;
+  if (angle >= 337.5 || angle < 22.5) return "ทิศเหนือ";
+  if (angle < 67.5) return "ตะวันออกเฉียงเหนือ";
+  if (angle < 112.5) return "ทิศตะวันออก";
+  if (angle < 157.5) return "ตะวันออกเฉียงใต้";
+  if (angle < 202.5) return "ทิศใต้";
+  if (angle < 247.5) return "ตะวันตกเฉียงใต้";
+  if (angle < 292.5) return "ทิศตะวันตก";
+  return "ตะวันตกเฉียงเหนือ";
+}
+
+export function getNearbyAreas(
+  centerArea: AreaForecast,
+  allAreas: AreaForecast[],
+  neighborCount = 3
+): NearbyAreaNode[] {
+  const others = allAreas
+    .filter((a) => a.id !== centerArea.id)
+    .map((a) => ({
+      area: a,
+      distKm: haversineKm(centerArea.lat, centerArea.lng, a.lat, a.lng),
+      dLat: a.lat - centerArea.lat,
+      dLng: a.lng - centerArea.lng,
+    }))
+    .sort((a, b) => a.distKm - b.distKm)
+    .slice(0, neighborCount);
+
+  // Place center at (0, 0) and neighbors at clean, non-overlapping radial positions preserving true compass bearing
+  const result: NearbyAreaNode[] = [
+    {
+      area: centerArea,
+      isCenter: true,
+      distanceKm: 0,
+      compassLabel: "จุดศูนย์กลาง",
+      relX: 0,
+      relZ: 0,
+    },
+  ];
+
+  const fixedRadii = [0.62, 0.72, 0.78, 0.82];
+  others.forEach((item, idx) => {
+    const rawAngle = Math.atan2(item.dLng, item.dLat); // 0 = North (-Z), PI/2 = East (+X)
+    // Spread angles slightly if two neighbors are in a similar direction so labels never overlap
+    const spreadAngle = rawAngle + (idx % 2 === 0 ? 0.12 : -0.12);
+    const radius = fixedRadii[idx] ?? 0.75;
+    result.push({
+      area: item.area,
+      isCenter: false,
+      distanceKm: item.distKm,
+      compassLabel: bearingCompassThai(centerArea.lat, centerArea.lng, item.area.lat, item.area.lng),
+      relX: Number((Math.sin(spreadAngle) * radius).toFixed(3)),
+      relZ: Number((-Math.cos(spreadAngle) * radius).toFixed(3)),
+    });
+  });
+
+  return result;
+}
+
