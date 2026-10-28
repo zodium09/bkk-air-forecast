@@ -2961,6 +2961,28 @@ body:has(.fs-app) {
   border-color: var(--fs-primary);
 }
 
+/* Map-Dominant & Full-Width Expanded Layout */
+.fs-hero-grid.is-map-dominant {
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  align-items: start;
+}
+
+.fs-hero-grid.is-map-fullwidth {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.fahsai-scope-banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fahsai-mini-btn.is-expand-btn {
+  background: linear-gradient(135deg, #0284c7, #0ea5e9);
+  color: #ffffff;
+  border-color: transparent;
+}
+
 .fahsai-leaflet-stage {
   position: relative;
   border-radius: 18px;
@@ -2971,9 +2993,13 @@ body:has(.fs-app) {
 
 .fahsai-leaflet-container {
   width: 100%;
-  height: 510px;
+  height: 680px;
   background: #dbeafe;
   z-index: 1;
+}
+
+.fahsai-leaflet-container.is-tall {
+  height: 780px;
 }
 
 .fahsai-map-floating-card {
@@ -3071,6 +3097,24 @@ body:has(.fs-app) {
   background: #0f172a;
   border-color: #facc15;
   transform: scale(1.08);
+}
+
+.fahsai-map-pin.is-compact-77 .fahsai-map-pin-dot {
+  width: 8px;
+  height: 8px;
+  border-width: 1.5px;
+}
+
+.fahsai-map-pin.is-compact-77 .fahsai-map-pin-chip {
+  padding: 2px 6px;
+  font-size: 9.8px;
+  gap: 4px;
+  background: rgba(15, 23, 42, 0.84);
+}
+
+.fahsai-map-pin.is-compact-77 .fahsai-map-pin-val {
+  font-size: 9.5px;
+  padding: 0 4px;
 }
 
 .fahsai-map-pin-name {

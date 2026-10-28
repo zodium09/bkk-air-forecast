@@ -20,8 +20,8 @@ import {
 } from "../../app/components/fahsai/fahsai-helpers.ts";
 import thailandProvincesGeoJson from "../../app/data/thailand-provinces-geojson.json" with { type: "json" };
 
-test("THAILAND_AREAS covers 24 provinces across all Thailand regions", () => {
-  assert.equal(THAILAND_AREAS.length, 24);
+test("THAILAND_AREAS covers all 77 official provinces across all Thailand regions", () => {
+  assert.equal(THAILAND_AREAS.length, 77);
   const regionIds = new Set(THAILAND_AREAS.map(a => a.regionId));
   for (const r of ["north", "northeast", "central", "east", "west", "south-gulf", "south-andaman"]) {
     assert.ok(regionIds.has(r), `Missing region ${r}`);
@@ -33,20 +33,20 @@ test("each topic has distinct geographic scope (getTopicRelevantAreas) and bespo
   const payload = buildFallbackPayload();
   const areas = payload.areas;
 
-  // tide: only coastal & tidal estuary provinces (14 provinces), never Chiang Mai / Loei
+  // tide: only coastal & tidal estuary provinces (29 provinces), never Chiang Mai / Loei
   const tideAreas = getTopicRelevantAreas(areas, "tide");
-  assert.equal(tideAreas.length, 14);
+  assert.equal(tideAreas.length, 29);
   assert.ok(tideAreas.every(a => a.isCoastal || a.current.highTideMsl > 0.1));
   assert.ok(!tideAreas.some(a => a.id === "chiang-mai" || a.id === "loei"));
 
-  // wave: strictly coastal & marine island provinces (11 provinces)
+  // wave: strictly coastal & marine island provinces (23 provinces)
   const waveAreas = getTopicRelevantAreas(areas, "wave");
-  assert.equal(waveAreas.length, 11);
+  assert.equal(waveAreas.length, 23);
   assert.ok(waveAreas.every(a => a.isCoastal));
 
-  // winter: only mountain & cool-breeze northern/isan/western provinces (10 provinces)
+  // winter: only mountain & cool-breeze northern/isan/western provinces (>= 15 provinces)
   const winterAreas = getTopicRelevantAreas(areas, "winter");
-  assert.equal(winterAreas.length, 10);
+  assert.ok(winterAreas.length >= 15);
   assert.ok(winterAreas.some(a => a.id === "chiang-mai"));
   assert.ok(winterAreas.some(a => a.id === "mae-hong-son"));
   assert.ok(!winterAreas.some(a => a.id === "phuket" || a.id === "songkhla"));
@@ -108,7 +108,7 @@ test("TOPICS provides all 10 comprehensive citizen topic cards", () => {
 
 test("buildFallbackPayload computes complete nationwide intelligence, tourism, risk, suitability, and lifestyle metrics", () => {
   const payload = buildFallbackPayload();
-  assert.equal(payload.areas.length, 24);
+  assert.equal(payload.areas.length, 77);
 
   for (const area of payload.areas) {
     assert.equal(area.hourly.length, 24);

@@ -20,7 +20,7 @@ const executionContext = {
   passThroughOnException() {},
 };
 
-test("fahsai home renders nationwide Thailand interactive map dashboard, 10 topic cards, and 3D digital twin without Chao Phraya basin links", async () => {
+test("fahsai home renders nationwide 77-province Thailand interactive map dashboard and 10 topic cards without 3D digital twin or Chao Phraya basin links", async () => {
   const worker = await loadWorker();
   for (const path of ["/", "/fahsai"]) {
     const response = await worker.fetch(new Request(`http://localhost${path}`, { headers: { accept: "text/html" } }), environment, executionContext);
@@ -38,13 +38,13 @@ test("fahsai home renders nationwide Thailand interactive map dashboard, 10 topi
       "การท่องเที่ยวทั่วไทย",
       "พื้นที่เสี่ยงภัยวันนี้",
       "พื้นที่เหมาะสม &amp; น่าไป",
-      "3D Digital Twin",
+      "ครบทั้ง 77 จังหวัด",
+      "ขยายแผนที่ใหญ่เต็มจอ",
       "ขอบเขต 77 จังหวัดจริง (DMR)",
       "50 เขตปกครอง กทม. (BMA)",
       "แผนที่ถนนจริง (OSM)",
       "ดาวเทียมจริง (Esri)",
       "รูปแบบเฉพาะเรื่อง",
-      "LOCAL-PROXIMITY 3D DIGITAL TWIN",
       "เชียงใหม่",
       "ขอนแก่น",
       "กรุงเทพมหานคร",
@@ -53,7 +53,7 @@ test("fahsai home renders nationwide Thailand interactive map dashboard, 10 topi
     ]) {
       assert.ok(html.includes(label), `${path}: ${label}`);
     }
-    assert.doesNotMatch(html, /สายน้ำเจ้าพระยา|ทั้ง 7 ลุ่มน้ำ/);
+    assert.doesNotMatch(html, /3D Digital Twin|LOCAL-PROXIMITY 3D DIGITAL TWIN|สายน้ำเจ้าพระยา|ทั้ง 7 ลุ่มน้ำ/);
   }
 });
 

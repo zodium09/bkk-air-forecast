@@ -1,3 +1,5 @@
+import extra53Provinces from "../data/thailand-extra-53-provinces.json" with { type: "json" };
+
 export type TopicId =
   | "rain"
   | "sky"
@@ -131,6 +133,7 @@ export interface FahSaiPayload {
 
 export interface ThailandAreaMeta {
   id: string;
+  provCode?: string;
   name: string;
   subtitle: string;
   regionId: Exclude<RegionId, "all">;
@@ -156,7 +159,7 @@ export interface ThailandAreaMeta {
 }
 
 export const REGIONS: { id: RegionId; label: string; icon: string; desc: string }[] = [
-  { id: "all", label: "ทั่วประเทศ (24 จังหวัดหลัก)", icon: "🇹🇭", desc: "ภาพรวมสภาพอากาศ ทะเล และความเหมาะสมทั้งประเทศไทย" },
+  { id: "all", label: "ทั่วประเทศ (ครบ 77 จังหวัด)", icon: "🇹🇭", desc: "ภาพรวมสภาพอากาศ ทะเล และความเหมาะสมครบทั้ง 77 จังหวัดทั่วไทย" },
   { id: "north", label: "ภาคเหนือ", icon: "⛰️", desc: "ยอดดอย ทะเลหมอก ลมหนาว และแอ่งเมืองล้านนา" },
   { id: "northeast", label: "ภาคอีสาน", icon: "🌾", desc: "ที่ราบสูง ริมโขง อุทยานเขาใหญ่ และลมมรสุมตะวันออกเฉียงเหนือ" },
   { id: "central", label: "ภาคกลาง & กทม.", icon: "🏙️", desc: "กรุงเทพฯ ปริมณฑล เมืองมรดกโลก และปากแม่น้ำอ่าวไทยตอนบน" },
@@ -166,7 +169,7 @@ export const REGIONS: { id: RegionId; label: string; icon: string; desc: string 
   { id: "south-andaman", label: "ภาคใต้ (อันดามัน)", icon: "⛵", desc: "ภูเก็ต กระบี่ พังงา สิมิลัน และทะเลเปิดอันดามัน" },
 ];
 
-export const THAILAND_AREAS: ThailandAreaMeta[] = [
+export const CORE_24_AREAS: ThailandAreaMeta[] = [
   // ================= ภาคเหนือ (NORTH) =================
   {
     id: "chiang-mai",
@@ -780,6 +783,11 @@ export const THAILAND_AREAS: ThailandAreaMeta[] = [
     baseRainProb: 36,
     basePm25: 12.5,
   },
+];
+
+export const THAILAND_AREAS: ThailandAreaMeta[] = [
+  ...CORE_24_AREAS,
+  ...(extra53Provinces as ThailandAreaMeta[]),
 ];
 
 // Keep UPPER_GULF_AREAS exported as an alias to THAILAND_AREAS so any existing import continues to work seamlessly

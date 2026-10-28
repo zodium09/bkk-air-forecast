@@ -18,14 +18,11 @@ import {
   getTopicRelevantAreas,
   getTopicRiskBands,
   getTopicScopeConfig,
-  pinMetricLabel,
   projectFahSaiGeo,
-  THAILAND_LABEL_OFFSETS,
   TOPICS,
   type RiskBandInfo,
 } from "./fahsai-helpers";
 import "./fahsai.css";
-import FahSaiTwinScene from "./fahsai-twin-scene";
 import { FahSaiLeafletMap, type RealBasemapMode } from "./fahsai-leaflet-map";
 import { FahSaiTopicPresentation } from "./fahsai-topic-presentation";
 
@@ -39,8 +36,6 @@ export {
   type RiskBandInfo,
 };
 
-type TwinCameraMode = "iso" | "atmosphere" | "coastal" | "top";
-
 export default function FahSaiApp() {
   const [payload, setPayload] = useState<FahSaiPayload>(() => buildFallbackPayload());
   const [topic, setTopic] = useState<TopicId>("rain");
@@ -48,17 +43,14 @@ export default function FahSaiApp() {
   const [regionFilter, setRegionFilter] = useState<RegionId>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [basemapMode, setBasemapMode] = useState<RealBasemapMode>("street");
-  const [showAllProvincesScope, setShowAllProvincesScope] = useState<boolean>(false);
+  // Default to true so all 77 provinces are shown clearly on the map!
+  const [showAllProvincesScope, setShowAllProvincesScope] = useState<boolean>(true);
+  const [isMapExpandedWide, setIsMapExpandedWide] = useState<boolean>(false);
   const [hourIdx, setHourIdx] = useState<number>(() => getBangkokHour());
   const [dark, setDark] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [locating, setLocating] = useState<boolean>(false);
   const [gpsStatus, setGpsStatus] = useState<string>("");
-
-  // 3D Digital Twin camera state & live clock
-  const [mainViewMode, setMainViewMode] = useState<"2d" | "3d" | "split">("2d");
-  const [twinCamera, setTwinCamera] = useState<TwinCameraMode>("iso");
-  const [twinAutoRotate, setTwinAutoRotate] = useState<boolean>(false);
   const [nowClockText, setNowClockText] = useState<string>(() => getBangkokClockText());
 
   const loadData = async () => {
@@ -92,10 +84,12 @@ export default function FahSaiApp() {
     };
   }, []);
 
-  // Topic-scoped relevant areas (each topic has its own geographic coverage!)
+  // Areas displayed on the map & province list (all 77 provinces by default, or filtered by region/topic/search)
   const topicScopedAreas = useMemo(() => {
     const baseList = showAllProvincesScope
-      ? payload.areas
+      ? regionFilter === "all"
+        ? payload.areas
+        : payload.areas.filter((a) => a.regionId === regionFilter)
       : getTopicRelevantAreas(payload.areas, topic, regionFilter);
 
     const q = searchQuery.trim().toLowerCase();
@@ -110,7 +104,7 @@ export default function FahSaiApp() {
     return searched.length > 0 ? searched : baseList;
   }, [payload.areas, topic, regionFilter, showAllProvincesScope, searchQuery]);
 
-  // Switch topic handler: automatically ensures selected province belongs to the topic's geographic scope
+  // Switch topic handler: if selected province isn't in the topic's primary relevant areas, pick the #1 relevant province
   const handleSelectTopic = (nextTopic: TopicId) => {
     setTopic(nextTopic);
     const nextRelevant = getTopicRelevantAreas(payload.areas, nextTopic, regionFilter);
@@ -125,12 +119,6 @@ export default function FahSaiApp() {
       topicScopedAreas[0] ??
       payload.areas[0],
     [payload.areas, topicScopedAreas, selectedId]
-  );
-
-  // Local-proximity neighborhood for the 3D Digital Twin (Selected province + 3 nearest neighbors)
-  const nearbyTwinNodes = useMemo(
-    () => getNearbyAreas(activeArea, payload.areas, 3),
-    [activeArea, payload.areas]
   );
 
   const handleFindMyLocation = () => {
@@ -155,7 +143,7 @@ export default function FahSaiApp() {
         if (nearest) {
           setSelectedId(nearest.id);
           setRegionFilter("all");
-          setGpsStatus(`📍 พบพื้นที่ใกล้คุณ: ${nearest.name}`);
+          setGpsStatus(`📍 พบพื้นที่ใกล้คุณ: จ.${nearest.name}`);
         }
         setLocating(false);
       },
@@ -178,7 +166,7 @@ export default function FahSaiApp() {
   const activeTierColor = bands.find((b) => b.tier === activeTier)?.color ?? "#0284c7";
   const science = useMemo(() => getScienceExplainer(topic), [topic]);
 
-  // Top Suitable vs Top Risk areas across Thailand
+  // Top Suitable vs Top Risk areas across all 77 provinces
   const topSuitableAreas = useMemo(
     () =>
       [...payload.areas]
@@ -208,11 +196,11 @@ export default function FahSaiApp() {
     if (tId === "tide")
       return activeArea.isCoastal || c.highTideMsl > 0
         ? `สูงสุด +${c.highTideMsl} ม. (${c.highTideTime})`
-        : `เฉพาะ 14 จ.ชายฝั่ง/ปากน้ำ`;
+        : `พ้นเขตน้ำหนุน (สูง ${activeArea.elevationM} ม.)`;
     if (tId === "wave")
       return activeArea.isCoastal
         ? `คลื่น ${c.waveHeightM} ม. · ลม ${c.windKmh} กม./ชม.`
-        : `เฉพาะ 11 จ.ทะเลอ่าวไทย–อันดามัน`;
+        : `ลมในแผ่นดิน ${c.windKmh} กม./ชม.`;
     if (tId === "air") return `PM2.5 ${c.pm25} µg · AQI ${c.aqi}`;
     if (tId === "heat") return `RealFeel ${c.feelsLikeC}°C · UV ${c.uvIndex}`;
     if (tId === "winter") return `เช้า ${c.minMorningC}°C · หมอก ${c.mistChancePct}%`;
@@ -405,239 +393,6 @@ export default function FahSaiApp() {
     return { pts, linePath, areaPath, thresholdY, thresholdLabel };
   }, [activeArea.hourly, topic]);
 
-  // =========================================================================
-  // REDESIGNED LOCAL-PROXIMITY, UNCLUTTERED 3D DIGITAL TWIN
-  // Uses ONLY activeArea + 3 nearest neighboring provinces (`nearbyTwinNodes`)
-  // =========================================================================
-  const renderTwinSceneContent = () => {
-    const terrainTypeLabel = activeArea.isCoastal
-      ? activeArea.seaBasin === "andaman"
-        ? "⛵ ภูมิประเทศชายฝั่งและหมู่เกาะอันดามัน"
-        : "🌊 ภูมิประเทศชายฝั่งและปากแม่น้ำอ่าวไทย"
-      : activeArea.zoneType === "mountain"
-        ? `⛰️ ภูมิประเทศหุบเขาและยอดดอยสูง (${activeArea.elevationM} ม.)`
-        : "🏙️ ภูมิประเทศเขตเมืองและที่ราบลุ่ม";
-
-    return (
-      <div className="fahsai-twin-clean-wrapper">
-        {/* Clean 3-Layer Visual Breakdown Strip (Replaces cluttered floating text inside 3D) */}
-        <div className="fahsai-twin-layer-strip" aria-label="สรุป 3 ชั้นภูมิอากาศของพื้นที่ที่เลือก">
-          <div className="fahsai-twin-layer-card">
-            <span className="fahsai-tl-badge">☁️ ชั้นที่ 1 · เมฆและเรดาร์ฝนระดับบน</span>
-            <strong>
-              เรดาร์ {radarAndSchedule.dbz} dBZ · โอกาสฝน {activeHour.rainProb}%
-            </strong>
-            <small>
-              เมฆปกคลุม {activeArea.current.cloudCoverPct}% · UV {activeArea.current.uvIndex} · ร้อนจริง{" "}
-              {activeHour.feelsLikeC}°C
-            </small>
-          </div>
-
-          <div className="fahsai-twin-layer-card">
-            <span className="fahsai-tl-badge">🌬️ ชั้นที่ 2 · กระแสลมและโดมคุณภาพอากาศ</span>
-            <strong>
-              PM2.5 {activeHour.pm25} µg/m³ · ลม {activeHour.windKmh} กม./ชม.
-            </strong>
-            <small>
-              ทิศทางลม{activeArea.current.windDirLabel} · ทัศนวิสัย {activeArea.current.visibilityKm} กม.
-            </small>
-          </div>
-
-          <div className="fahsai-twin-layer-card">
-            <span className="fahsai-tl-badge">🌍 ชั้นที่ 3 · {terrainTypeLabel}</span>
-            <strong>
-              {activeArea.isCoastal || activeArea.current.highTideMsl > 0
-                ? `น้ำทะเล ${activeHour.tideMsl >= 0 ? "+" : ""}${activeHour.tideMsl} ม. รทก. · คลื่น ${activeArea.current.waveHeightM} ม.`
-                : `เช้าต่ำสุด ${activeArea.current.minMorningC}°C · โอกาสหมอก ${activeArea.current.mistChancePct}%`}
-            </strong>
-            <small>
-              จุดศูนย์กลาง: {activeArea.name} และพื้นที่ข้างเคียง {nearbyTwinNodes.length - 1} จังหวัด
-            </small>
-          </div>
-        </div>
-
-        {/* Clean 3D Stage showing ONLY activeArea + 3 nearest neighbors */}
-        <FahSaiTwinScene
-          camera={twinCamera}
-          autoRotate={twinAutoRotate}
-          onManualMove={() => setTwinAutoRotate(false)}
-          hud={
-            <div className="fs-3d-hud is-clean">
-              <span>
-                📍 ศูนย์กลาง Digital Twin: <b>{activeArea.name}</b> ({terrainTypeLabel})
-              </span>
-              <span>
-                🧭 แสดงเฉพาะพื้นที่ใกล้เคียง ({nearbyTwinNodes.map((n) => n.area.name.split(" ")[0]).join(" · ")})
-              </span>
-              <span>
-                🎯 {activeTopicMeta.label}:{" "}
-                <b style={{ color: activeTierColor }}>
-                  {pinMetricLabel(activeArea, topic)} (ระดับ {activeTier}/5)
-                </b>
-              </span>
-            </div>
-          }
-        >
-          <div className={`fs-3d-slab terrain-${activeArea.zoneType}`}>
-            <div className="fs-3d-slab-grid" />
-
-            {/* Terrain Archetype Layer adapted to activeArea */}
-            {activeArea.zoneType === "mountain" && (
-              <div className="fs-3d-mountain-zone is-focused">
-                <span className="fs-3d-zone-label">
-                  ⛰️ สันเขาและหุบเขา {activeArea.name} ({activeArea.elevationM} ม.) · หมอกเช้า {activeArea.current.mistChancePct}%
-                </span>
-              </div>
-            )}
-
-            <div className="fs-3d-land-zone">
-              <span className="fs-3d-zone-label">
-                📍 พื้นที่จังหวัด {activeArea.name} และจังหวัดข้างเคียงในรัศมีใกล้เคียง
-              </span>
-              {activeArea.zoneType !== "mountain" && (
-                <div className="fs-3d-skyline">
-                  <div className="fs-3d-bldg b1" />
-                  <div className="fs-3d-bldg b2" />
-                  <div className="fs-3d-bldg b3" />
-                  <div className="fs-3d-bldg b4" />
-                  <div className="fs-3d-bldg b5" />
-                </div>
-              )}
-            </div>
-
-            {(activeArea.isCoastal || activeArea.current.highTideMsl > 0) && (
-              <div
-                className="fs-3d-sea-zone"
-                style={{
-                  transform: `translateZ(${Math.max(4, Math.round((activeHour.tideMsl + 1.4) * 7))}px)`,
-                }}
-              >
-                <div className="fs-3d-sea-wave w1" />
-                <div className="fs-3d-sea-wave w2" />
-                <span className="fs-3d-zone-label">
-                  🌊 ชายฝั่ง {activeArea.name} · คลื่น {activeArea.current.waveHeightM} ม. · น้ำทะเล{" "}
-                  {activeHour.tideMsl >= 0 ? "+" : ""}
-                  {activeHour.tideMsl} ม. รทก.
-                </span>
-              </div>
-            )}
-
-            {/* Clean Atmospheric Dome */}
-            <div
-              className="fs-3d-inversion-dome"
-              style={{
-                opacity: topic === "air" ? 0.75 : 0.25,
-                borderColor: activeArea.current.pm25 > 37.5 ? "#f97316" : "#10b981",
-              }}
-            />
-
-            {/* ONLY THE SELECTED PROVINCE + ITS 3 NEAREST NEIGHBORS (Uncluttered, well-spaced!) */}
-            {nearbyTwinNodes.map((node) => {
-              const area = node.area;
-              // Center node is at (50%, 52%); neighbors are placed cleanly around it
-              const leftPct = 50 + node.relX * 34;
-              const topPct = 52 + node.relZ * 32;
-              const rTier = classifyAreaRisk(area, topic);
-              const col = bands.find((b) => b.tier === rTier)?.color ?? "#0ea5e9";
-              const isSel = node.isCenter;
-              const metricText = pinMetricLabel(area, topic);
-              const heightPx = isSel ? 98 : 44 + rTier * 8;
-
-              return (
-                <div
-                  key={`twin-local-${area.id}`}
-                  className={`fs-3d-area-anchor ${isSel ? "is-selected" : "is-neighbor"}`}
-                  style={{
-                    left: `${leftPct}%`,
-                    top: `${topPct}%`,
-                  }}
-                  onClick={() => setSelectedId(area.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      setSelectedId(area.id);
-                    }
-                  }}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`เลือกพื้นที่ใกล้เคียง 3 มิติ ${area.name}`}
-                >
-                  <div className="fs-3d-area-ring" style={{ borderColor: col }} />
-                  <div
-                    className="fs-3d-area-pillar"
-                    style={{
-                      height: `${heightPx}px`,
-                      background: `linear-gradient(180deg, ${col} 0%, rgba(14, 165, 233, 0.85) 100%)`,
-                      boxShadow: `0 0 18px ${col}`,
-                    }}
-                  />
-                  <div
-                    className="fs-3d-area-label"
-                    style={{ borderColor: isSel ? "#ffffff" : col }}
-                  >
-                    <strong>
-                      {isSel ? `🎯 ${THAILAND_LABEL_OFFSETS[area.id]?.shortName ?? area.name}` : THAILAND_LABEL_OFFSETS[area.id]?.shortName ?? area.name}
-                    </strong>
-                    <span>
-                      {metricText} {!isSel ? `· ${node.distanceKm}กม.` : ""}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Minimal Upper Air Streamline */}
-            <div className="fs-3d-upper-air">
-              <div className="fs-3d-storm-cell">
-                <div className="fs-3d-cloud-badge">
-                  ☁️ เรดาร์ {radarAndSchedule.dbz} dBZ · ฝน {activeHour.rainProb}%
-                </div>
-                {activeHour.rainProb >= 25 && <div className="fs-3d-rain-shaft" />}
-              </div>
-              <div
-                className="fs-3d-wind-ribbon"
-                style={{
-                  transform: `rotateZ(${activeArea.current.windDeg + 180}deg)`,
-                }}
-              >
-                <span>
-                  💨 ลม{activeArea.current.windDirLabel} {activeHour.windKmh} กม./ชม. ➔
-                </span>
-              </div>
-            </div>
-          </div>
-        </FahSaiTwinScene>
-
-        {/* Interactive Neighbor Switcher Cards under the 3D Scene */}
-        <div className="fahsai-twin-neighbor-bar" role="group" aria-label="สลับจุดศูนย์กลาง Digital Twin ไปยังจังหวัดใกล้เคียง">
-          {nearbyTwinNodes.map((node) => {
-            const tier = classifyAreaRisk(node.area, topic);
-            const col = bands.find((b) => b.tier === tier)?.color ?? activeTopicMeta.color;
-            return (
-              <button
-                key={node.area.id}
-                type="button"
-                className={`fahsai-twin-neighbor-card ${node.isCenter ? "is-center" : ""}`}
-                onClick={() => setSelectedId(node.area.id)}
-              >
-                <div className="fahsai-tnc-top">
-                  <span className="fahsai-tnc-tag">
-                    {node.isCenter ? "🎯 จังหวัดที่เลือก (ศูนย์กลาง)" : `🧭 ${node.compassLabel} · ห่าง ${node.distanceKm} กม.`}
-                  </span>
-                  <span className="fahsai-tnc-dot" style={{ background: col }} />
-                </div>
-                <strong>{node.area.name}</strong>
-                <div className="fahsai-tnc-metric" style={{ color: col }}>
-                  {activeTopicMeta.icon} {pinMetricLabel(node.area, topic)} · 🌡️ {node.area.current.tempC}°C
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className={`fs-app theme-${topic} ${dark ? "is-dark" : ""}`}>
       {/* Ambient Dynamic Weather Particle Background */}
@@ -656,10 +411,10 @@ export default function FahSaiApp() {
           <div>
             <div className="fs-brand-title-row">
               <strong>ฟ้าใส ทั่วไทย · FahSai Thailand</strong>
-              <span className="fs-nationwide-pill">🇹🇭 แผนที่ Basemap & ขอบเขตปกครองจริง 77 จังหวัด</span>
+              <span className="fs-nationwide-pill">🇹🇭 แผนที่ Basemap & ข้อมูลครบทั้ง 77 จังหวัดจริง</span>
             </div>
             <small>
-              Interactive Map Dashboard & Local-Proximity 3D Digital Twin สำหรับประชาชน · ออกแบบการนำเสนอและพื้นที่เฉพาะตามแต่ละเรื่อง
+              Interactive Map Dashboard สำหรับประชาชน · ครอบคลุมข้อมูลและขอบเขตการปกครองจริงครบทั้ง 77 จังหวัดทั่วไทย
             </small>
           </div>
         </div>
@@ -673,13 +428,13 @@ export default function FahSaiApp() {
           >
             {locating ? "📡 กำลังค้นหาพิกัด..." : "📍 พิกัดใกล้ฉัน"}
           </button>
-          <a
-            href="#fs-3d-twin"
+          <button
+            type="button"
             className="fs-header-3d-pill"
-            onClick={() => setMainViewMode("3d")}
+            onClick={() => setIsMapExpandedWide((v) => !v)}
           >
-            🌐 3D Digital Twin
-          </a>
+            {isMapExpandedWide ? "🗗 มุมมองคู่" : "⛶ ขยายแผนที่ใหญ่เต็มจอ"}
+          </button>
           <a href="#fs-risk-suitable" className="fs-header-rank-pill">
             ✨ พื้นที่เหมาะสม vs เสี่ยง
           </a>
@@ -707,13 +462,13 @@ export default function FahSaiApp() {
         <section className="fs-topic-deck-section" aria-label="เลือกเรื่องที่ต้องการสำรวจ">
           <div className="fs-deck-header">
             <div>
-              <span className="fs-eyebrow">✨ เลือกการ์ดเรื่องที่คุณสนใจ (แต่ละเรื่องปรับพื้นที่และการนำเสนอเฉพาะตัวอัตโนมัติ)</span>
-              <h2>คลิกเลือกเรื่องเพื่อปรับขอบเขตจังหวัดบนแผนที่จริง, การ์ดวิเคราะห์เฉพาะเรื่อง และ 3D Twin</h2>
+              <span className="fs-eyebrow">✨ เลือกการ์ดเรื่องที่คุณสนใจ (10 หมวดครบวงจร · ข้อมูลครบทั้ง 77 จังหวัดทั่วไทย)</span>
+              <h2>คลิกเลือกเรื่องเพื่อดูแผนที่ประเทศไทยขนาดใหญ่พร้อมข้อมูลครบทุกจังหวัดและการวิเคราะห์เฉพาะเรื่อง</h2>
             </div>
             <div className="fs-deck-live-tag">
               <span className="fs-live-dot" />
               <span>
-                กำลังดู: <b>{activeArea.name}</b> ({scopeConfig.scopeBadge}) · เวลา <b>{nowClockText} น.</b>
+                กำลังดู: <b>จ.{activeArea.name}</b> ({activeArea.regionName}) · เวลา <b>{nowClockText} น.</b>
               </span>
             </div>
           </div>
@@ -752,7 +507,7 @@ export default function FahSaiApp() {
           </div>
         </section>
 
-        {/* SECTION 2: NATIONWIDE REGION SELECTOR + SEARCH + VIEW MODE BAR */}
+        {/* SECTION 2: NATIONWIDE REGION SELECTOR + SEARCH + EXPAND MAP CONTROL */}
         <section className="fs-control-ribbon" aria-label="เลือกภูมิภาคและค้นหาจังหวัดทั่วไทย">
           <div className="fs-region-tabs" role="group" aria-label="กรองตามภูมิภาคของประเทศไทย">
             {REGIONS.map((r) => (
@@ -763,7 +518,10 @@ export default function FahSaiApp() {
                 aria-pressed={regionFilter === r.id}
                 onClick={() => {
                   setRegionFilter(r.id);
-                  const scopedInRegion = getTopicRelevantAreas(payload.areas, topic, r.id);
+                  const scopedInRegion =
+                    r.id === "all"
+                      ? payload.areas
+                      : payload.areas.filter((a) => a.regionId === r.id);
                   if (scopedInRegion.length > 0 && r.id !== "all" && activeArea.regionId !== r.id) {
                     setSelectedId(scopedInRegion[0].id);
                   }
@@ -782,8 +540,8 @@ export default function FahSaiApp() {
                 type="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="ค้นหาจังหวัด, เกาะ, ยอดดอย, ที่เที่ยว (เช่น เชียงใหม่, สมุย, ภูเก็ต, เขาใหญ่)..."
-                aria-label="ค้นหาจังหวัดหรือสถานที่ท่องเที่ยวทั่วไทย"
+                placeholder="ค้นหาได้ครบทั้ง 77 จังหวัด (เช่น เชียงใหม่, ลำปาง, ขอนแก่น, โคราช, กรุงเทพฯ, ชลบุรี, ภูเก็ต, สงขลา)..."
+                aria-label="ค้นหาจังหวัดหรือสถานที่ท่องเที่ยวทั่วไทยครบ 77 จังหวัด"
               />
               {searchQuery && (
                 <button type="button" onClick={() => setSearchQuery("")} aria-label="ล้างคำค้นหา">
@@ -792,30 +550,22 @@ export default function FahSaiApp() {
               )}
             </div>
 
-            <div className="fs-viewmode-pills" role="group" aria-label="สลับโหมดการแสดงผลแผนที่และ 3D">
+            <div className="fs-viewmode-pills" role="group" aria-label="ปรับขนาดแผนที่">
               <button
                 type="button"
-                className={`fs-vm-btn ${mainViewMode === "2d" ? "is-active" : ""}`}
-                aria-pressed={mainViewMode === "2d"}
-                onClick={() => setMainViewMode("2d")}
+                className={`fs-vm-btn ${!isMapExpandedWide ? "is-active" : ""}`}
+                aria-pressed={!isMapExpandedWide}
+                onClick={() => setIsMapExpandedWide(false)}
               >
-                🗺️ แผนที่จริง 2D
+                🗺️ แผนที่ใหญ่ + การ์ดวิเคราะห์
               </button>
               <button
                 type="button"
-                className={`fs-vm-btn ${mainViewMode === "3d" ? "is-active" : ""}`}
-                aria-pressed={mainViewMode === "3d"}
-                onClick={() => setMainViewMode("3d")}
+                className={`fs-vm-btn ${isMapExpandedWide ? "is-active" : ""}`}
+                aria-pressed={isMapExpandedWide}
+                onClick={() => setIsMapExpandedWide(true)}
               >
-                🌐 3D Twin พื้นที่ใกล้เคียง
-              </button>
-              <button
-                type="button"
-                className={`fs-vm-btn ${mainViewMode === "split" ? "is-active" : ""}`}
-                aria-pressed={mainViewMode === "split"}
-                onClick={() => setMainViewMode("split")}
-              >
-                🔀 คู่ขนาน 2D+3D
+                ⛶ ขยายแผนที่เต็มจอ (77 จังหวัดชัดพิเศษ)
               </button>
             </div>
           </div>
@@ -823,10 +573,38 @@ export default function FahSaiApp() {
         </section>
 
         {/* SECTION 3: MAIN INTERACTIVE WORKSPACE
-            Left: Bespoke Topic Presentation Card
-            Right: Real Basemap & Official Administrative Boundaries + Local-Proximity 3D Twin */}
-        <section className="fs-hero-grid">
-          {/* LEFT: BESPOKE TOPIC PRESENTATION */}
+            Expanded Map with all 77 Provinces + Bespoke Topic Presentation */}
+        <section className={`fs-hero-grid is-map-dominant ${isMapExpandedWide ? "is-map-fullwidth" : ""}`}>
+          {/* LARGE HIGH-CLARITY 77-PROVINCE INTERACTIVE MAP */}
+          <article className="fs-map-card is-primary-map">
+            <div className="fs-map-head">
+              <div>
+                <span className="fs-eyebrow">
+                  🛰️ แผนที่ประเทศไทยขนาดใหญ่ · ข้อมูลและขอบเขตการปกครองจริงครบทั้ง 77 จังหวัด (DMR / BMA)
+                </span>
+                <h2>
+                  {activeTopicMeta.icon} {scopeConfig.scopeTitle} · กำลังเลือก: จ.{activeArea.name}
+                </h2>
+              </div>
+            </div>
+
+            <FahSaiLeafletMap
+              areas={topicScopedAreas}
+              allAreas={payload.areas}
+              selectedArea={activeArea}
+              onSelectArea={setSelectedId}
+              activeTopic={topic}
+              activeRegion={regionFilter}
+              basemapMode={basemapMode}
+              onChangeBasemapMode={setBasemapMode}
+              showAllProvincesScope={showAllProvincesScope}
+              onToggleAllProvincesScope={() => setShowAllProvincesScope((v) => !v)}
+              isExpandedWide={isMapExpandedWide}
+              onToggleExpandedWide={() => setIsMapExpandedWide((v) => !v)}
+            />
+          </article>
+
+          {/* BESPOKE TOPIC PRESENTATION CARD */}
           <article className="fs-hero-card">
             <FahSaiTopicPresentation
               topic={topic}
@@ -839,134 +617,9 @@ export default function FahSaiApp() {
               radarAndSchedule={radarAndSchedule}
             />
           </article>
-
-          {/* RIGHT: REAL LEAFLET BASEMAP + REAL 77-PROVINCE / 50-DISTRICT BOUNDARIES */}
-          <article className="fs-map-card">
-            <div className="fs-map-head">
-              <div>
-                <span className="fs-eyebrow">
-                  🛰️ แผนที่ Basemap จริง & ขอบเขตการปกครองจริง (DMR 77 จังหวัด / BMA 50 เขต)
-                </span>
-                <h2>
-                  {activeTopicMeta.icon} {scopeConfig.scopeTitle}
-                </h2>
-              </div>
-            </div>
-
-            {mainViewMode === "3d" && (
-              <div className="fs-map-embedded-3d">
-                <div className="fs-3d-inline-header">
-                  <span>
-                    🌐 3D Digital Twin พื้นที่ใกล้เคียง: <b>{activeArea.name}</b> และจังหวัดข้างเคียง
-                  </span>
-                  <div className="fs-3d-btn-group" role="group" aria-label="เลือกมุมกล้อง 3 มิติ">
-                    <button type="button" aria-pressed={twinCamera === "iso"} onClick={() => setTwinCamera("iso")}>
-                      📐 มุมมองมาตรฐาน
-                    </button>
-                    <button type="button" aria-pressed={twinCamera === "atmosphere"} onClick={() => setTwinCamera("atmosphere")}>
-                      ☁️ ซูมชั้นฟ้า
-                    </button>
-                    <button type="button" aria-pressed={twinCamera === "coastal"} onClick={() => setTwinCamera("coastal")}>
-                      🌊 ซูมพื้นดิน/ทะเล
-                    </button>
-                    <button type="button" aria-pressed={twinCamera === "top"} onClick={() => setTwinCamera("top")}>
-                      🦅 มุมสูง
-                    </button>
-                    <button type="button" aria-pressed={twinAutoRotate} onClick={() => setTwinAutoRotate((v) => !v)}>
-                      {twinAutoRotate ? "⏸️ หยุด" : "🔄 หมุน"}
-                    </button>
-                  </div>
-                </div>
-                {renderTwinSceneContent()}
-              </div>
-            )}
-
-            {(mainViewMode === "2d" || mainViewMode === "split") && (
-              <div className={mainViewMode === "split" ? "fs-split-stage" : ""}>
-                <FahSaiLeafletMap
-                  areas={topicScopedAreas}
-                  allAreas={payload.areas}
-                  selectedArea={activeArea}
-                  onSelectArea={setSelectedId}
-                  activeTopic={topic}
-                  activeRegion={regionFilter}
-                  basemapMode={basemapMode}
-                  onChangeBasemapMode={setBasemapMode}
-                  showAllProvincesScope={showAllProvincesScope}
-                  onToggleAllProvincesScope={() => setShowAllProvincesScope((v) => !v)}
-                />
-
-                {mainViewMode === "split" && (
-                  <div className="fs-split-3d-pane">{renderTwinSceneContent()}</div>
-                )}
-              </div>
-            )}
-          </article>
         </section>
 
-        {/* SECTION 4: LOCAL-PROXIMITY 3D ANIMATED DIGITAL TWIN SHOWCASE */}
-        <section
-          className="fs-3d-twin-section"
-          id="fs-3d-twin"
-          aria-label="แบบจำลอง 3D Digital Twin พื้นที่ใกล้เคียงจังหวัดที่เลือก"
-        >
-          <div className="fs-3d-twin-head">
-            <div>
-              <span className="fs-eyebrow">
-                🌐 LOCAL-PROXIMITY 3D DIGITAL TWIN · แบบจำลอง 3 มิติเฉพาะจังหวัดที่เลือกและพื้นที่ใกล้เคียง
-              </span>
-              <h2>
-                สำรวจภูมิประเทศและชั้นบรรยากาศ 3 มิติของ {activeArea.name} และจังหวัดข้างเคียง ({nearbyTwinNodes.length} พื้นที่)
-              </h2>
-              <p>
-                ออกแบบใหม่ให้ดูง่าย ไม่รกตา โดยโฟกัสเฉพาะ <b>{activeArea.name}</b> เป็นจุดศูนย์กลาง พร้อมเปรียบเทียบกับจังหวัดใกล้เคียงตามทิศทางจริง และสรุปข้อมูลแยก 3 ชั้นชัดเจน
-              </p>
-            </div>
-            <div className="fs-3d-controls">
-              <div className="fs-3d-btn-group" role="group" aria-label="เลือกมุมกล้อง 3 มิติ">
-                <button
-                  type="button"
-                  aria-pressed={twinCamera === "iso"}
-                  onClick={() => setTwinCamera("iso")}
-                >
-                  📐 มุมมอง 3D มาตรฐาน
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={twinCamera === "atmosphere"}
-                  onClick={() => setTwinCamera("atmosphere")}
-                >
-                  ☁️ ซูมชั้นเมฆ–เรดาร์
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={twinCamera === "coastal"}
-                  onClick={() => setTwinCamera("coastal")}
-                >
-                  🌊 ซูมระดับพื้นดิน/น้ำทะเล
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={twinCamera === "top"}
-                  onClick={() => setTwinCamera("top")}
-                >
-                  🦅 มุมสูง Bird’s-Eye
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={twinAutoRotate}
-                  onClick={() => setTwinAutoRotate((v) => !v)}
-                >
-                  {twinAutoRotate ? "⏸️ หยุดหมุน 3D" : "🔄 หมุน 3D อัตโนมัติ"}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {renderTwinSceneContent()}
-        </section>
-
-        {/* SECTION 5: INTERACTIVE 24-HOUR ANIMATED CURVE & SCRUBBER */}
+        {/* SECTION 4: INTERACTIVE 24-HOUR ANIMATED CURVE & SCRUBBER */}
         <section className="fs-timeline-section" aria-labelledby="fs-hourly-title">
           <div className="fs-section-head">
             <div>
@@ -974,7 +627,7 @@ export default function FahSaiApp() {
                 📈 กราฟโต้ตอบรายชั่วโมง 24 ชม. (Interactive 24-Hour Curve & Scrubber)
               </span>
               <h2 id="fs-hourly-title">
-                เส้นแนวโน้มรายชั่วโมงของ {activeArea.name} ({activeTopicMeta.label})
+                เส้นแนวโน้มรายชั่วโมงของ จ.{activeArea.name} ({activeTopicMeta.label})
               </h2>
             </div>
             <div className="fs-hour-readout">
@@ -991,7 +644,7 @@ export default function FahSaiApp() {
           </div>
 
           <p className="fs-mobile-chart-hint">
-            คลิกที่จุดชั่วโมงหรือเลื่อนแถบด้านล่างเพื่อดูการเปลี่ยนแปลงตลอด 24 ชั่วโมง (ซิงก์กับแบบจำลอง 3D Twin อัตโนมัติ)
+            คลิกที่จุดชั่วโมงหรือเลื่อนแถบด้านล่างเพื่อดูการเปลี่ยนแปลงตลอด 24 ชั่วโมง
           </p>
           <div className="fs-curve-svg-wrap">
             <svg
@@ -1138,7 +791,7 @@ export default function FahSaiApp() {
           </div>
         </section>
 
-        {/* SECTION 6: ✨ พื้นที่เหมาะสมที่สุด vs ⚠️ พื้นที่เสี่ยงเฝ้าระวังทั่วไทย */}
+        {/* SECTION 5: ✨ พื้นที่เหมาะสมที่สุด vs ⚠️ พื้นที่เสี่ยงเฝ้าระวังทั่วไทย */}
         <section
           className="fs-risk-suitable-section"
           id="fs-risk-suitable"
@@ -1252,12 +905,12 @@ export default function FahSaiApp() {
           </div>
         </section>
 
-        {/* SECTION 7: 🏖️ LIFESTYLE & DAILY ACTIVITY PLANNER CARDS */}
+        {/* SECTION 6: 🏖️ LIFESTYLE & DAILY ACTIVITY PLANNER CARDS */}
         <section className="fs-lifestyle-section" aria-label="การ์ดวางแผนชีวิตประจำวันและกิจกรรมกลางแจ้งครบวงจร">
           <div className="fs-section-head">
             <div>
               <span className="fs-eyebrow">🌱 SMART LIFESTYLE & DAILY PLANNER · ตัวช่วยตัดสินใจในชีวิตประจำวันครบวงจร</span>
-              <h2>คะแนนความเหมาะสมสำหรับกิจกรรมประจำวันใน {activeArea.name}</h2>
+              <h2>คะแนนความเหมาะสมสำหรับกิจกรรมประจำวันใน จ.{activeArea.name}</h2>
             </div>
           </div>
           <div className="fs-lifestyle-grid">
@@ -1329,7 +982,7 @@ export default function FahSaiApp() {
           </div>
         </section>
 
-        {/* SECTION 8: VISUAL SCIENCE EXPLAINER FOR CITIZENS */}
+        {/* SECTION 7: VISUAL SCIENCE EXPLAINER FOR CITIZENS */}
         <section className="fs-science-section" aria-label="คำอธิบายทางวิชาการแบบเข้าใจง่าย">
           <div className="fs-science-head">
             <span className="fs-eyebrow">🎓 ความรู้วิชาการฉบับประชาชน (Visual Science Explainer)</span>
@@ -1346,11 +999,11 @@ export default function FahSaiApp() {
           </div>
         </section>
 
-        {/* SECTION 9: 7-DAY OUTLOOK & REGIONAL SUMMARY */}
+        {/* SECTION 8: 7-DAY OUTLOOK & REGIONAL SUMMARY */}
         <section className="fs-bottom-grid">
           <article className="fs-daily-card">
             <span className="fs-eyebrow">📅 พยากรณ์ล่วงหน้า 7 วัน (7-Day Outlook)</span>
-            <h3>แนวโน้มรายวัน & คะแนนน่าเที่ยว · {activeArea.name}</h3>
+            <h3>แนวโน้มรายวัน & คะแนนน่าเที่ยว · จ.{activeArea.name}</h3>
             <div className="fs-daily-list">
               {activeArea.daily.map((d) => (
                 <div key={d.dayLabel} className="fs-daily-row">
@@ -1369,7 +1022,7 @@ export default function FahSaiApp() {
 
           <article className="fs-sea-summary-card">
             <span className="fs-eyebrow">🌊 สรุปน้ำทะเล คลื่นลม & ภูมิอากาศของพื้นที่</span>
-            <h3>ข้อมูลสำคัญประจำวัน · {activeArea.name} ({activeArea.regionName})</h3>
+            <h3>ข้อมูลสำคัญประจำวัน · จ.{activeArea.name} ({activeArea.regionName})</h3>
             <div className="fs-sea-bento">
               <div>
                 <small>⬆️ น้ำทะเลขึ้นสูงสุด / ระดับพื้นที่</small>
@@ -1412,15 +1065,15 @@ export default function FahSaiApp() {
 
       <footer className="fs-footer">
         <div>
-          <strong>🌤️ ฟ้าใส ทั่วไทย · FahSai Thailand Digital Twin Dashboard</strong>
+          <strong>🌤️ ฟ้าใส ทั่วไทย · FahSai Thailand Interactive Map Dashboard</strong>
           <p>
-            แพลตฟอร์มข้อมูลสภาพอากาศ ภูมิอากาศ น้ำทะเลหนุน คลื่นลม ฝุ่น PM2.5 ความร้อน ลมหนาว การท่องเที่ยว พื้นที่เสี่ยง และพื้นที่เหมาะสม สำหรับประชาชนทั่วไป ครอบคลุมทั้ง 6 ภูมิภาคทั่วประเทศไทย
+            แพลตฟอร์มข้อมูลสภาพอากาศ ภูมิอากาศ น้ำทะเลหนุน คลื่นลม ฝุ่น PM2.5 ความร้อน ลมหนาว การท่องเที่ยว พื้นที่เสี่ยง และพื้นที่เหมาะสม สำหรับประชาชนทั่วไป ครอบคลุมข้อมูลและขอบเขตการปกครองจริงครบทั้ง 77 จังหวัดทั่วประเทศไทย
           </p>
         </div>
         <div className="fs-footer-badges">
-          <span>🗺️ Basemap & ขอบเขตปกครองจริง</span>
-          <span>🌐 3D Twin พื้นที่ใกล้เคียง</span>
-          <span>🇹🇭 ครอบคลุมทั่วไทย</span>
+          <span>🗺️ Basemap & ขอบเขตปกครองจริง 77 จังหวัด</span>
+          <span>📊 ข้อมูลครบทุกจังหวัดทั่วไทย</span>
+          <span>🇹🇭 ครอบคลุมทั้ง 6 ภูมิภาค</span>
         </div>
       </footer>
     </div>

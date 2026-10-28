@@ -682,9 +682,9 @@ export function FahSaiTopicPresentation({
         </div>
       )}
 
-      {/* NEARBY PROVINCES STRIP: Links directly to the Local-Proximity Digital Twin */}
+      {/* NEARBY PROVINCES STRIP */}
       <div className="fahsai-nearby-strip">
-        <span className="fahsai-nearby-label">🧭 พื้นที่ใกล้เคียง {activeArea.name} (เชื่อมโยง Digital Twin):</span>
+        <span className="fahsai-nearby-label">🧭 จังหวัดใกล้เคียง {activeArea.name} (คลิกเพื่อดูและเปรียบเทียบข้อมูล):</span>
         <div className="fahsai-nearby-chips">
           {nearbyNodes
             .filter((n) => !n.isCenter)

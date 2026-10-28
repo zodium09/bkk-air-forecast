@@ -15,25 +15,46 @@ import {
 
 export async function GET() {
   try {
-    const lats = THAILAND_AREAS.map(a => a.lat.toFixed(4)).join(",");
-    const lngs = THAILAND_AREAS.map(a => a.lng.toFixed(4)).join(",");
+    const batch1 = THAILAND_AREAS.slice(0, 39);
+    const batch2 = THAILAND_AREAS.slice(39);
 
-    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lngs}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,wind_speed_10m,wind_direction_10m,wind_gusts_10m,cloud_cover&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,wind_speed_10m,cloud_cover&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,uv_index_max&timezone=Asia%2FBangkok&forecast_days=7`;
-    const airUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lats}&longitude=${lngs}&current=pm2_5,us_aqi,uv_index&hourly=pm2_5&timezone=Asia%2FBangkok&forecast_days=3`;
+    const buildUrls = (batch: typeof THAILAND_AREAS) => {
+      const lats = batch.map(a => a.lat.toFixed(4)).join(",");
+      const lngs = batch.map(a => a.lng.toFixed(4)).join(",");
+      return {
+        weatherUrl: `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lngs}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,wind_speed_10m,wind_direction_10m,wind_gusts_10m,cloud_cover&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,wind_speed_10m,cloud_cover&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,uv_index_max&timezone=Asia%2FBangkok&forecast_days=7`,
+        airUrl: `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lats}&longitude=${lngs}&current=pm2_5,us_aqi,uv_index&hourly=pm2_5&timezone=Asia%2FBangkok&forecast_days=3`,
+      };
+    };
 
-    const [weatherRes, airRes] = await Promise.all([
-      fetch(weatherUrl),
-      fetch(airUrl),
+    const u1 = buildUrls(batch1);
+    const u2 = buildUrls(batch2);
+
+    const [wRes1, aRes1, wRes2, aRes2] = await Promise.all([
+      fetch(u1.weatherUrl),
+      fetch(u1.airUrl),
+      fetch(u2.weatherUrl),
+      fetch(u2.airUrl),
     ]);
 
-    if (!weatherRes.ok || !airRes.ok) {
+    if (!wRes1.ok || !aRes1.ok || !wRes2.ok || !aRes2.ok) {
       return NextResponse.json(buildFallbackPayload());
     }
 
-    const weatherJson = await weatherRes.json();
-    const airJson = await airRes.json();
-    const weatherList = Array.isArray(weatherJson) ? weatherJson : [weatherJson];
-    const airList = Array.isArray(airJson) ? airJson : [airJson];
+    const [wJson1, aJson1, wJson2, aJson2] = await Promise.all([
+      wRes1.json(),
+      aRes1.json(),
+      wRes2.json(),
+      aRes2.json(),
+    ]);
+    const weatherList = [
+      ...(Array.isArray(wJson1) ? wJson1 : [wJson1]),
+      ...(Array.isArray(wJson2) ? wJson2 : [wJson2]),
+    ];
+    const airList = [
+      ...(Array.isArray(aJson1) ? aJson1 : [aJson1]),
+      ...(Array.isArray(aJson2) ? aJson2 : [aJson2]),
+    ];
     const fallback = buildFallbackPayload();
     const dayNames = ["วันนี้", "พรุ่งนี้", "มะรืน", "วันที่ 4", "วันที่ 5", "วันที่ 6", "วันที่ 7"];
     const nowHour = getBangkokHour();
