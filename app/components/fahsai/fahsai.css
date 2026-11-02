@@ -2695,7 +2695,7 @@ body:has(.fs-app) {
 
 .fahsai-slot-mini-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
 
@@ -2965,6 +2965,15 @@ body:has(.fs-app) {
 .fs-hero-grid.is-map-dominant {
   grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
   align-items: start;
+}
+
+@media (max-width: 1180px) {
+  .fs-hero-grid,
+  .fs-hero-grid.is-map-dominant,
+  .fs-bottom-grid,
+  .fs-rs-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
 }
 
 .fs-hero-grid.is-map-fullwidth {
@@ -3896,9 +3905,19 @@ body:has(.fs-app) {
    6. Suitable vs Risk Provinces (#fs-risk-suitable)
    7. Lifestyle Bento + 7-Day List + Science Explainer
    ============================================================================ */
-@media (max-width: 768px) {
+@media (max-width: 1080px), (hover: none) and (pointer: coarse) {
   .fs-app {
     padding-bottom: 86px; /* Space for sticky bottom thumb navigation */
+  }
+
+  /* Force single full-width column for Map + Bespoke Card and all 2-col sections */
+  .fs-hero-grid,
+  .fs-hero-grid.is-map-dominant,
+  .fs-bottom-grid,
+  .fs-rs-grid {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 16px;
   }
 
   /* Compact, clean mobile top header */
@@ -4434,17 +4453,16 @@ body:has(.fs-app) {
   }
 
   .fahsai-map-floating-card {
-    top: auto;
-    bottom: 10px;
-    left: 10px;
-    right: 60px;
-    max-width: none;
-    padding: 9px 12px;
+    position: static !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin-top: 8px;
+    padding: 10px 14px;
     border-radius: 14px;
   }
 
   .fahsai-map-floating-metric {
-    font-size: 14px;
+    font-size: 15px;
   }
 
   .fahsai-map-floating-sub:last-child {
@@ -4516,7 +4534,7 @@ body:has(.fs-app) {
     white-space: nowrap;
   }
 
-  /* PRIORITY #5: Balanced 2-Column Mobile Bento Grid in Bespoke Topic Presentation */
+  /* PRIORITY #5: Clean Full-Width Rows in Bespoke Topic Presentation (No Cramped Columns) */
   .fahsai-bespoke-header {
     padding: 14px;
     border-radius: 18px;
@@ -4530,27 +4548,51 @@ body:has(.fs-app) {
     font-size: 24px;
   }
 
-  .fahsai-bespoke-grid-4 {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 8px;
+  .fahsai-bespoke-grid-2,
+  .fahsai-bespoke-grid-3,
+  .fahsai-bespoke-grid-4,
+  .fahsai-slot-mini-grid {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 10px;
   }
 
-  .fahsai-bespoke-grid-3 {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 8px;
-  }
-
-  .fahsai-bespoke-grid-3 .fahsai-bespoke-tile.is-emphasis {
-    grid-column: 1 / -1;
-  }
-
-  .fahsai-bespoke-tile {
-    padding: 11px;
+  .fahsai-metric-tile {
+    padding: 13px 15px;
     border-radius: 14px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 4px 12px;
   }
 
-  .fahsai-bespoke-tile strong {
-    font-size: 15px;
+  .fahsai-metric-tile small {
+    grid-column: 1;
+    font-size: 12.5px;
+    font-weight: 700;
+  }
+
+  .fahsai-metric-tile strong {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    font-size: 17px;
+    text-align: right;
+  }
+
+  .fahsai-metric-tile span {
+    grid-column: 1;
+    font-size: 12px;
+  }
+
+  .fahsai-slot-mini-card {
+    padding: 12px 14px;
+    border-radius: 12px;
+  }
+
+  .fahsai-slot-mini-head {
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 12.5px;
   }
 
   /* PRIORITY #6: Easy-to-Scan Mobile Severity Charts (24-Hour & 7-Day) */
