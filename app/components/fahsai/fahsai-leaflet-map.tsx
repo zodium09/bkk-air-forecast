@@ -61,6 +61,7 @@ const TILE_CONFIGS: Record<
   RealBasemapMode,
   {
     url: string;
+    noLabelUrl?: string;
     labelUrl?: string;
     attribution: string;
     name: string;
@@ -68,8 +69,9 @@ const TILE_CONFIGS: Record<
 > = {
   street: {
     url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    noLabelUrl: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png",
     attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors · ขอบเขตการปกครองจริง 77 จังหวัด กรมทรัพยากรธรณี (DMR) & กทม. (BMA)',
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; CARTO · ขอบเขตการปกครองจริง 77 จังหวัด กรมทรัพยากรธรณี (DMR) & กทม. (BMA)',
     name: "แผนที่ถนน & เขตปกครองจริง (OSM)",
   },
   satellite: {
@@ -123,7 +125,8 @@ export function FahSaiLeafletMap({
 
   const [showAdminBoundaries, setShowAdminBoundaries] = useState(true);
   const [showBmaDistricts, setShowBmaDistricts] = useState(false);
-  const [pinDisplayMode, setPinDisplayMode] = useState<PinDisplayMode>("all77");
+  const [pinDisplayMode, setPinDisplayMode] = useState<PinDisplayMode>("polygons-only");
+  const [showBasemapLabels, setShowBasemapLabels] = useState(false);
   const [currentZoom, setCurrentZoom] = useState<number>(6);
   const [mapReady, setMapReady] = useState(false);
   const [showMobileLayers, setShowMobileLayers] = useState(false);
@@ -205,7 +208,8 @@ export function FahSaiLeafletMap({
     }
 
     const cfg = TILE_CONFIGS[basemapMode];
-    const baseLayer = L.tileLayer(cfg.url, {
+    const tileUrl = !showBasemapLabels && cfg.noLabelUrl ? cfg.noLabelUrl : cfg.url;
+    const baseLayer = L.tileLayer(tileUrl, {
       attribution: cfg.attribution,
       maxZoom: 18,
     });
@@ -213,7 +217,7 @@ export function FahSaiLeafletMap({
     baseLayer.bringToBack();
     baseTileLayerRef.current = baseLayer;
 
-    if (cfg.labelUrl) {
+    if (showBasemapLabels && cfg.labelUrl) {
       const labelLayer = L.tileLayer(cfg.labelUrl, {
         maxZoom: 18,
         opacity: 0.85,
@@ -221,7 +225,7 @@ export function FahSaiLeafletMap({
       labelLayer.addTo(map);
       labelTileLayerRef.current = labelLayer;
     }
-  }, [basemapMode, mapReady]);
+  }, [basemapMode, mapReady, showBasemapLabels]);
 
   // Render real 77-province administrative boundaries (DMR MapServer/8 GeoJSON) + BMA 50 districts
   // Every single one of the 77 provinces uses its own real forecast data!
@@ -608,11 +612,11 @@ export function FahSaiLeafletMap({
           <span className="fahsai-toolbar-label">ป้ายข้อมูลบนแผนที่:</span>
           <button
             type="button"
-            className={`fahsai-LayerBtn ${pinDisplayMode === "all77" ? "is-active" : ""}`}
-            aria-pressed={pinDisplayMode === "all77"}
-            onClick={() => setPinDisplayMode("all77")}
+            className={`fahsai-LayerBtn ${pinDisplayMode === "polygons-only" ? "is-active" : ""}`}
+            aria-pressed={pinDisplayMode === "polygons-only"}
+            onClick={() => setPinDisplayMode("polygons-only")}
           >
-            🇹🇭 ป้ายครบทุกจังหวัด ({showAllProvincesScope ? allAreas.length : areas.length})
+            🎨 ปิดป้ายข้อมูล (เฉพาะสีขอบเขตจังหวัด)
           </button>
           <button
             type="button"
@@ -624,11 +628,19 @@ export function FahSaiLeafletMap({
           </button>
           <button
             type="button"
-            className={`fahsai-LayerBtn ${pinDisplayMode === "polygons-only" ? "is-active" : ""}`}
-            aria-pressed={pinDisplayMode === "polygons-only"}
-            onClick={() => setPinDisplayMode("polygons-only")}
+            className={`fahsai-LayerBtn ${pinDisplayMode === "all77" ? "is-active" : ""}`}
+            aria-pressed={pinDisplayMode === "all77"}
+            onClick={() => setPinDisplayMode("all77")}
           >
-            🎨 เฉพาะสีขอบเขตจังหวัด
+            🇹🇭 ป้ายครบทุกจังหวัด ({showAllProvincesScope ? allAreas.length : areas.length})
+          </button>
+          <button
+            type="button"
+            className={`fahsai-LayerBtn ${showBasemapLabels ? "is-active" : ""}`}
+            aria-pressed={showBasemapLabels}
+            onClick={() => setShowBasemapLabels((v) => !v)}
+          >
+            🏷️ {showBasemapLabels ? "แสดงชื่อเมืองบนแผนที่" : "ปิดชื่อเมืองพื้นหลัง"}
           </button>
         </div>
 
