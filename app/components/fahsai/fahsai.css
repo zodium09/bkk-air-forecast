@@ -3759,13 +3759,979 @@ body:has(.fs-app) {
   }
 }
 
-@media (max-width: 640px) {
-  .fs-severity-legend-strip {
-    grid-template-columns: 1fr;
+/* ============================================================================
+   MOBILE-FIRST PRIORITY HIERARCHY & MODERN RESPONSIVE UI/UX OVERHAUL
+   ============================================================================ */
+
+/* Desktop defaults for new mobile-first priority components */
+.fs-mobile-glance-card {
+  display: none;
+}
+
+.fs-mobile-swipe-hint {
+  display: none;
+}
+
+.fahsai-mobile-tools-bar {
+  display: none;
+}
+
+.fahsai-chip-expand-btn {
+  display: none;
+}
+
+.fs-mobile-bottom-nav {
+  display: none;
+}
+
+/* Quick 77-Province Native Select Picker (Available on both Desktop & Mobile) */
+.fs-province-picker-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--fs-card-solid);
+  border: 1.5px solid var(--fs-border);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  flex-shrink: 0;
+}
+
+.fs-province-quick-select {
+  border: none;
+  background: transparent;
+  color: var(--fs-ink);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  outline: none;
+  max-width: 240px;
+}
+
+.fs-app.is-dark .fs-province-quick-select option,
+.fs-app.is-dark .fs-province-quick-select optgroup {
+  background: #0f172a;
+  color: #f8fafc;
+}
+
+/* Chart View Mode Switcher Bar */
+.fs-charts-hub-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: 18px;
+  background: var(--fs-card);
+  border: 1px solid var(--fs-border);
+  box-shadow: var(--fs-shadow);
+}
+
+.fs-charts-hub-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fs-charts-hub-title strong {
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--fs-ink);
+}
+
+.fs-charts-hub-title small {
+  font-size: 12px;
+  color: var(--fs-muted);
+}
+
+.fs-chart-mode-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.14);
+}
+
+.fs-chart-mode-btn {
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--fs-ink);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 150ms ease;
+  white-space: nowrap;
+}
+
+.fs-chart-mode-btn.is-active {
+  background: var(--fs-accent);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+}
+
+.fs-timeline-section.is-chart-hidden {
+  display: none;
+}
+
+.fahsai-scoped-chip-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ============================================================================
+   MOBILE & TABLET PORTRAIT OPTIMIZATION (<= 768px)
+   Prioritized Information Architecture:
+   1. Active Province Status & Advice Card (#fs-top-glance)
+   2. Quick Province Selector & Region Strip (.fs-control-ribbon)
+   3. Swipeable 10-Topic Carousel (#fs-topic-deck)
+   4. Clean Interactive Map + Forecast Day/Time Scrubber (#fs-map-workspace)
+   5. Severity-Colored Charts Hub (#fs-charts-hub + 24h & 7d charts)
+   6. Suitable vs Risk Provinces (#fs-risk-suitable)
+   7. Lifestyle Bento + 7-Day List + Science Explainer
+   ============================================================================ */
+@media (max-width: 768px) {
+  .fs-app {
+    padding-bottom: 86px; /* Space for sticky bottom thumb navigation */
   }
-  .fs-daily-severity-chart,
+
+  /* Compact, clean mobile top header */
+  .fs-header {
+    position: sticky;
+    top: 0;
+    z-index: 95;
+    padding: 10px 14px;
+    gap: 10px;
+    backdrop-filter: blur(18px);
+  }
+
+  .fs-logo {
+    width: 38px;
+    height: 38px;
+    font-size: 20px;
+    border-radius: 12px;
+  }
+
+  .fs-brand-title-row strong {
+    font-size: 16px;
+  }
+
+  .fs-nationwide-pill {
+    font-size: 10.5px;
+    padding: 2px 8px;
+  }
+
+  .fs-brand small {
+    display: none; /* Keep mobile header ultra-clean */
+  }
+
+  .fs-header-actions {
+    width: 100%;
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 6px;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+
+  .fs-header-actions::-webkit-scrollbar {
+    display: none;
+  }
+
+  .fs-header-actions button,
+  .fs-header-actions a {
+    flex: 0 0 auto;
+    padding: 6px 11px;
+    font-size: 11.5px;
+    white-space: nowrap;
+  }
+
+  .fs-header-3d-pill,
+  .fs-header-rank-pill {
+    display: none; /* Accessible via bottom nav & map controls */
+  }
+
+  /* Enforce strict priority order in <main class="fs-main"> on mobile */
+  .fs-main {
+    display: flex;
+    flex-direction: column;
+    padding: 12px 12px 28px;
+    gap: 14px;
+  }
+
+  #fs-top-glance {
+    order: 1;
+  }
+
+  .fs-control-ribbon {
+    order: 2;
+  }
+
+  #fs-topic-deck {
+    order: 3;
+  }
+
+  #fs-map-workspace {
+    order: 4;
+  }
+
+  #fs-charts-hub {
+    order: 5;
+  }
+
+  .fs-timeline-section {
+    order: 6;
+  }
+
+  .fs-daily-forecast-section {
+    order: 7;
+  }
+
+  #fs-risk-suitable {
+    order: 8;
+  }
+
+  .fs-lifestyle-section {
+    order: 9;
+  }
+
+  .fs-bottom-grid {
+    order: 10;
+  }
+
+  .fs-science-section {
+    order: 11;
+  }
+
+  /* PRIORITY #1: Active Province At-a-Glance Hero Card */
+  .fs-mobile-glance-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 15px 16px;
+    border-radius: 22px;
+    background: var(--fs-card);
+    border: 2px solid var(--fs-border);
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+    backdrop-filter: blur(18px);
+  }
+
+  .fs-mgc-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .fs-mgc-loc {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .fs-mgc-live-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--fs-muted);
+  }
+
+  .fs-mgc-loc h1 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 900;
+    line-height: 1.2;
+    color: var(--fs-ink);
+  }
+
+  .fs-mgc-loc h1 small {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--fs-muted);
+  }
+
+  .fs-mgc-tier-pill {
+    flex-shrink: 0;
+    padding: 5px 11px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 900;
+    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.14);
+  }
+
+  .fs-mgc-hero-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 11px 13px;
+    border-radius: 16px;
+    background: rgba(148, 163, 184, 0.1);
+  }
+
+  .fs-mgc-primary-metric {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .fs-mgc-topic-icon {
+    font-size: 28px;
+    line-height: 1;
+  }
+
+  .fs-mgc-primary-metric small {
+    display: block;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--fs-muted);
+  }
+
+  .fs-mgc-primary-metric strong {
+    display: block;
+    font-size: 17px;
+    font-weight: 900;
+    line-height: 1.25;
+  }
+
+  .fs-mgc-advice {
+    margin: 0;
+    font-size: 12.5px;
+    font-weight: 700;
+    line-height: 1.45;
+    color: var(--fs-ink);
+  }
+
+  .fs-mgc-vitals-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .fs-mgc-vital {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 8px 5px;
+    border-radius: 13px;
+    background: var(--fs-card-solid);
+    border: 1px solid var(--fs-border);
+  }
+
+  .fs-mgc-vital small {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--fs-muted);
+    white-space: nowrap;
+  }
+
+  .fs-mgc-vital strong {
+    font-size: 14px;
+    font-weight: 900;
+    color: var(--fs-ink);
+    margin: 2px 0 1px;
+  }
+
+  .fs-mgc-vital span {
+    font-size: 9.5px;
+    color: var(--fs-muted);
+    white-space: nowrap;
+  }
+
+  .fs-mgc-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .fs-mgc-jump-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 6px;
+    border-radius: 12px;
+    font-size: 11.5px;
+    font-weight: 800;
+    text-decoration: none;
+    color: var(--fs-ink);
+    background: var(--fs-card-solid);
+    border: 1px solid var(--fs-border);
+    white-space: nowrap;
+  }
+
+  .fs-mgc-jump-btn.is-primary {
+    background: var(--fs-accent);
+    color: #ffffff;
+    border-color: transparent;
+  }
+
+  /* PRIORITY #2: Fast Province Picker + Search + Single-Row Region Tabs */
+  .fs-control-ribbon {
+    padding: 12px;
+    border-radius: 18px;
+    gap: 10px;
+  }
+
+  .fs-region-tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 6px;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .fs-region-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .fs-region-pill {
+    flex: 0 0 auto;
+    padding: 7px 12px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .fs-search-and-mode {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .fs-province-picker-wrap {
+    width: 100%;
+    padding: 9px 14px;
+    border-radius: 14px;
+  }
+
+  .fs-province-quick-select {
+    max-width: none;
+    width: 100%;
+    font-size: 13.5px;
+  }
+
+  .fs-search-box {
+    width: 100%;
+    min-width: 0;
+    padding: 8px 12px;
+    border-radius: 14px;
+  }
+
+  .fs-viewmode-pills {
+    display: none; /* Fullwidth toggle is not needed on single-column mobile */
+  }
+
+  /* PRIORITY #3: 10-Topic Horizontal Snap-Scroll Carousel on Mobile */
+  .fs-topic-deck-section {
+    padding: 14px;
+    border-radius: 20px;
+  }
+
+  .fs-deck-header {
+    margin-bottom: 6px;
+  }
+
+  .fs-deck-header h2 {
+    font-size: 15px;
+    line-height: 1.35;
+  }
+
+  .fs-deck-live-tag {
+    display: none; /* Shown in Priority #1 glance card */
+  }
+
+  .fs-mobile-swipe-hint {
+    display: block;
+    margin: 0 0 8px;
+    font-size: 11.5px;
+    font-weight: 800;
+    color: var(--fs-accent);
+  }
+
+  .fs-topic-card-grid {
+    display: grid !important;
+    grid-template-columns: none !important;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(215px, 68vw);
+    gap: 10px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    padding: 4px 2px 8px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .fs-topic-card-grid::-webkit-scrollbar {
+    display: none;
+  }
+
+  .fs-story-topic-card {
+    scroll-snap-align: start;
+    padding: 12px 13px;
+    min-height: 132px;
+    border-radius: 18px;
+  }
+
+  .fs-stc-icon {
+    font-size: 24px;
+  }
+
+  .fs-stc-title {
+    font-size: 14.5px;
+  }
+
+  .fs-stc-desc {
+    font-size: 11.5px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* PRIORITY #4: Clean Interactive Map + Forecast Day/Time Scrubber */
+  .fs-map-card,
+  .fs-hero-card {
+    padding: 13px;
+    border-radius: 20px;
+  }
+
+  .fs-map-head h2 {
+    font-size: 16px;
+    line-height: 1.35;
+  }
+
+  .fahsai-real-map-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* Reorder inside map wrapper so Forecast Day/Time Deck is right above the map canvas */
+  .fahsai-map-time-deck {
+    order: 1;
+    padding: 11px 12px;
+    border-radius: 16px;
+  }
+
+  .fahsai-mobile-tools-bar {
+    order: 2;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .fahsai-mobile-tools-toggle {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 12px;
+    border: 1.5px solid var(--fs-border);
+    background: var(--fs-card-solid);
+    color: var(--fs-ink);
+    font-family: inherit;
+    font-size: 11.5px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .fahsai-mobile-tools-toggle strong {
+    color: var(--fs-accent);
+    white-space: nowrap;
+  }
+
+  .fahsai-mobile-zoom-btn {
+    flex-shrink: 0;
+    padding: 8px 10px;
+    border-radius: 12px;
+    border: 1.5px solid var(--fs-border);
+    background: var(--fs-card-solid);
+    color: var(--fs-ink);
+    font-family: inherit;
+    font-size: 11.5px;
+    font-weight: 800;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .fahsai-scope-banner {
+    order: 3;
+  }
+
+  .fahsai-map-toolbar {
+    order: 4;
+  }
+
+  /* Collapse the 11 map layer buttons by default on mobile unless toggled open */
+  .fahsai-scope-banner.is-mobile-collapsed,
+  .fahsai-map-toolbar.is-mobile-collapsed {
+    display: none;
+  }
+
+  .fahsai-leaflet-stage {
+    order: 5;
+  }
+
+  .fahsai-compact-legend {
+    order: 6;
+  }
+
+  .fahsai-scoped-chip-bar {
+    order: 7;
+  }
+
+  /* Single-row swipeable Day Pills & Hour Presets on mobile */
+  .fahsai-map-day-pills,
+  .fahsai-map-hour-presets {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 6px;
+    width: 100%;
+    padding-bottom: 3px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .fahsai-map-day-pills::-webkit-scrollbar,
+  .fahsai-map-hour-presets::-webkit-scrollbar {
+    display: none;
+  }
+
+  .fahsai-day-pill,
+  .fahsai-time-preset-btn,
+  .fahsai-time-play-btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    padding: 6px 11px;
+    font-size: 11.5px;
+  }
+
+  .fahsai-map-scrubber-label small {
+    display: none;
+  }
+
+  /* Map viewport height & docked floating card on mobile */
+  .fahsai-leaflet-container,
+  .fahsai-leaflet-container.is-tall {
+    height: 390px;
+    min-height: 390px;
+    border-radius: 16px;
+  }
+
+  .fahsai-map-floating-card {
+    top: auto;
+    bottom: 10px;
+    left: 10px;
+    right: 60px;
+    max-width: none;
+    padding: 9px 12px;
+    border-radius: 14px;
+  }
+
+  .fahsai-map-floating-metric {
+    font-size: 14px;
+  }
+
+  .fahsai-map-floating-sub:last-child {
+    display: none;
+  }
+
+  /* Single-row horizontal swipeable 5-level legend on mobile */
+  .fahsai-compact-legend {
+    display: flex !important;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 8px;
+    padding: 8px 6px;
+    scrollbar-width: none;
+  }
+
+  .fahsai-compact-legend::-webkit-scrollbar {
+    display: none;
+  }
+
+  .fahsai-compact-legend-item {
+    flex: 0 0 auto;
+    min-width: 145px;
+  }
+
+  /* Single-row swipeable 77-Province Chip Strip on mobile (with expand button) */
+  .fahsai-chip-expand-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--fs-border);
+    background: var(--fs-card-solid);
+    color: var(--fs-accent);
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .fahsai-scoped-chip-head small {
+    display: none;
+  }
+
+  .fahsai-scoped-chip-list {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    max-height: none;
+    gap: 7px;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .fahsai-scoped-chip-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .fahsai-scoped-chip-list.is-expanded-all {
+    flex-wrap: wrap;
+    max-height: 240px;
+    overflow-y: auto;
+  }
+
+  .fahsai-scoped-chip {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  /* PRIORITY #5: Balanced 2-Column Mobile Bento Grid in Bespoke Topic Presentation */
+  .fahsai-bespoke-header {
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .fahsai-bespoke-title-row h3 {
+    font-size: 18px;
+  }
+
+  .fahsai-bespoke-hero-number strong {
+    font-size: 24px;
+  }
+
+  .fahsai-bespoke-grid-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px;
+  }
+
+  .fahsai-bespoke-grid-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px;
+  }
+
+  .fahsai-bespoke-grid-3 .fahsai-bespoke-tile.is-emphasis {
+    grid-column: 1 / -1;
+  }
+
+  .fahsai-bespoke-tile {
+    padding: 11px;
+    border-radius: 14px;
+  }
+
+  .fahsai-bespoke-tile strong {
+    font-size: 15px;
+  }
+
+  /* PRIORITY #6: Easy-to-Scan Mobile Severity Charts (24-Hour & 7-Day) */
+  .fs-charts-hub-bar {
+    padding: 12px 14px;
+  }
+
+  .fs-chart-mode-tabs {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .fs-chart-mode-btn {
+    padding: 8px 6px;
+    font-size: 11.5px;
+    text-align: center;
+  }
+
+  .fs-timeline-section {
+    padding: 14px;
+    border-radius: 20px;
+  }
+
+  .fs-section-head h2 {
+    font-size: 16px;
+    line-height: 1.35;
+  }
+
+  /* Make 5-level severity legend a single-row swipeable strip on mobile */
+  .fs-severity-legend-strip {
+    display: flex !important;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 8px;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .fs-severity-legend-strip::-webkit-scrollbar {
+    display: none;
+  }
+
+  .fs-sev-chip {
+    flex: 0 0 auto;
+    min-width: 152px;
+    padding: 8px 10px;
+  }
+
+  /* Make 7-day bar cards a horizontal swipeable 7-column strip on mobile */
   .fs-daily-bars-grid {
+    display: grid !important;
+    grid-template-columns: none !important;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(112px, 30vw);
+    gap: 8px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 6px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .fs-daily-bars-grid::-webkit-scrollbar {
+    display: none;
+  }
+
+  .fs-daily-bar-card {
+    scroll-snap-align: start;
+    padding: 10px 8px;
+  }
+
+  .fs-daily-severity-chart {
+    display: grid !important;
+    grid-template-columns: repeat(7, minmax(64px, 1fr)) !important;
+    overflow-x: auto;
+    gap: 6px;
+    padding: 10px 8px;
+  }
+
+  /* Lifestyle grid in 2 balanced columns on mobile */
+  .fs-lifestyle-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px;
+  }
+
+  .fs-life-card {
+    padding: 12px;
+  }
+
+  /* Compact 7-day list rows on mobile */
+  .fs-daily-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px 10px;
+    padding: 10px 12px;
+  }
+
+  /* PRIORITY #7: Sticky Mobile Bottom Thumb Navigation Bar */
+  .fs-mobile-bottom-nav {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    align-items: center;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 120;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(20px);
+    border-top: 1px solid var(--fs-border);
+    box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.1);
+  }
+
+  .fs-app.is-dark .fs-mobile-bottom-nav {
+    background: rgba(15, 23, 42, 0.94);
+  }
+
+  .fs-mbn-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 5px 4px;
+    border-radius: 12px;
+    text-decoration: none;
+    color: var(--fs-ink);
+    font-weight: 800;
+    transition: transform 140ms ease;
+  }
+
+  .fs-mbn-item:active {
+    transform: scale(0.95);
+  }
+
+  .fs-mbn-item span {
+    font-size: 18px;
+    line-height: 1.1;
+  }
+
+  .fs-mbn-item small {
+    font-size: 10.5px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+
+  .fs-mbn-item.is-center-map {
+    background: var(--fs-accent);
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+  }
+}
+
+/* Extra-small phones (<= 480px) fine-tuning */
+@media (max-width: 480px) {
+  .fs-mgc-vitals-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fs-mgc-vital {
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 8px 10px;
+    text-align: left;
+  }
+
+  .fs-topic-card-grid {
+    grid-auto-columns: minmax(205px, 76vw);
+  }
+
+  .fahsai-leaflet-container,
+  .fahsai-leaflet-container.is-tall {
+    height: 350px;
+    min-height: 350px;
+  }
+
+  .fs-lifestyle-grid {
+    grid-template-columns: 1fr !important;
   }
 }
 

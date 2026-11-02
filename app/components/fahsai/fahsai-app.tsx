@@ -15,6 +15,7 @@ import {
   classifyAreaRisk,
   classifyDailyPointRisk,
   classifyHourlyPointRisk,
+  getFriendlyAdvice,
   getNearbyAreas,
   getScienceExplainer,
   getTopicRelevantAreas,
@@ -56,6 +57,7 @@ export default function FahSaiApp() {
   const [hourIdx, setHourIdx] = useState<number>(() => getBangkokHour());
   const [isLiveNow, setIsLiveNow] = useState<boolean>(true);
   const [isPlayingTime, setIsPlayingTime] = useState<boolean>(false);
+  const [chartViewMode, setChartViewMode] = useState<"both" | "hourly" | "daily">("both");
   const [dark, setDark] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [locating, setLocating] = useState<boolean>(false);
@@ -210,7 +212,9 @@ export default function FahSaiApp() {
   const scopeConfig = useMemo(() => getTopicScopeConfig(topic), [topic]);
   const bands = useMemo(() => getTopicRiskBands(topic), [topic]);
   const activeTier = classifyAreaRisk(activeArea, topic);
-  const activeTierColor = bands.find((b) => b.tier === activeTier)?.color ?? "#0284c7";
+  const activeBand = bands.find((b) => b.tier === activeTier) ?? bands[0];
+  const activeTierColor = activeBand?.color ?? "#0284c7";
+  const activeAdvice = useMemo(() => getFriendlyAdvice(activeArea, topic), [activeArea, topic]);
   const science = useMemo(() => getScienceExplainer(topic), [topic]);
 
   // Top Suitable vs Top Risk areas across all 77 provinces for the selected forecast day & time
@@ -625,8 +629,92 @@ export default function FahSaiApp() {
       </header>
 
       <main className="fs-main">
+        {/* PRIORITY #1 ON MOBILE: INSTant ACTIVE PROVINCE AT-A-GLANCE STATUS CARD */}
+        <section
+          className="fs-mobile-glance-card"
+          id="fs-top-glance"
+          aria-label="สรุปสถานะจังหวัดที่เลือกอย่างรวดเร็ว"
+          style={{ borderColor: `${activeTierColor}55` }}
+        >
+          <div className="fs-mgc-top">
+            <div className="fs-mgc-loc">
+              <span className="fs-mgc-live-badge">
+                <i className="fs-live-dot" />
+                {dayIdx === 0 && isLiveNow
+                  ? `สดวันนี้ · ${nowClockText} น.`
+                  : `${activeArea.daily[dayIdx]?.dayLabel ?? "วันนี้"} · ${activeHour.hourLabel} น.`}
+              </span>
+              <h1>
+                📍 จ.{activeArea.name} <small>({activeArea.regionName})</small>
+              </h1>
+            </div>
+            <span
+              className="fs-mgc-tier-pill"
+              style={{ background: activeTierColor, color: "#ffffff" }}
+            >
+              ระดับ {activeTier}/5 · {activeBand?.label ?? "ปกติ"}
+            </span>
+          </div>
+
+          <div className="fs-mgc-hero-row">
+            <div className="fs-mgc-primary-metric" style={{ color: activeTierColor }}>
+              <span className="fs-mgc-topic-icon" aria-hidden="true">
+                {activeTopicMeta.icon}
+              </span>
+              <div>
+                <small>{activeTopicMeta.label}</small>
+                <strong>{getTopicQuickValue(topic)}</strong>
+              </div>
+            </div>
+            <p className="fs-mgc-advice">{activeAdvice.headline}</p>
+          </div>
+
+          <div className="fs-mgc-vitals-grid">
+            <div className="fs-mgc-vital">
+              <small>🌡️ อุณหภูมิ</small>
+              <strong>{activeArea.current.tempC}°C</strong>
+              <span>ร้อนจริง {activeArea.current.feelsLikeC}°C</span>
+            </div>
+            <div className="fs-mgc-vital">
+              <small>🌧️ โอกาสฝน</small>
+              <strong>{activeArea.current.rainProb}%</strong>
+              <span>{activeArea.current.rain24hMm} มม.</span>
+            </div>
+            <div className="fs-mgc-vital">
+              <small>😷 ฝุ่น PM2.5</small>
+              <strong>{activeArea.current.pm25} µg</strong>
+              <span>AQI {activeArea.current.aqi}</span>
+            </div>
+            <div className="fs-mgc-vital">
+              <small>{activeArea.isCoastal ? "🌊 คลื่นทะเล" : "☀️ ดัชนี UV"}</small>
+              <strong>
+                {activeArea.isCoastal
+                  ? `${activeArea.current.waveHeightM} ม.`
+                  : `UV ${activeArea.current.uvIndex}`}
+              </strong>
+              <span>ลม {activeArea.current.windKmh} กม./ชม.</span>
+            </div>
+          </div>
+
+          <div className="fs-mgc-actions">
+            <a href="#fs-map-workspace" className="fs-mgc-jump-btn is-primary">
+              🗺️ ดูแผนที่ &amp; เลือกเวลา
+            </a>
+            <a href="#fs-charts-hub" className="fs-mgc-jump-btn">
+              📈 กราฟ 24 ชม. / 7 วัน
+            </a>
+            <a href="#fs-bespoke-analysis" className="fs-mgc-jump-btn">
+              📋 วิเคราะห์เจาะลึก
+            </a>
+          </div>
+        </section>
+
         {/* SECTION 1: 10 VIBRANT STORY TOPIC CARDS */}
-        <section className="fs-topic-deck-section" aria-label="เลือกเรื่องที่ต้องการสำรวจ">
+        <section
+          className="fs-topic-deck-section"
+          id="fs-topic-deck"
+          aria-label="เลือกเรื่องที่ต้องการสำรวจ"
+        >
           <div className="fs-deck-header">
             <div>
               <span className="fs-eyebrow">✨ เลือกการ์ดเรื่องที่คุณสนใจ (10 หมวดครบวงจร · ข้อมูลครบทั้ง 77 จังหวัดทั่วไทย)</span>
@@ -639,6 +727,9 @@ export default function FahSaiApp() {
               </span>
             </div>
           </div>
+          <p className="fs-mobile-swipe-hint" aria-hidden="true">
+            👉 ปัดซ้าย–ขวาเพื่อเลือกเรื่องที่สนใจทั้ง 10 หมวดหมู่
+          </p>
 
           <div className="fs-topic-card-grid" role="group" aria-label="การ์ดเลือกหมวดหมู่ฟ้าใส 10 เรื่อง">
             {TOPICS.map((t) => {
@@ -674,7 +765,7 @@ export default function FahSaiApp() {
           </div>
         </section>
 
-        {/* SECTION 2: NATIONWIDE REGION SELECTOR + SEARCH + EXPAND MAP CONTROL */}
+        {/* SECTION 2: NATIONWIDE REGION SELECTOR + SEARCH + QUICK 77-PROVINCE PICKER */}
         <section className="fs-control-ribbon" aria-label="เลือกภูมิภาคและค้นหาจังหวัดทั่วไทย">
           <div className="fs-region-tabs" role="group" aria-label="กรองตามภูมิภาคของประเทศไทย">
             {REGIONS.map((r) => (
@@ -701,6 +792,30 @@ export default function FahSaiApp() {
           </div>
 
           <div className="fs-search-and-mode">
+            <label className="fs-province-picker-wrap">
+              <span aria-hidden="true">📍</span>
+              <select
+                className="fs-province-quick-select"
+                value={activeArea.id}
+                aria-label="เลือกจังหวัดอย่างรวดเร็วครบทั้ง 77 จังหวัด"
+                onChange={(e) => {
+                  setSelectedId(e.target.value);
+                }}
+              >
+                {REGIONS.filter((r) => r.id !== "all").map((reg) => (
+                  <optgroup key={reg.id} label={`${reg.icon} ${reg.label}`}>
+                    {projectedAreas
+                      .filter((a) => a.regionId === reg.id)
+                      .map((a) => (
+                        <option key={a.id} value={a.id}>
+                          จ.{a.name} — {getTopicQuickValue(topic) && a.id === activeArea.id ? "กำลังเลือก" : `${a.current.tempC}°C · ฝน ${a.current.rainProb}%`}
+                        </option>
+                      ))}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
+
             <div className="fs-search-box">
               <span aria-hidden="true">🔍</span>
               <input
@@ -741,7 +856,10 @@ export default function FahSaiApp() {
 
         {/* SECTION 3: MAIN INTERACTIVE WORKSPACE
             Expanded Map with all 77 Provinces + Bespoke Topic Presentation */}
-        <section className={`fs-hero-grid is-map-dominant ${isMapExpandedWide ? "is-map-fullwidth" : ""}`}>
+        <section
+          className={`fs-hero-grid is-map-dominant ${isMapExpandedWide ? "is-map-fullwidth" : ""}`}
+          id="fs-map-workspace"
+        >
           {/* LARGE HIGH-CLARITY 77-PROVINCE INTERACTIVE MAP */}
           <article className="fs-map-card is-primary-map">
             <div className="fs-map-head">
@@ -780,7 +898,7 @@ export default function FahSaiApp() {
           </article>
 
           {/* BESPOKE TOPIC PRESENTATION CARD */}
-          <article className="fs-hero-card">
+          <article className="fs-hero-card" id="fs-bespoke-analysis">
             <FahSaiTopicPresentation
               topic={topic}
               activeArea={activeArea}
@@ -798,8 +916,45 @@ export default function FahSaiApp() {
           </article>
         </section>
 
+        {/* CHART VIEW MODE SWITCHER FOR EASY MOBILE & DESKTOP SCANNING */}
+        <div className="fs-charts-hub-bar" id="fs-charts-hub" role="region" aria-label="ตัวเลือกมุมมองกราฟพยากรณ์แยกสีความรุนแรง">
+          <div className="fs-charts-hub-title">
+            <strong>📊 กราฟพยากรณ์แยกสีความรุนแรง · จ.{activeArea.name}</strong>
+            <small>เลือกดูกราฟรายชั่วโมง 24 ชม. หรือกราฟรายวัน 7 วันล่วงหน้า</small>
+          </div>
+          <div className="fs-chart-mode-tabs" role="group" aria-label="สลับมุมมองกราฟพยากรณ์">
+            <button
+              type="button"
+              className={`fs-chart-mode-btn ${chartViewMode === "both" ? "is-active" : ""}`}
+              aria-pressed={chartViewMode === "both"}
+              onClick={() => setChartViewMode("both")}
+            >
+              📊 แสดงคู่กันทั้งหมด
+            </button>
+            <button
+              type="button"
+              className={`fs-chart-mode-btn ${chartViewMode === "hourly" ? "is-active" : ""}`}
+              aria-pressed={chartViewMode === "hourly"}
+              onClick={() => setChartViewMode("hourly")}
+            >
+              ⏱️ รายชั่วโมง (24 ชม.)
+            </button>
+            <button
+              type="button"
+              className={`fs-chart-mode-btn ${chartViewMode === "daily" ? "is-active" : ""}`}
+              aria-pressed={chartViewMode === "daily"}
+              onClick={() => setChartViewMode("daily")}
+            >
+              📅 รายวัน (7 วัน)
+            </button>
+          </div>
+        </div>
+
         {/* SECTION 4: INTERACTIVE 24-HOUR SEVERITY-COLORED CURVE & BAR CHART ("กราฟแยกสีความรุนแรง") */}
-        <section className="fs-timeline-section" aria-labelledby="fs-hourly-title">
+        <section
+          className={`fs-timeline-section ${chartViewMode === "daily" ? "is-chart-hidden" : ""}`}
+          aria-labelledby="fs-hourly-title"
+        >
           <div className="fs-section-head">
             <div>
               <span className="fs-eyebrow">
@@ -1069,7 +1224,10 @@ export default function FahSaiApp() {
         </section>
 
         {/* SECTION 4B: INTERACTIVE 7-DAY DAILY FORECAST SEVERITY CURVE & BAR CHART ("กราฟพยากรณ์รายวันด้วย") */}
-        <section className="fs-timeline-section fs-daily-forecast-section" aria-labelledby="fs-daily-chart-title">
+        <section
+          className={`fs-timeline-section fs-daily-forecast-section ${chartViewMode === "hourly" ? "is-chart-hidden" : ""}`}
+          aria-labelledby="fs-daily-chart-title"
+        >
           <div className="fs-section-head">
             <div>
               <span className="fs-eyebrow">
@@ -1658,6 +1816,30 @@ export default function FahSaiApp() {
           <span>🇹🇭 ครอบคลุมทั้ง 6 ภูมิภาค</span>
         </div>
       </footer>
+
+      {/* MOBILE STICKY BOTTOM THUMB NAVIGATION BAR */}
+      <nav className="fs-mobile-bottom-nav" aria-label="เมนูนำทางด่วนบนมือถือ">
+        <a href="#fs-top-glance" className="fs-mbn-item">
+          <span aria-hidden="true">📍</span>
+          <small>สรุปจังหวัด</small>
+        </a>
+        <a href="#fs-topic-deck" className="fs-mbn-item">
+          <span aria-hidden="true">🎴</span>
+          <small>10 เรื่อง</small>
+        </a>
+        <a href="#fs-map-workspace" className="fs-mbn-item is-center-map">
+          <span aria-hidden="true">🗺️</span>
+          <small>แผนที่ 77 จ.</small>
+        </a>
+        <a href="#fs-charts-hub" className="fs-mbn-item">
+          <span aria-hidden="true">📈</span>
+          <small>กราฟสี</small>
+        </a>
+        <a href="#fs-risk-suitable" className="fs-mbn-item">
+          <span aria-hidden="true">✨</span>
+          <small>จัดอันดับ</small>
+        </a>
+      </nav>
     </div>
   );
 }

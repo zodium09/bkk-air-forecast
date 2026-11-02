@@ -126,6 +126,8 @@ export function FahSaiLeafletMap({
   const [pinDisplayMode, setPinDisplayMode] = useState<PinDisplayMode>("all77");
   const [currentZoom, setCurrentZoom] = useState<number>(6);
   const [mapReady, setMapReady] = useState(false);
+  const [showMobileLayers, setShowMobileLayers] = useState(false);
+  const [showAllProvinceChipsMobile, setShowAllProvinceChipsMobile] = useState(false);
 
   const topicMeta = useMemo(
     () => TOPICS.find((t) => t.id === activeTopic) ?? TOPICS[0],
@@ -506,8 +508,35 @@ export function FahSaiLeafletMap({
 
   return (
     <div className={`fahsai-real-map-wrapper ${isExpandedWide ? "is-expanded-wide" : ""}`}>
+      {/* Mobile Quick Toggle for Map Layer & Scope Settings */}
+      <div className="fahsai-mobile-tools-bar">
+        <button
+          type="button"
+          className={`fahsai-mobile-tools-toggle ${showMobileLayers ? "is-open" : ""}`}
+          aria-expanded={showMobileLayers}
+          onClick={() => setShowMobileLayers((v) => !v)}
+        >
+          <span>🎛️ ตั้งค่าชั้นแผนที่ &amp; ขอบเขต ({basemapMode === "street" ? "ถนน OSM" : basemapMode === "satellite" ? "ดาวเทียม" : "แผนที่มืด"})</span>
+          <strong>{showMobileLayers ? "▲ ซ่อนตัวเลือก" : "▼ เปิดตั้งค่า"}</strong>
+        </button>
+        <button
+          type="button"
+          className="fahsai-mobile-zoom-btn"
+          onClick={handleZoomToSelectedProvince}
+        >
+          📍 ซูม {selectedArea.name.split(" ")[0]}
+        </button>
+        <button
+          type="button"
+          className="fahsai-mobile-zoom-btn"
+          onClick={handleZoomToAll77Thailand}
+        >
+          🇹🇭 ทั่วไทย
+        </button>
+      </div>
+
       {/* Top Scope Banner */}
-      <div className="fahsai-scope-banner">
+      <div className={`fahsai-scope-banner ${showMobileLayers ? "is-mobile-open" : "is-mobile-collapsed"}`}>
         <div className="fahsai-scope-banner-left">
           <span
             className="fahsai-scope-pill"
@@ -542,7 +571,11 @@ export function FahSaiLeafletMap({
       </div>
 
       {/* Real Basemap & Administrative Layer Controls */}
-      <div className="fahsai-map-toolbar" role="group" aria-label="ควบคุมชั้นแผนที่จริงและขอบเขตการปกครอง">
+      <div
+        className={`fahsai-map-toolbar ${showMobileLayers ? "is-mobile-open" : "is-mobile-collapsed"}`}
+        role="group"
+        aria-label="ควบคุมชั้นแผนที่จริงและขอบเขตการปกครอง"
+      >
         <div className="fahsai-map-toolbar-group">
           <span className="fahsai-toolbar-label">Basemap:</span>
           <button
@@ -795,9 +828,18 @@ export function FahSaiLeafletMap({
           <span>
             📌 เลือกจังหวัดอย่างรวดเร็ว ({areas.length} จังหวัดในมุมมองนี้ จากทั้งหมด {allAreas.length} จังหวัดทั่วไทย):
           </span>
-          <small>คลิกที่ชื่อจังหวัดหรือคลิกบนขอบเขตแผนที่จริงเพื่อดูข้อมูลเชิงลึกทันที</small>
+          <div className="fahsai-scoped-chip-head-actions">
+            <small>ปัดซ้าย-ขวา หรือคลิกเพื่อดูข้อมูลเชิงลึกทันที</small>
+            <button
+              type="button"
+              className="fahsai-chip-expand-btn"
+              onClick={() => setShowAllProvinceChipsMobile((v) => !v)}
+            >
+              {showAllProvinceChipsMobile ? "▲ ย่อเป็นแถบเลื่อน" : `▼ แสดงทั้งหมด (${areas.length} จ.)`}
+            </button>
+          </div>
         </div>
-        <div className="fahsai-scoped-chip-list">
+        <div className={`fahsai-scoped-chip-list ${showAllProvinceChipsMobile ? "is-expanded-all" : ""}`}>
           {areas.map((area) => {
             const isSelected = area.id === selectedArea.id;
             const tier = classifyAreaRisk(area, activeTopic);
