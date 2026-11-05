@@ -14,13 +14,13 @@ import {
   classifyDailyPointRisk,
   classifyHourlyPointRisk,
   type RiskBandInfo,
-  type TopicConfig,
+  type TopicCardConfig,
 } from "./fahsai-helpers.ts";
 
 export interface FahSaiSeverityChartsProps {
   activeArea: AreaForecast;
   activeHour: HourlyPoint;
-  activeTopicMeta: TopicConfig;
+  activeTopicMeta: TopicCardConfig;
   activeTierColor: string;
   bands: RiskBandInfo[];
   topic: TopicId;

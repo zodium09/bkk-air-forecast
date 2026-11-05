@@ -10,14 +10,14 @@ import {
 import {
   classifyDailyPointRisk,
   getScienceExplainer,
-  type TopicConfig,
+  type TopicCardConfig,
 } from "./fahsai-helpers.ts";
 
 export interface FahSaiInsightsSectionsProps {
   activeArea: AreaForecast;
   projectedAreas: AreaForecast[];
   topic: TopicId;
-  activeTopicMeta: TopicConfig;
+  activeTopicMeta: TopicCardConfig;
   dayIdx: number;
   onSelectArea: (id: string) => void;
   onSelectTopic: (topic: TopicId) => void;

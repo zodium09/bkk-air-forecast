@@ -585,14 +585,18 @@ export default function FahSaiApp() {
       <div className="fs-provenance-banner" role="status" aria-label="สถานะความสดของข้อมูลและมาตรฐานวิชาการ">
         <div className="fs-prov-main">
           <span
-            className={`fs-prov-badge ${payload.status === "live" ? "is-live" : "is-fallback"}`}
+            className={`fs-prov-badge ${payload.sourceMode === "live-open-meteo" ? "is-live" : "is-fallback"}`}
           >
-            {payload.status === "live"
+            {payload.sourceMode === "live-open-meteo"
               ? "🟢 ข้อมูลพยากรณ์สดออนไลน์ (Live Multi-Source API)"
               : "🟡 ข้อมูลจำลองตามฤดูกาลและภูมิศาสตร์ (Climatology Fallback Mode)"}
           </span>
           <span className="fs-prov-source">
-            <strong>แหล่งที่มา:</strong> {payload.source} · อัปเดตเมื่อ <b>{payload.updatedAt} น.</b>
+            <strong>แหล่งที่มา:</strong>{" "}
+            {payload.sourceMode === "live-open-meteo"
+              ? "Open-Meteo Weather, Air Quality & Marine API + ขอบเขตกรมทรัพยากรธรณี (DMR)"
+              : "ฐานข้อมูลภูมิอากาศมาตรฐาน 77 จังหวัด + ขอบเขตกรมทรัพยากรธรณี (DMR)"}{" "}
+            · อัปเดตเมื่อ <b>{nowClockText} น.</b>
           </span>
         </div>
         <div className="fs-prov-standards">

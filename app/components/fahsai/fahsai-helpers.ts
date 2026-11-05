@@ -26,6 +26,8 @@ export interface TopicCardConfig {
   badgeText: string;
 }
 
+export type TopicConfig = TopicCardConfig;
+
 export const TOPICS: TopicCardConfig[] = [
   {
     id: "rain",
