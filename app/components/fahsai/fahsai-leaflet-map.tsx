@@ -13,9 +13,24 @@ import {
   pinMetricLabel,
   THAILAND_LABEL_OFFSETS,
   TOPICS,
-} from "./fahsai-helpers";
-import thailandProvincesGeoJson from "../../data/thailand-provinces-geojson.json";
-import bangkokDistrictsGeoJson from "../../data/bangkok-districts.json";
+} from "./fahsai-helpers.ts";
+
+let cachedProvincesGeoJson: GeoJSON.FeatureCollection | null = null;
+let cachedBmaDistrictsGeoJson: GeoJSON.FeatureCollection | null = null;
+
+async function loadProvincesGeoJson(): Promise<GeoJSON.FeatureCollection> {
+  if (cachedProvincesGeoJson) return cachedProvincesGeoJson;
+  const mod = await import("../../data/thailand-provinces-geojson.json");
+  cachedProvincesGeoJson = (mod.default ?? mod) as unknown as GeoJSON.FeatureCollection;
+  return cachedProvincesGeoJson;
+}
+
+async function loadBmaDistrictsGeoJson(): Promise<GeoJSON.FeatureCollection> {
+  if (cachedBmaDistrictsGeoJson) return cachedBmaDistrictsGeoJson;
+  const mod = await import("../../data/bangkok-districts.json");
+  cachedBmaDistrictsGeoJson = (mod.default ?? mod) as unknown as GeoJSON.FeatureCollection;
+  return cachedBmaDistrictsGeoJson;
+}
 
 export type RealBasemapMode = "street" | "satellite" | "dark";
 export type PinDisplayMode = "smart" | "all77" | "polygons-only";
@@ -122,6 +137,14 @@ export function FahSaiLeafletMap({
   const provinceLayerRef = useRef<Leaflet.GeoJSON | null>(null);
   const bmaDistrictLayerRef = useRef<Leaflet.GeoJSON | null>(null);
   const markersLayerRef = useRef<Leaflet.LayerGroup | null>(null);
+  const markerInstancesRef = useRef<Map<string, Leaflet.Marker>>(new Map());
+  const onSelectAreaRef = useRef(onSelectArea);
+  const areasRef = useRef(areas);
+
+  useEffect(() => {
+    onSelectAreaRef.current = onSelectArea;
+    areasRef.current = areas;
+  }, [onSelectArea, areas]);
 
   const [showAdminBoundaries, setShowAdminBoundaries] = useState(true);
   const [showBmaDistricts, setShowBmaDistricts] = useState(false);
@@ -129,6 +152,12 @@ export function FahSaiLeafletMap({
   const [showBasemapLabels, setShowBasemapLabels] = useState(false);
   const [currentZoom, setCurrentZoom] = useState<number>(6);
   const [mapReady, setMapReady] = useState(false);
+  const [provincesGeoData, setProvincesGeoData] = useState<GeoJSON.FeatureCollection | null>(
+    cachedProvincesGeoJson
+  );
+  const [bmaGeoData, setBmaGeoData] = useState<GeoJSON.FeatureCollection | null>(
+    cachedBmaDistrictsGeoJson
+  );
   const [showMobileLayers, setShowMobileLayers] = useState(false);
   const [showAllProvinceChipsMobile, setShowAllProvinceChipsMobile] = useState(false);
 
@@ -147,14 +176,16 @@ export function FahSaiLeafletMap({
 
   const relevantAreaIds = useMemo(() => new Set(areas.map((a) => a.id)), [areas]);
 
-  // Initialize Leaflet map once on client
+  // Initialize Leaflet map once on client with Canvas renderer for fast polygon drawing
   useEffect(() => {
     let cancelled = false;
+    const markersMap = markerInstancesRef.current;
     if (!mapContainerRef.current) return;
 
-    void import("leaflet").then((L) => {
+    void Promise.all([import("leaflet"), loadProvincesGeoJson()]).then(([L, geoJson]) => {
       if (cancelled || !mapContainerRef.current || mapInstanceRef.current) return;
       leafletRef.current = L;
+      setProvincesGeoData(geoJson);
 
       const map = L.map(mapContainerRef.current, {
         center: [13.2, 101.0],
@@ -163,6 +194,7 @@ export function FahSaiLeafletMap({
         maxZoom: 14,
         zoomControl: false,
         attributionControl: true,
+        preferCanvas: true,
       });
 
       L.control.zoom({ position: "bottomright" }).addTo(map);
@@ -175,12 +207,29 @@ export function FahSaiLeafletMap({
 
     return () => {
       cancelled = true;
+      markersMap.clear();
+      provinceLayerRef.current = null;
+      bmaDistrictLayerRef.current = null;
+      markersLayerRef.current = null;
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
       }
     };
   }, []);
+
+  // Lazy-load BMA 50 districts GeoJSON only when needed
+  const shouldShowBmaLayer = showBmaDistricts || selectedArea.id === "bangkok";
+  useEffect(() => {
+    if (!shouldShowBmaLayer || bmaGeoData) return;
+    let cancelled = false;
+    void loadBmaDistrictsGeoJson().then((data) => {
+      if (!cancelled) setBmaGeoData(data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [shouldShowBmaLayer, bmaGeoData]);
 
   // Invalidate map size when expanded/collapsed so tiles fill the larger container cleanly
   useEffect(() => {
@@ -227,124 +276,154 @@ export function FahSaiLeafletMap({
     }
   }, [basemapMode, mapReady, showBasemapLabels]);
 
-  // Render real 77-province administrative boundaries (DMR MapServer/8 GeoJSON) + BMA 50 districts
-  // Every single one of the 77 provinces uses its own real forecast data!
+  // Lifecycle Effect: Create/Remove 77-province GeoJSON layer once (no destroy/recreate on state ticks)
   useEffect(() => {
     const L = leafletRef.current;
     const map = mapInstanceRef.current;
     if (!L || !map || !mapReady) return;
 
-    if (provinceLayerRef.current) {
-      provinceLayerRef.current.remove();
-      provinceLayerRef.current = null;
+    if (!showAdminBoundaries || !provincesGeoData) {
+      if (provinceLayerRef.current) {
+        provinceLayerRef.current.remove();
+        provinceLayerRef.current = null;
+      }
+      return;
     }
-    if (bmaDistrictLayerRef.current) {
-      bmaDistrictLayerRef.current.remove();
-      bmaDistrictLayerRef.current = null;
-    }
 
-    if (showAdminBoundaries) {
-      const geoData = thailandProvincesGeoJson as unknown as GeoJSON.FeatureCollection;
-      const isDark = basemapMode !== "street";
-
-      const layer = L.geoJSON(geoData, {
-        style: (feature) => {
-          const geoMeta = (feature?.properties ?? {}) as ProvinceFeatureProps;
-          const primaryId = geoMeta.primaryAreaId ?? null;
-          const mappedId = geoMeta.mappedAreaId ?? "bangkok";
-          const area = areaById.get(primaryId ?? mappedId);
-
-          const isRelevant = Boolean(primaryId && relevantAreaIds.has(primaryId));
-          const isSelectedProvince = (primaryId ?? mappedId) === selectedArea.id;
-
-          if (!area) {
-            return {
-              color: isDark ? "#475569" : "#94a3b8",
-              weight: 1,
-              fillOpacity: 0.1,
-            };
-          }
-
-          const tier = classifyAreaRisk(area, activeTopic);
-          const bandColor =
-            riskBands.find((b) => b.tier === tier)?.color ?? topicMeta.color;
-
-          if (isSelectedProvince) {
-            return {
-              color: isDark ? "#facc15" : "#0f172a",
-              weight: 3.6,
-              fillColor: bandColor,
-              fillOpacity: 0.62,
-              dashArray: undefined,
-            };
-          }
-
-          // Show all 77 provinces clearly colored with their own data!
-          // If topic has a coastal/mountain focus and showAllProvincesScope is false,
-          // still color all 77 provinces clearly while giving relevant provinces a stronger fill.
-          if (showAllProvincesScope || isRelevant) {
-            return {
-              color: isDark ? "rgba(255,255,255,0.62)" : "#ffffff",
-              weight: 1.5,
-              fillColor: bandColor,
-              fillOpacity: 0.44,
-              dashArray: undefined,
-            };
-          }
-
-          return {
-            color: isDark ? "rgba(203, 213, 225, 0.45)" : "rgba(71, 85, 105, 0.48)",
-            weight: 1.1,
-            fillColor: bandColor,
-            fillOpacity: 0.24,
-            dashArray: undefined,
-          };
-        },
+    if (!provinceLayerRef.current) {
+      const layer = L.geoJSON(provincesGeoData, {
         onEachFeature: (feature, featureLayer) => {
           const geoMeta = (feature?.properties ?? {}) as ProvinceFeatureProps;
-          const provNameThai = geoMeta.PROV_NAM_T ?? "จังหวัด";
-          const provNameEng = geoMeta.PROV_NAM_E ?? "";
-          const provCode = geoMeta.PROV_CODE ?? "";
           const targetAreaId = geoMeta.primaryAreaId || geoMeta.mappedAreaId || "bangkok";
-          const area = areaById.get(targetAreaId);
-
-          if (area) {
-            const metric = pinMetricLabel(area, activeTopic);
-            const tier = classifyAreaRisk(area, activeTopic);
-            const bandInfo = riskBands.find((b) => b.tier === tier);
-            const tooltipHtml = `
-              <div class="fahsai-geo-tooltip">
-                <strong>จ.${provNameThai}</strong> <span style="opacity:0.78">(${provNameEng} · รหัส ${provCode})</span>
-                <div>${topicMeta.icon} ${topicMeta.label}: <b>${metric}</b> (${bandInfo?.label ?? `ระดับ ${tier}/5`})</div>
-                <div style="font-size:11px;opacity:0.85">🌡️ ${area.current.tempC}°C · 🌧️ ฝน ${area.current.rainProb}% · 😷 PM2.5 ${area.current.pm25} µg/m³</div>
-              </div>
-            `;
-            featureLayer.bindTooltip(tooltipHtml, {
-              sticky: true,
-              direction: "top",
-              className: "fahsai-leaflet-tooltip",
-            });
-            featureLayer.on("click", () => {
-              onSelectArea(area.id);
-            });
-          }
+          featureLayer.bindTooltip("", {
+            sticky: true,
+            direction: "top",
+            className: "fahsai-leaflet-tooltip",
+          });
+          featureLayer.on("click", () => {
+            onSelectAreaRef.current(targetAreaId);
+          });
         },
       });
-
       layer.addTo(map);
       provinceLayerRef.current = layer;
     }
+  }, [mapReady, showAdminBoundaries, provincesGeoData]);
 
-    // Optional BMA 50 Districts layer when Bangkok is selected or toggled
-    if (showBmaDistricts || selectedArea.id === "bangkok") {
-      const bmaData = bangkokDistrictsGeoJson as unknown as GeoJSON.FeatureCollection;
-      const bmaLayer = L.geoJSON(bmaData, {
-        style: () => ({
-          color: basemapMode === "street" ? "#0284c7" : "#38bdf8",
-          weight: 1.2,
-          fillColor: "#0ea5e9",
+  // Fast In-Place Update Effect: Update 77-province styles & tooltips without recreating GeoJSON DOM/Canvas
+  useEffect(() => {
+    const layer = provinceLayerRef.current;
+    if (!layer || !mapReady || !showAdminBoundaries) return;
+
+    const isDark = basemapMode !== "street";
+
+    layer.setStyle((feature) => {
+      const geoMeta = (feature?.properties ?? {}) as ProvinceFeatureProps;
+      const primaryId = geoMeta.primaryAreaId ?? null;
+      const mappedId = geoMeta.mappedAreaId ?? "bangkok";
+      const area = areaById.get(primaryId ?? mappedId);
+
+      const isRelevant = Boolean(primaryId && relevantAreaIds.has(primaryId));
+      const isSelectedProvince = (primaryId ?? mappedId) === selectedArea.id;
+
+      if (!area) {
+        return {
+          color: isDark ? "#475569" : "#94a3b8",
+          weight: 1,
           fillOpacity: 0.1,
-        }),
+        };
+      }
+
+      const tier = classifyAreaRisk(area, activeTopic);
+      const bandColor =
+        riskBands.find((b) => b.tier === tier)?.color ?? topicMeta.color;
+
+      if (isSelectedProvince) {
+        return {
+          color: isDark ? "#facc15" : "#0f172a",
+          weight: 3.6,
+          fillColor: bandColor,
+          fillOpacity: 0.62,
+          dashArray: undefined,
+        };
+      }
+
+      if (showAllProvincesScope || isRelevant) {
+        return {
+          color: isDark ? "rgba(255,255,255,0.62)" : "#ffffff",
+          weight: 1.5,
+          fillColor: bandColor,
+          fillOpacity: 0.44,
+          dashArray: undefined,
+        };
+      }
+
+      return {
+        color: isDark ? "rgba(203, 213, 225, 0.45)" : "rgba(71, 85, 105, 0.48)",
+        weight: 1.1,
+        fillColor: bandColor,
+        fillOpacity: 0.24,
+        dashArray: undefined,
+      };
+    });
+
+    layer.eachLayer((subLayer) => {
+      const featureLayer = subLayer as Leaflet.Layer & {
+        feature?: GeoJSON.Feature;
+        setTooltipContent?: (html: string) => void;
+      };
+      const geoMeta = (featureLayer.feature?.properties ?? {}) as ProvinceFeatureProps;
+      const provNameThai = geoMeta.PROV_NAM_T ?? "จังหวัด";
+      const provNameEng = geoMeta.PROV_NAM_E ?? "";
+      const provCode = geoMeta.PROV_CODE ?? "";
+      const targetAreaId = geoMeta.primaryAreaId || geoMeta.mappedAreaId || "bangkok";
+      const area = areaById.get(targetAreaId);
+      if (area && typeof featureLayer.setTooltipContent === "function") {
+        const metric = pinMetricLabel(area, activeTopic);
+        const tier = classifyAreaRisk(area, activeTopic);
+        const bandInfo = riskBands.find((b) => b.tier === tier);
+        const tooltipHtml = `
+          <div class="fahsai-geo-tooltip">
+            <strong>จ.${provNameThai}</strong> <span style="opacity:0.78">(${provNameEng} · รหัส ${provCode})</span>
+            <div>${topicMeta.icon} ${topicMeta.label}: <b>${metric}</b> (${bandInfo?.label ?? `ระดับ ${tier}/5`})</div>
+            <div style="font-size:11px;opacity:0.85">🌡️ ${area.current.tempC}°C · 🌧️ ฝน ${area.current.rainProb}% ของพื้นที่ · 😷 PM2.5 ${area.current.pm25} µg/m³</div>
+          </div>
+        `;
+        featureLayer.setTooltipContent(tooltipHtml);
+      }
+    });
+  }, [
+    activeTopic,
+    areaById,
+    basemapMode,
+    mapReady,
+    provincesGeoData,
+    relevantAreaIds,
+    riskBands,
+    selectedArea.id,
+    showAdminBoundaries,
+    showAllProvincesScope,
+    topicMeta.color,
+    topicMeta.icon,
+    topicMeta.label,
+  ]);
+
+  // Optional BMA 50 Districts layer lifecycle & style update
+  useEffect(() => {
+    const L = leafletRef.current;
+    const map = mapInstanceRef.current;
+    if (!L || !map || !mapReady) return;
+
+    if (!shouldShowBmaLayer || !bmaGeoData) {
+      if (bmaDistrictLayerRef.current) {
+        bmaDistrictLayerRef.current.remove();
+        bmaDistrictLayerRef.current = null;
+      }
+      return;
+    }
+
+    if (!bmaDistrictLayerRef.current) {
+      const bmaLayer = L.geoJSON(bmaGeoData, {
         onEachFeature: (feature, featureLayer) => {
           const distMeta = (feature?.properties ?? {}) as DistrictFeatureProps;
           if (distMeta.NAME_T) {
@@ -353,47 +432,46 @@ export function FahSaiLeafletMap({
               { sticky: true, direction: "top" }
             );
           }
-          featureLayer.on("click", () => onSelectArea("bangkok"));
+          featureLayer.on("click", () => onSelectAreaRef.current("bangkok"));
         },
       });
       bmaLayer.addTo(map);
       bmaDistrictLayerRef.current = bmaLayer;
     }
-  }, [
-    activeTopic,
-    areaById,
-    basemapMode,
-    mapReady,
-    onSelectArea,
-    relevantAreaIds,
-    riskBands,
-    selectedArea.id,
-    showAdminBoundaries,
-    showAllProvincesScope,
-    showBmaDistricts,
-    topicMeta.color,
-    topicMeta.icon,
-    topicMeta.label,
-  ]);
 
-  // Render Interactive Province Markers across Thailand (All 77 provinces or Smart Zoom)
+    bmaDistrictLayerRef.current.setStyle({
+      color: basemapMode === "street" ? "#0284c7" : "#38bdf8",
+      weight: 1.2,
+      fillColor: "#0ea5e9",
+      fillOpacity: 0.1,
+    });
+  }, [basemapMode, bmaGeoData, mapReady, shouldShowBmaLayer]);
+
+  // Render Interactive Province Markers across Thailand (in-place icon update without layer teardown)
   useEffect(() => {
     const L = leafletRef.current;
     const map = mapInstanceRef.current;
     if (!L || !map || !mapReady) return;
 
-    if (markersLayerRef.current) {
-      markersLayerRef.current.remove();
-      markersLayerRef.current = null;
+    if (pinDisplayMode === "polygons-only") {
+      if (markersLayerRef.current) {
+        markersLayerRef.current.clearLayers();
+        markersLayerRef.current.remove();
+        markersLayerRef.current = null;
+      }
+      markerInstancesRef.current.clear();
+      return;
     }
 
-    if (pinDisplayMode === "polygons-only") return;
+    if (!markersLayerRef.current) {
+      const group = L.layerGroup();
+      group.addTo(map);
+      markersLayerRef.current = group;
+    }
 
-    const group = L.layerGroup();
+    const group = markersLayerRef.current;
+    const existingMarkers = markerInstancesRef.current;
 
-    // Decide which provinces get visible pin labels:
-    // - "all77": all 77 provinces (filtered by region if activeRegion !== "all", or scoped areas)
-    // - "smart": at zoom >= 7 show all 77 provinces; at zoom <= 6 show the 24 core regional hubs + selectedArea
     const baseCandidates =
       pinDisplayMode === "all77"
         ? showAllProvincesScope
@@ -408,6 +486,14 @@ export function FahSaiLeafletMap({
     const candidateMap = new Map<string, AreaForecast>();
     for (const a of baseCandidates) candidateMap.set(a.id, a);
     candidateMap.set(selectedArea.id, selectedArea);
+
+    // Remove markers that are no longer in candidateMap
+    existingMarkers.forEach((marker, id) => {
+      if (!candidateMap.has(id)) {
+        group.removeLayer(marker);
+        existingMarkers.delete(id);
+      }
+    });
 
     const isCompact77 = candidateMap.size > 28 && currentZoom <= 6;
 
@@ -438,20 +524,22 @@ export function FahSaiLeafletMap({
         iconAnchor: isCompact77 && !isSelected ? [48, 12] : [62, 16],
       });
 
-      const marker = L.marker([area.lat, area.lng], {
-        icon,
-        zIndexOffset: isSelected ? 1000 : 100,
-      });
-
-      marker.on("click", () => {
-        onSelectArea(area.id);
-      });
-
-      group.addLayer(marker);
+      const existing = existingMarkers.get(area.id);
+      if (existing) {
+        existing.setIcon(icon);
+        existing.setZIndexOffset(isSelected ? 1000 : 100);
+      } else {
+        const marker = L.marker([area.lat, area.lng], {
+          icon,
+          zIndexOffset: isSelected ? 1000 : 100,
+        });
+        marker.on("click", () => {
+          onSelectAreaRef.current(area.id);
+        });
+        group.addLayer(marker);
+        existingMarkers.set(area.id, marker);
+      }
     });
-
-    group.addTo(map);
-    markersLayerRef.current = group;
   }, [
     activeRegion,
     activeTopic,
@@ -459,7 +547,6 @@ export function FahSaiLeafletMap({
     areas,
     currentZoom,
     mapReady,
-    onSelectArea,
     pinDisplayMode,
     riskBands,
     selectedArea,
@@ -467,20 +554,21 @@ export function FahSaiLeafletMap({
     topicMeta.color,
   ]);
 
-  // Fit bounds when topic or region changes
+  // Fit bounds ONLY when topic, region, or scope changes (never on hour/day scrubber ticks)
   useEffect(() => {
     const L = leafletRef.current;
     const map = mapInstanceRef.current;
     if (!L || !map || !mapReady) return;
 
-    if (areas.length > 1) {
-      const latLngs = areas.map((a) => [a.lat, a.lng] as [number, number]);
+    const scoped = areasRef.current;
+    if (scoped.length > 1) {
+      const latLngs = scoped.map((a) => [a.lat, a.lng] as [number, number]);
       const bounds = L.latLngBounds(latLngs);
       map.fitBounds(bounds, { padding: [34, 34], maxZoom: 8, animate: true });
-    } else if (areas.length === 1) {
-      map.flyTo([areas[0].lat, areas[0].lng], 8, { duration: 0.7 });
+    } else if (scoped.length === 1) {
+      map.flyTo([scoped[0].lat, scoped[0].lng], 8, { duration: 0.7 });
     }
-  }, [activeTopic, activeRegion, mapReady, areas]);
+  }, [activeTopic, activeRegion, showAllProvincesScope, mapReady]);
 
   const handleZoomToAll77Thailand = () => {
     const L = leafletRef.current;

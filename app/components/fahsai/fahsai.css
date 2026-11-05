@@ -4777,4 +4777,206 @@ body:has(.fs-app) {
   }
 }
 
+/* ============================================================================
+   STEP 3: GLOBAL PLATFORM MODE SWITCHER BAR, DATA PROVENANCE BANNER & SHARE LINK
+   ============================================================================ */
+
+.fs-global-mode-bar {
+  position: relative;
+  z-index: 40;
+  width: min(100% - 36px, 1480px);
+  margin: 12px auto 0;
+  padding: 8px 14px;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.14);
+  backdrop-filter: blur(16px);
+}
+
+.fs-gmb-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.fs-gmb-label {
+  font-size: 12px;
+  font-weight: 800;
+  color: #7dd3fc;
+  white-space: nowrap;
+}
+
+.fs-gmb-links {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.fs-gmb-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #e2e8f0;
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: all 150ms ease;
+  white-space: nowrap;
+}
+
+.fs-gmb-link:hover {
+  background: rgba(56, 189, 248, 0.22);
+  border-color: #38bdf8;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.fs-gmb-link.is-current {
+  background: linear-gradient(135deg, #0284c7, #10b981);
+  border-color: transparent;
+  color: #ffffff;
+  font-weight: 800;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
+}
+
+.fs-share-btn {
+  padding: 7px 13px;
+  border-radius: 999px;
+  border: 1px solid rgba(14, 165, 233, 0.38);
+  background: rgba(14, 165, 233, 0.1);
+  color: var(--fs-ink);
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.fs-share-btn:hover {
+  background: rgba(14, 165, 233, 0.2);
+  border-color: #0284c7;
+}
+
+.fs-provenance-banner {
+  position: relative;
+  z-index: 25;
+  width: min(100% - 36px, 1480px);
+  margin: 0 auto 14px;
+  padding: 10px 16px;
+  border-radius: 16px;
+  background: var(--fs-card);
+  border: 1px solid var(--fs-line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  flex-wrap: wrap;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
+}
+
+.fs-prov-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.fs-prov-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.fs-prov-badge.is-live {
+  background: rgba(16, 185, 129, 0.14);
+  color: #047857;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.fs-app.is-dark .fs-prov-badge.is-live {
+  color: #34d399;
+}
+
+.fs-prov-badge.is-fallback {
+  background: rgba(245, 158, 11, 0.15);
+  color: #b45309;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.fs-app.is-dark .fs-prov-badge.is-fallback {
+  color: #fbbf24;
+}
+
+.fs-prov-source {
+  font-size: 12.5px;
+  color: var(--fs-muted);
+}
+
+.fs-prov-standards {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.fs-prov-standards span {
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  background: rgba(2, 132, 199, 0.08);
+  color: var(--fs-ink);
+  border: 1px solid rgba(2, 132, 199, 0.2);
+}
+
+@media (max-width: 768px) {
+  .fs-global-mode-bar,
+  .fs-provenance-banner {
+    width: min(100% - 24px, 1340px);
+    padding: 8px 12px;
+  }
+
+  .fs-gmb-links {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    width: 100%;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .fs-gmb-links::-webkit-scrollbar {
+    display: none;
+  }
+
+  .fs-prov-standards {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    width: 100%;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+
+  .fs-prov-standards::-webkit-scrollbar {
+    display: none;
+  }
+
+  .fs-prov-standards span {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+}
+
+
 

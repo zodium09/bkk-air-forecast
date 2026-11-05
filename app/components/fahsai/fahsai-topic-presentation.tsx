@@ -1,6 +1,12 @@
 "use client";
 
-import type { AreaForecast, TopicId } from "../../lib/fahsai-data";
+import {
+  getTmdRainCoverageLabel,
+  getTmdRainIntensityLabel,
+  toTmdRainAreaPercent,
+  type AreaForecast,
+  type TopicId,
+} from "../../lib/fahsai-data";
 import {
   classifyAreaRisk,
   getFriendlyAdvice,
@@ -99,13 +105,13 @@ export function FahSaiTopicPresentation({
         <div className="fahsai-bespoke-hero-main">
           {topic === "rain" && (
             <>
-              <span className="fahsai-bespoke-kicker">🌧️ เรดาร์ตรวจฝน & โอกาสเกิดฝน</span>
+              <span className="fahsai-bespoke-kicker">🌧️ เกณฑ์การกระจายของฝน (% ของพื้นที่ · กรมอุตุนิยมวิทยา)</span>
               <div className="fahsai-bespoke-number">
-                {c.rainProb}
-                <small>%</small>
+                {toTmdRainAreaPercent(c.rainProb)}
+                <small>% ของพื้นที่ ({c.tmdRainCoverageLabel ?? getTmdRainCoverageLabel(toTmdRainAreaPercent(c.rainProb))})</small>
               </div>
               <p>
-                ฝนสะสม 24 ชม. คาดการณ์ <b>{c.rain24hMm} มม.</b> · เรดาร์ <b>{radarAndSchedule.dbz} dBZ</b>
+                {c.tmdRainIntensityLabel ?? getTmdRainIntensityLabel(c.rain24hMm)} · ฝนสะสม 24 ชม. คาดการณ์ <b>{c.rain24hMm} มม.</b> · เรดาร์ <b>{radarAndSchedule.dbz} dBZ</b>
               </p>
             </>
           )}
@@ -241,9 +247,11 @@ export function FahSaiTopicPresentation({
               <span>ลม{c.windDirLabel} {c.windKmh} กม./ชม.</span>
             </div>
             <div className="fahsai-metric-tile">
-              <small>☔ ความจำเป็นพกร่ม</small>
-              <strong>{c.rainProb >= 50 ? "จำเป็นต้องพกร่ม" : c.rainProb >= 30 ? "ควรพกร่มพับ" : "ไม่ต้องพกร่ม"}</strong>
-              <span>สะสม 24 ชม. ~{c.rain24hMm} มม.</span>
+              <small>☔ เกณฑ์กรมอุตุฯ & พกร่ม</small>
+              <strong>
+                {c.tmdRainCoverageLabel ?? getTmdRainCoverageLabel(toTmdRainAreaPercent(c.rainProb))} ({toTmdRainAreaPercent(c.rainProb)}% พื้นที่)
+              </strong>
+              <span>{c.tmdRainIntensityLabel ?? getTmdRainIntensityLabel(c.rain24hMm)} · สะสม ~{c.rain24hMm} มม.</span>
             </div>
           </div>
 

@@ -29,6 +29,7 @@ interface ExecutionContext {
 // const imageConfig: ImageConfig = { dangerouslyAllowSVG: true };
 
 const CACHEABLE_API_PATHS = new Set([
+  "/api/fahsai",
   "/api/forecast",
   "/api/rain-forecast",
   "/api/rain-places",

@@ -2,8 +2,18 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildFallbackPayload,
+  buildSyntheticTide24h,
+  calculateDewPointC,
+  calculateHeatIndexC,
+  calculateMarshallPalmerDbz,
+  calculateThaiAqiFromPm25,
+  calculateUsAqiFromPm25,
+  formatTmdRainText,
+  getTmdRainCoverageLabel,
+  getTmdRainIntensityLabel,
   REGIONS,
   THAILAND_AREAS,
+  toTmdRainAreaPercent,
 } from "../../app/lib/fahsai-data.ts";
 import {
   classifyAreaRisk,
@@ -162,4 +172,161 @@ test("classifyHourlyPointRisk, classifyDailyPointRisk, and projectAreaAtDayHour 
   assert.equal(tomorrow16.hourly.length, 24);
   assert.equal(tomorrow16.current.tempC, tomorrow16.hourly[16].tempC);
   assert.equal(tomorrow16.current.rainProb, tomorrow16.hourly[16].rainProb);
+});
+
+test("TMD rain area coverage (% ของพื้นที่) and rainfall intensity criteria match official Thai Meteorological Department standards", () => {
+  assert.equal(toTmdRainAreaPercent(0), 0);
+  assert.equal(toTmdRainAreaPercent(14), 10);
+  assert.equal(toTmdRainAreaPercent(36), 40);
+  assert.equal(toTmdRainAreaPercent(62), 60);
+  assert.equal(toTmdRainAreaPercent(95), 90);
+
+  assert.equal(getTmdRainCoverageLabel(0), "ไม่มีฝน");
+  assert.equal(getTmdRainCoverageLabel(20), "ฝนบางแห่ง");
+  assert.equal(getTmdRainCoverageLabel(30), "ฝนเป็นแห่งๆ");
+  assert.equal(getTmdRainCoverageLabel(60), "ฝนกระจาย");
+  assert.equal(getTmdRainCoverageLabel(70), "ฝนเกือบทั่วไป");
+  assert.equal(getTmdRainCoverageLabel(90), "ฝนทั่วไป");
+
+  assert.equal(getTmdRainIntensityLabel(0), "ไม่มีฝน");
+  assert.equal(getTmdRainIntensityLabel(5.2), "ฝนเล็กน้อย");
+  assert.equal(getTmdRainIntensityLabel(22.0), "ฝนปานกลาง");
+  assert.equal(getTmdRainIntensityLabel(55.0), "ฝนหนัก");
+  assert.equal(getTmdRainIntensityLabel(110.0), "ฝนหนักมาก");
+
+  assert.ok(formatTmdRainText(60, 18.5).includes("60% ของพื้นที่"));
+  assert.ok(formatTmdRainText(60, 18.5).includes("ฝนกระจาย"));
+});
+
+test("scientific formulas: US EPA & Thai PCD Piecewise AQI, NOAA Rothfusz Heat Index, Magnus-Tetens Dew Point, Marshall-Palmer dBZ, and Astronomical Lunar Tide", () => {
+  // US EPA Piecewise Linear AQI
+  assert.equal(calculateUsAqiFromPm25(0), 0);
+  assert.equal(calculateUsAqiFromPm25(9.0), 50);
+  assert.equal(calculateUsAqiFromPm25(35.4), 100);
+  assert.equal(calculateUsAqiFromPm25(55.4), 150);
+  assert.ok(calculateUsAqiFromPm25(125.4) === 200);
+
+  // Thai PCD AQI
+  assert.equal(calculateThaiAqiFromPm25(15.0), 25);
+  assert.equal(calculateThaiAqiFromPm25(25.0), 50);
+  assert.equal(calculateThaiAqiFromPm25(37.5), 100);
+  assert.equal(calculateThaiAqiFromPm25(75.0), 200);
+
+  // NOAA Rothfusz Heat Index
+  const hiCool = calculateHeatIndexC(22, 60);
+  assert.ok(hiCool >= 21.5 && hiCool <= 23.0);
+  const hiHotHumid = calculateHeatIndexC(35, 70);
+  assert.ok(hiHotHumid > 44, `Expected Rothfusz HI at 35°C / 70% RH to exceed 44°C, got ${hiHotHumid}`);
+
+  // Magnus-Tetens Dew Point
+  const td = calculateDewPointC(30, 70);
+  assert.ok(td > 23 && td < 25, `Expected dew point around 23.9°C, got ${td}`);
+
+  // Marshall-Palmer Radar Reflectivity (Z = 200 * R^1.6)
+  const dbzLight = calculateMarshallPalmerDbz(1.0); // Z=200 => 10*log10(200) = 23 dBZ
+  assert.equal(dbzLight, 23);
+  const dbzHeavy = calculateMarshallPalmerDbz(25.0);
+  assert.ok(dbzHeavy >= 44 && dbzHeavy <= 50);
+
+  // Astronomical Lunar Phase & Daily Transit Shift
+  const refDate = new Date("2025-01-29T12:36:00Z"); // New Moon (Spring Tide)
+  const springTide = buildSyntheticTide24h(1.2, 0.5, 0, refDate);
+  const neapTide = buildSyntheticTide24h(1.2, 0.5, 7, refDate); // Quarter Moon (~7 days later)
+  assert.ok(
+    springTide.highTideMsl > neapTide.highTideMsl,
+    `Expected Spring Tide (${springTide.highTideMsl}) > Neap Tide (${neapTide.highTideMsl})`
+  );
+
+  // Verify 7-day x 24-hour hourlyByDay matrix in payload
+  const payload = buildFallbackPayload();
+  const phuket = payload.areas.find(a => a.id === "phuket");
+  assert.ok(phuket);
+  assert.equal(phuket.hourlyByDay?.length, 7);
+  for (let d = 0; d < 7; d++) {
+    assert.equal(phuket.hourlyByDay[d].length, 24);
+  }
+});
+
+test("FahSaiLeafletMap and HydroQgisLayout use lazy GeoJSON loading, Canvas rendering, and in-place style updates", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const mapSource = await readFile(
+    new URL("../../app/components/fahsai/fahsai-leaflet-map.tsx", import.meta.url),
+    "utf8"
+  );
+  const hydroSource = await readFile(
+    new URL("../../app/components/hydro/hydro-qgis-layout.tsx", import.meta.url),
+    "utf8"
+  );
+
+  // Lazy dynamic imports instead of static top-level GeoJSON bundle bloat
+  assert.doesNotMatch(mapSource, /^import thailandProvincesGeoJson from/m);
+  assert.doesNotMatch(mapSource, /^import bangkokDistrictsGeoJson from/m);
+  assert.match(mapSource, /import\("\.\.\/\.\.\/data\/thailand-provinces-geojson\.json"\)/);
+  assert.match(mapSource, /import\("\.\.\/\.\.\/data\/bangkok-districts\.json"\)/);
+
+  // Hardware-accelerated canvas & in-place style/tooltip updates
+  assert.match(mapSource, /preferCanvas:\s*true/);
+  assert.match(mapSource, /layer\.setStyle\(/);
+  assert.match(mapSource, /featureLayer\.setTooltipContent\(/);
+  assert.match(mapSource, /existing\.setIcon\(icon\)/);
+
+  // Hydro QGIS layout lazy-loads and caches projected basin paths
+  assert.doesNotMatch(hydroSource, /^import upstreamBasinsGeo from/m);
+  assert.doesNotMatch(hydroSource, /^import coreGeographyGeo from/m);
+  assert.match(hydroSource, /loadProjectedBasinBoundaryPaths/);
+});
+
+test("FahSaiApp includes Global Mode Switcher, Data Provenance Banner, URL query sync, and persistent Dark Mode sync", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const appSource = await readFile(
+    new URL("../../app/components/fahsai/fahsai-app.tsx", import.meta.url),
+    "utf8"
+  );
+
+  // Global Mode Switcher Bar
+  assert.match(appSource, /fs-global-mode-bar/);
+  assert.match(appSource, /แถบสลับโหมดระบบพยากรณ์และเฝ้าระวังหลัก/);
+
+  // Data Provenance & Scientific Standards Banner
+  assert.match(appSource, /fs-provenance-banner/);
+  assert.match(appSource, /สถานะความสดของข้อมูลและมาตรฐานวิชาการ/);
+  assert.match(appSource, /เกณฑ์ % ฝนของพื้นที่ \(กรมอุตุนิยมวิทยา TMD\)/);
+
+  // URL Query Parameter Sync (?topic=&province=&region=&day=)
+  assert.match(appSource, /new URLSearchParams\(window\.location\.search\)/);
+  assert.match(appSource, /window\.history\.replaceState/);
+  assert.match(appSource, /handleCopyShareLink/);
+
+  // Persistent Dark Mode & Basemap Theme Sync
+  assert.match(appSource, /bkk-air-theme/);
+  assert.match(appSource, /document\.documentElement\.dataset\.theme/);
+});
+
+test("Step 4 architecture: modular sub-components and single source of truth for Bangkok time helpers", async () => {
+  const { readFile, access } = await import("node:fs/promises");
+  const appSource = await readFile(
+    new URL("../../app/components/fahsai/fahsai-app.tsx", import.meta.url),
+    "utf8"
+  );
+  const dataSource = await readFile(
+    new URL("../../app/lib/fahsai-data.ts", import.meta.url),
+    "utf8"
+  );
+
+  // Modular sub-components used by FahSaiApp
+  assert.match(appSource, /<FahSaiSeverityCharts/);
+  assert.match(appSource, /<FahSaiInsightsSections/);
+
+  // Single source of truth for getBangkokHour / getBangkokClockText from observation-time.ts
+  assert.match(dataSource, /from "\.\/observation-time\.ts"/);
+  assert.doesNotMatch(dataSource, /export function getBangkokHour/);
+
+  // Verify dead code files are removed
+  let backupExists = true;
+  try {
+    await access(new URL("../../app/backup", import.meta.url));
+  } catch {
+    backupExists = false;
+  }
+  assert.equal(backupExists, false, "app/backup directory should be removed");
 });

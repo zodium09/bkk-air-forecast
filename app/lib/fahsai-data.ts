@@ -1,4 +1,7 @@
 import extra53Provinces from "../data/thailand-extra-53-provinces.json" with { type: "json" };
+import { getBangkokClockText, getBangkokHour } from "./observation-time.ts";
+
+export { getBangkokClockText, getBangkokHour };
 
 export type TopicId =
   | "rain"
@@ -120,8 +123,14 @@ export interface AreaForecast {
     primaryHazardLabel: string;
     hazardAdvice: string;
     lifestyle: LifestyleMetrics;
+    tmdRainCoverageLabel?: string;
+    tmdRainIntensityLabel?: string;
+    thaiAqi?: number;
+    dewPointC?: number;
+    wavePeriodS?: number;
   };
   hourly: HourlyPoint[];
+  hourlyByDay?: HourlyPoint[][];
   daily: DailyPoint[];
 }
 
@@ -805,7 +814,180 @@ export function windDirectionThai(deg: number): string {
   return "เหนือ (ลมหนาว)";
 }
 
-export function buildSyntheticTide24h(amp: number, phase: number): {
+/**
+ * เกณฑ์การกระจายของฝน (% ของพื้นที่) ตามมาตรฐานกรมอุตุนิยมวิทยา (TMD)
+ * ปัดเป็นขั้นละ 10% (0, 10, 20, 30, 40, 60, 70, 80, 90%) เพื่อสื่อสารแบบพยากรณ์อากาศของกรมอุตุฯ
+ */
+export function toTmdRainAreaPercent(rawPct: number): number {
+  const clamped = Math.max(0, Math.min(100, Number.isFinite(rawPct) ? rawPct : 0));
+  if (clamped < 5) return 0;
+  return Math.min(90, Math.max(10, Math.round(clamped / 10) * 10));
+}
+
+/**
+ * คำจำกัดความการกระจายของฝน (% ของพื้นที่) ตามเกณฑ์กรมอุตุนิยมวิทยา (TMD):
+ * - < 10%: ไม่มีฝน
+ * - 10% - 20% ของพื้นที่: ฝนบางแห่ง (Isolated)
+ * - 30% - 40% ของพื้นที่: ฝนเป็นแห่งๆ (Widely Scattered)
+ * - 40% - 60% ของพื้นที่: ฝนกระจาย (Scattered)
+ * - 60% - 80% ของพื้นที่: ฝนเกือบทั่วไป (Almost Widespread)
+ * - > 80% ของพื้นที่: ฝนทั่วไป (Widespread)
+ */
+export function getTmdRainCoverageLabel(areaPct: number): string {
+  if (areaPct < 10) return "ไม่มีฝน";
+  if (areaPct <= 20) return "ฝนบางแห่ง";
+  if (areaPct < 40) return "ฝนเป็นแห่งๆ";
+  if (areaPct <= 60) return "ฝนกระจาย";
+  if (areaPct <= 80) return "ฝนเกือบทั่วไป";
+  return "ฝนทั่วไป";
+}
+
+/**
+ * เกณฑ์ปริมาณฝนสะสม 24 ชั่วโมง (มม.) ตามมาตรฐานกรมอุตุนิยมวิทยา (TMD):
+ * - < 0.1 มม.: ไม่มีฝน / ฝนวัดจำนวนไม่ได้
+ * - 0.1 - 10.0 มม.: ฝนเล็กน้อย (Light Rain)
+ * - 10.1 - 35.0 มม.: ฝนปานกลาง (Moderate Rain)
+ * - 35.1 - 90.0 มม.: ฝนหนัก (Heavy Rain)
+ * - > 90.0 มม.: ฝนหนักมาก (Very Heavy Rain)
+ */
+export function getTmdRainIntensityLabel(rain24hMm: number): string {
+  if (rain24hMm < 0.1) return "ไม่มีฝน";
+  if (rain24hMm <= 10.0) return "ฝนเล็กน้อย";
+  if (rain24hMm <= 35.0) return "ฝนปานกลาง";
+  if (rain24hMm <= 90.0) return "ฝนหนัก";
+  return "ฝนหนักมาก";
+}
+
+/**
+ * สร้างข้อความรายงานฝนตามสำนวนกรมอุตุนิยมวิทยา เช่น "ฝนฟ้าคะนอง 60% ของพื้นที่ (ฝนกระจาย)"
+ */
+export function formatTmdRainText(areaPct: number, rainMm?: number): string {
+  const tmdPct = toTmdRainAreaPercent(areaPct);
+  const coverage = getTmdRainCoverageLabel(tmdPct);
+  if (tmdPct < 10) return "ไม่มีฝน (0% ของพื้นที่)";
+  if (typeof rainMm === "number" && rainMm >= 0.1) {
+    const intensity = getTmdRainIntensityLabel(rainMm);
+    return `${intensity} ${tmdPct}% ของพื้นที่ (${coverage})`;
+  }
+  return `ฝน ${tmdPct}% ของพื้นที่ (${coverage})`;
+}
+
+/**
+ * คำนวณ US EPA AQI จากค่าความเข้มข้น PM2.5 (μg/m³) ด้วยสมการ Piecewise Linear Breakpoints มาตรฐานสากล
+ */
+export function calculateUsAqiFromPm25(pm25: number): number {
+  const c = Math.max(0, Number.isFinite(pm25) ? pm25 : 0);
+  const breakpoints: Array<[number, number, number, number]> = [
+    [0.0, 9.0, 0, 50],
+    [9.1, 35.4, 51, 100],
+    [35.5, 55.4, 101, 150],
+    [55.5, 125.4, 151, 200],
+    [125.5, 225.4, 201, 300],
+    [225.5, 500.4, 301, 500],
+  ];
+  for (const [bpLo, bpHi, iLo, iHi] of breakpoints) {
+    if (c <= bpHi) {
+      const cClamped = Math.max(bpLo, c);
+      return Math.round(((iHi - iLo) / (bpHi - bpLo)) * (cClamped - bpLo) + iLo);
+    }
+  }
+  return 500;
+}
+
+/**
+ * คำนวณดัชนีคุณภาพอากาศประเทศไทย (Thai PCD AQI) จากค่า PM2.5 (μg/m³) ตามเกณฑ์กรมควบคุมมลพิษใหม่
+ * (0-15 = ดีมาก 0-25, 15.1-25 = ดี 26-50, 25.1-37.5 = ปานกลาง 51-100, 37.6-75 = เริ่มมีผล 101-200, >75 = มีผลกระทบ >200)
+ */
+export function calculateThaiAqiFromPm25(pm25: number): number {
+  const c = Math.max(0, Number.isFinite(pm25) ? pm25 : 0);
+  const breakpoints: Array<[number, number, number, number]> = [
+    [0.0, 15.0, 0, 25],
+    [15.1, 25.0, 26, 50],
+    [25.1, 37.5, 51, 100],
+    [37.6, 75.0, 101, 200],
+    [75.1, 150.0, 201, 300],
+  ];
+  for (const [bpLo, bpHi, iLo, iHi] of breakpoints) {
+    if (c <= bpHi) {
+      const cClamped = Math.max(bpLo, c);
+      return Math.round(((iHi - iLo) / (bpHi - bpLo)) * (cClamped - bpLo) + iLo);
+    }
+  }
+  return Math.min(500, Math.round(300 + (c - 150) * 1.5));
+}
+
+/**
+ * คำนวณดัชนีความร้อน (Heat Index / Apparent Temperature) ตามสมการถดถอยพหุนามของ NOAA / NWS Rothfusz Regression
+ */
+export function calculateHeatIndexC(tempC: number, relativeHumidity: number): number {
+  const rh = Math.max(10, Math.min(100, Number.isFinite(relativeHumidity) ? relativeHumidity : 65));
+  if (tempC < 26.0) {
+    return Number((tempC + (rh - 50) * 0.03).toFixed(1));
+  }
+  const T = tempC * 1.8 + 32; // แปลงเป็น °F สำหรับสมการ Rothfusz
+  const R = rh;
+  let hiF =
+    -42.379 +
+    2.04901523 * T +
+    10.14333127 * R -
+    0.22475541 * T * R -
+    0.00683783 * T * T -
+    0.05481717 * R * R +
+    0.00122874 * T * T * R +
+    0.00085282 * T * R * R -
+    0.00000199 * T * T * R * R;
+
+  if (R < 13 && T >= 80 && T <= 112) {
+    hiF -= ((13 - R) / 4) * Math.sqrt((17 - Math.abs(T - 95)) / 17);
+  } else if (R > 85 && T >= 80 && T <= 87) {
+    hiF += ((R - 85) / 10) * ((87 - T) / 5);
+  }
+
+  const hiC = (hiF - 32) / 1.8;
+  return Number(Math.max(tempC, hiC).toFixed(1));
+}
+
+/**
+ * คำนวณอุณหภูมิจุดน้ำค้าง (Dew Point Temperature, Td) ด้วยสมการ Magnus-Tetens
+ */
+export function calculateDewPointC(tempC: number, relativeHumidity: number): number {
+  const rh = Math.max(5, Math.min(100, Number.isFinite(relativeHumidity) ? relativeHumidity : 65));
+  const a = 17.625;
+  const b = 243.04;
+  const alpha = Math.log(rh / 100) + (a * tempC) / (b + tempC);
+  const td = (b * alpha) / (a - alpha);
+  return Number(td.toFixed(1));
+}
+
+/**
+ * คำนวณค่าการสะท้อนเรดาร์ตรวจอากาศ (Radar Reflectivity, dBZ) ตามความสัมพันธ์ Marshall-Palmer (Z = 200 * R^1.6)
+ */
+export function calculateMarshallPalmerDbz(rainRateMmHr: number, rainAreaPct = 0): number {
+  const effectiveRate =
+    rainRateMmHr > 0.05
+      ? rainRateMmHr
+      : rainAreaPct >= 70
+        ? 8.5
+        : rainAreaPct >= 50
+          ? 3.2
+          : rainAreaPct >= 30
+            ? 0.9
+            : 0.08;
+  const z = 200 * Math.pow(Math.max(0.05, effectiveRate), 1.6);
+  const dbz = 10 * Math.log10(Math.max(1, z));
+  return Math.max(10, Math.min(58, Math.round(dbz)));
+}
+
+/**
+ * คำนวณระดับน้ำขึ้น–น้ำลงรายชั่วโมงด้วยแบบจำลองฮาร์มอนิกดาราศาสตร์ (M2, S2, K1, O1)
+ * ร่วมกับอายุของดวงจันทร์ (Synodic Lunar Cycle 29.53059 วัน) เพื่อจำลองน้ำเกิด (Spring Tide) และน้ำตาย (Neap Tide)
+ */
+export function buildSyntheticTide24h(
+  amp: number,
+  phase: number,
+  dayOffset = 0,
+  refDate = new Date()
+): {
   hourlyTide: number[];
   highTideMsl: number;
   highTideTime: string;
@@ -821,15 +1003,27 @@ export function buildSyntheticTide24h(amp: number, phase: number): {
       lowTideTime: "ระบายน้ำตามความลาดชันธรรมชาติ",
     };
   }
+
+  // Known new moon reference: 2025-01-29T12:36:00Z (Synodic month = 29.530588853 days)
+  const synodicMs = 29.530588853 * 86400 * 1000;
+  const targetMs = refDate.getTime() + dayOffset * 86400 * 1000;
+  const lunarAgeDays = (((targetMs - Date.UTC(2025, 0, 29, 12, 36, 0)) % synodicMs) + synodicMs) % synodicMs / (86400 * 1000);
+
+  // Spring/Neap modulation: peaks at New Moon (0) and Full Moon (~14.77)
+  const springNeapFactor = 1 + 0.18 * Math.cos((4 * Math.PI * lunarAgeDays) / 29.530588853);
+  // Daily lunar transit shift (~50.47 minutes later each solar day = 0.841 hours/day)
+  const lunarShiftHours = dayOffset * 0.8412;
+
   const hourlyTide: number[] = [];
   let maxVal = -99;
   let maxHour = 0;
   let minVal = 99;
   let minHour = 0;
   for (let h = 0; h < 24; h++) {
-    const semiDiurnal = amp * Math.sin(((2 * Math.PI * (h - 4)) / 12.42) + phase);
-    const diurnal = 0.38 * amp * Math.cos(((2 * Math.PI * (h - 9)) / 24) + phase * 0.5);
-    const level = Number((0.28 + semiDiurnal * 0.72 + diurnal).toFixed(2));
+    const effH = h - lunarShiftHours;
+    const m2 = amp * springNeapFactor * Math.sin(((2 * Math.PI * (effH - 4)) / 12.4206) + phase);
+    const k1 = 0.38 * amp * Math.cos(((2 * Math.PI * (effH - 9)) / 23.9345) + phase * 0.5);
+    const level = Number((0.28 + m2 * 0.72 + k1).toFixed(2));
     hourlyTide.push(level);
     if (level > maxVal) {
       maxVal = level;
@@ -871,6 +1065,12 @@ export function computeAreaIntelligence(params: {
   lowTideMsl: number;
   lowTideTime: string;
   waveHeightM: number;
+  wavePeriodS?: number;
+  pressureHpa?: number;
+  visibilityKm?: number;
+  dewPointC?: number;
+  cloudCoverPct?: number;
+  rainRateMmHr?: number;
 }) {
   const {
     meta,
@@ -890,31 +1090,62 @@ export function computeAreaIntelligence(params: {
     waveHeightM,
   } = params;
 
-  const cloudCoverPct = Math.min(98, Math.max(12, Math.round(rainProb * 0.85 + (humidity - 50) * 0.4)));
+  const tmdRainPct = toTmdRainAreaPercent(rainProb);
+  const tmdRainCoverageLabel = getTmdRainCoverageLabel(tmdRainPct);
+  const tmdRainIntensityLabel = getTmdRainIntensityLabel(rain24hMm);
+  const thaiAqi = calculateThaiAqiFromPm25(pm25);
+  const dewPointC =
+    typeof params.dewPointC === "number" && Number.isFinite(params.dewPointC)
+      ? Number(params.dewPointC.toFixed(1))
+      : calculateDewPointC(tempC, humidity);
+
+  const cloudCoverPct =
+    typeof params.cloudCoverPct === "number" && Number.isFinite(params.cloudCoverPct)
+      ? Math.min(100, Math.max(5, Math.round(params.cloudCoverPct)))
+      : Math.min(98, Math.max(12, Math.round(rainProb * 0.85 + (humidity - 50) * 0.4)));
+
   const skyStateLabel =
-    rainProb >= 60
-      ? "🌧️ เมฆฝนปกคลุม มีฝนฟ้าคะนอง"
-      : rainProb >= 35
-        ? "⛅ เมฆเป็นส่วนมาก มีฝนโปรยปรายบางแห่ง"
+    tmdRainPct >= 60
+      ? `🌧️ เมฆฝนปกคลุม · ${tmdRainCoverageLabel} (${tmdRainPct}% ของพื้นที่)`
+      : tmdRainPct >= 30
+        ? `⛅ เมฆเป็นส่วนมาก · ${tmdRainCoverageLabel} (${tmdRainPct}% ของพื้นที่)`
         : cloudCoverPct <= 35
           ? "☀️ ฟ้าใสโปร่ง แดดสวยไร้เมฆฝน"
           : "🌤️ ฟ้าโปร่ง มีเมฆบางส่วน แสงสวยสบายตา";
 
-  const pressureHpa = Number((1012.5 + (25 - minMorningC) * 0.45 - (rainProb / 100) * 3.2).toFixed(1));
-  const visibilityKm = Number(
-    Math.max(4.5, Math.min(20, 18 - (pm25 > 35 ? (pm25 - 35) * 0.14 : 0) - (rainProb > 50 ? 4.5 : 0))).toFixed(1)
-  );
-  const radarDbz = rainProb >= 65 ? 46 : rainProb >= 45 ? 37 : rainProb >= 30 ? 28 : 14;
+  const pressureHpa =
+    typeof params.pressureHpa === "number" && Number.isFinite(params.pressureHpa)
+      ? Number(params.pressureHpa.toFixed(1))
+      : Number((1012.5 + (25 - minMorningC) * 0.45 - (rainProb / 100) * 3.2).toFixed(1));
 
-  // Morning mist / fog chance (especially for mountain / northern / riverside areas)
+  const visibilityKm =
+    typeof params.visibilityKm === "number" && Number.isFinite(params.visibilityKm)
+      ? Number(Math.max(1.5, Math.min(24, params.visibilityKm)).toFixed(1))
+      : Number(
+          Math.max(4.5, Math.min(20, 18 - (pm25 > 35 ? (pm25 - 35) * 0.14 : 0) - (rainProb > 50 ? 4.5 : 0))).toFixed(1)
+        );
+
+  const estHourlyRainMm =
+    typeof params.rainRateMmHr === "number" && params.rainRateMmHr > 0
+      ? params.rainRateMmHr
+      : rain24hMm > 0
+        ? rain24hMm / 6
+        : 0;
+  const radarDbz = calculateMarshallPalmerDbz(estHourlyRainMm, tmdRainPct);
+
+  // Morning mist / radiation & valley fog model using Dewpoint Depression (ΔTd = T_min - Td)
+  const morningDewPointC = calculateDewPointC(minMorningC, Math.min(98, humidity + 10));
+  const dewDepression = Math.max(0, minMorningC - morningDewPointC);
+  const dewFactor = dewDepression <= 1.5 ? 28 : dewDepression <= 3.0 ? 18 : dewDepression <= 5.0 ? 8 : 0;
+
   const mistChancePct = Math.min(
     95,
     Math.max(
       10,
       Math.round(
-        (meta.zoneType === "mountain" ? 55 : 20) +
-          (minMorningC <= 20 ? 25 : minMorningC <= 23 ? 12 : 0) +
-          (humidity >= 70 ? 12 : 0) -
+        (meta.zoneType === "mountain" ? 48 : 16) +
+          (minMorningC <= 20 ? 22 : minMorningC <= 23 ? 10 : 0) +
+          dewFactor -
           (windKmh > 25 ? 15 : 0)
       )
     )
@@ -990,7 +1221,10 @@ export function computeAreaIntelligence(params: {
   let hazardAdvice = "ไม่มีสัญญาณภัยธรรมชาติรุนแรง สามารถเดินทาง ท่องเที่ยว และทำกิจกรรมกลางแจ้งได้ตามปกติ";
 
   if (rainRisk >= airRisk && rainRisk >= heatRisk && rainRisk >= seaRisk && rainRisk >= 3) {
-    primaryHazardLabel = rainRisk >= 4 ? "🌧️ เฝ้าระวังฝนตกหนัก & น้ำท่วมขังรอระบาย" : "🌦️ เฝ้าระวังเมฆฝนโปรยปรายช่วงบ่าย–ค่ำ";
+    primaryHazardLabel =
+      rainRisk >= 4
+        ? `🌧️ เฝ้าระวัง${tmdRainCoverageLabel} (${tmdRainPct}% ของพื้นที่) & น้ำท่วมขังรอระบาย`
+        : `🌦️ เฝ้าระวัง${tmdRainCoverageLabel} (${tmdRainPct}% ของพื้นที่) ช่วงบ่าย–ค่ำ`;
     hazardAdvice = "พกร่มหรือเสื้อกันฝน หลีกเลี่ยงจุดลุ่มต่ำน้ำท่วมขัง และเผื่อเวลาเดินทางบนท้องถนน";
   } else if (airRisk >= rainRisk && airRisk >= heatRisk && airRisk >= seaRisk && airRisk >= 3) {
     primaryHazardLabel = airRisk >= 4 ? "😷 เฝ้าระวังฝุ่น PM2.5 สะสมเกินเกณฑ์มาตรฐาน" : "🟡 คุณภาพอากาศปานกลาง กลุ่มเสี่ยงระวังฝุ่น";
@@ -1035,6 +1269,10 @@ export function computeAreaIntelligence(params: {
     skyStateLabel,
     pressureHpa,
     visibilityKm,
+    dewPointC,
+    tmdRainCoverageLabel,
+    tmdRainIntensityLabel,
+    thaiAqi,
     radarDbz,
     mistChancePct,
     coolIndexLabel,
@@ -1058,21 +1296,22 @@ export function buildFallbackPayload(): FahSaiPayload {
   const nowHour = getBangkokHour();
 
   const areas: AreaForecast[] = THAILAND_AREAS.map((meta, idx) => {
-    const tide = buildSyntheticTide24h(meta.tideAmp, meta.tidePhase);
+    const tide = buildSyntheticTide24h(meta.tideAmp, meta.tidePhase, 0);
     const tempC = meta.baseTempC;
     const minMorningC = meta.baseMinC;
     const maxAfternoonC = Number((tempC + 2.2).toFixed(1));
     const humidity = meta.isCoastal ? 74 : meta.zoneType === "mountain" ? 68 : 63;
-    const feelsLikeC = Number((tempC + (meta.isCoastal ? 3.8 : meta.zoneType === "mountain" ? 1.8 : 4.2)).toFixed(1));
-    const rainProb = meta.baseRainProb;
-    const rain24hMm = Number((rainProb >= 45 ? 11.5 : rainProb >= 30 ? 4.8 : 1.2).toFixed(1));
+    const feelsLikeC = calculateHeatIndexC(tempC, humidity);
+    const rainProb = toTmdRainAreaPercent(meta.baseRainProb);
+    const rain24hMm = Number((rainProb >= 50 ? 14.5 : rainProb >= 30 ? 5.2 : 1.2).toFixed(1));
     const pm25 = meta.basePm25;
-    const aqi = Math.round(pm25 * 2.55);
+    const aqi = calculateUsAqiFromPm25(pm25);
     const uvIndex = Number((meta.regionId === "south-andaman" || meta.regionId === "south-gulf" ? 9.2 : 8.0).toFixed(1));
     const windKmh = Number((meta.isCoastal ? 19.5 + (idx % 4) * 2.0 : 14.0 + (idx % 3) * 1.8).toFixed(1));
     const windGustKmh = Number((windKmh * 1.42).toFixed(1));
     const windDeg = meta.seaBasin === "andaman" ? 230 : 45;
     const waveHeightM = meta.isCoastal ? Number((meta.baseWaveM + (idx % 3) * 0.08).toFixed(2)) : 0;
+    const wavePeriodS = meta.isCoastal ? Number((5.2 + waveHeightM * 1.8).toFixed(1)) : 0;
 
     const curTide = tide.hourlyTide[nowHour] ?? tide.hourlyTide[14] ?? 0;
     const nextTide = tide.hourlyTide[(nowHour + 1) % 24] ?? curTide;
@@ -1099,34 +1338,11 @@ export function buildFallbackPayload(): FahSaiPayload {
       lowTideMsl: tide.lowTideMsl,
       lowTideTime: tide.lowTideTime,
       waveHeightM,
-    });
-
-    const hourly: HourlyPoint[] = Array.from({ length: 24 }, (_, h) => {
-      const tempCurve = Math.sin(((h - 8) / 24) * 2 * Math.PI) * 3.8;
-      const t = Number((tempC - 1.4 + tempCurve).toFixed(1));
-      const fl = Number((t + (h >= 11 && h <= 16 ? 4.2 : 2.0)).toFixed(1));
-      const rp = h >= 15 && h <= 19 ? Math.min(88, rainProb + 22) : Math.max(8, rainProb - 12);
-      const rm = rp >= 45 ? Number(((rp - 35) * 0.14).toFixed(1)) : 0;
-      const pm = Number(Math.max(7, pm25 + (h >= 6 && h <= 9 ? 5.5 : h >= 13 && h <= 17 ? -3.8 : 0)).toFixed(1));
-      const wk = Number((windKmh + (h >= 12 && h <= 17 ? 4.5 : 0)).toFixed(1));
-      const uv = h >= 7 && h <= 17 ? Number((Math.sin(((h - 7) / 10) * Math.PI) * uvIndex).toFixed(1)) : 0;
-      return {
-        hourLabel: `${String(h).padStart(2, "0")}:00`,
-        tempC: t,
-        feelsLikeC: fl,
-        rainProb: rp,
-        rainMm: rm,
-        pm25: pm,
-        windKmh: wk,
-        tideMsl: tide.hourlyTide[h] ?? 0,
-        waveM: meta.isCoastal ? Number((waveHeightM + (h >= 13 && h <= 18 ? 0.16 : 0)).toFixed(2)) : 0,
-        cloudPct: Math.min(95, Math.max(15, Math.round(rp * 0.9 + 15))),
-        uvIndex: uv,
-      };
+      wavePeriodS,
     });
 
     const daily: DailyPoint[] = dayNames.map((label, d) => {
-      const dRain = Math.max(10, Math.min(85, rainProb + (d === 1 ? 12 : d === 3 ? -12 : (d % 2) * 6)));
+      const dRain = toTmdRainAreaPercent(Math.max(10, Math.min(85, rainProb + (d === 1 ? 10 : d === 3 ? -10 : (d % 2) * 10))));
       return {
         dayLabel: label,
         maxTempC: Number((maxAfternoonC - (d % 3) * 0.5).toFixed(1)),
@@ -1139,6 +1355,40 @@ export function buildFallbackPayload(): FahSaiPayload {
         waveMaxM: meta.isCoastal ? Number((waveHeightM + (d === 1 ? 0.15 : 0)).toFixed(2)) : 0,
       };
     });
+
+    const hourlyByDay: HourlyPoint[][] = daily.map((dayItem, d) => {
+      const dayTide = d === 0 ? tide : buildSyntheticTide24h(meta.tideAmp, meta.tidePhase, d);
+      const dayMidTemp = (dayItem.maxTempC + dayItem.minTempC) / 2;
+      const dayAmpTemp = Math.max(1.8, (dayItem.maxTempC - dayItem.minTempC) / 2);
+      return Array.from({ length: 24 }, (_, h) => {
+        const tempCurve = Math.sin(((h - 8) / 24) * 2 * Math.PI) * dayAmpTemp;
+        const t = Number((dayMidTemp + tempCurve).toFixed(1));
+        const hrHumidity = Math.max(45, Math.min(95, Math.round(humidity - tempCurve * 2.4)));
+        const fl = calculateHeatIndexC(t, hrHumidity);
+        const rp = toTmdRainAreaPercent(
+          h >= 15 && h <= 19 ? Math.min(90, dayItem.rainProb + 20) : Math.max(10, dayItem.rainProb - 10)
+        );
+        const rm = rp >= 40 ? Number(((rp - 30) * 0.14).toFixed(1)) : 0;
+        const pm = Number(Math.max(7, dayItem.pm25Avg + (h >= 6 && h <= 9 ? 5.5 : h >= 13 && h <= 17 ? -3.8 : 0)).toFixed(1));
+        const wk = Number((windKmh + (h >= 12 && h <= 17 ? 4.5 : 0)).toFixed(1));
+        const uv = h >= 7 && h <= 17 ? Number((Math.sin(((h - 7) / 10) * Math.PI) * dayItem.uvMax).toFixed(1)) : 0;
+        return {
+          hourLabel: `${String(h).padStart(2, "0")}:00`,
+          tempC: t,
+          feelsLikeC: fl,
+          rainProb: rp,
+          rainMm: rm,
+          pm25: pm,
+          windKmh: wk,
+          tideMsl: dayTide.hourlyTide[h] ?? 0,
+          waveM: meta.isCoastal ? Number((dayItem.waveMaxM + (h >= 13 && h <= 18 ? 0.12 : -0.06)).toFixed(2)) : 0,
+          cloudPct: Math.min(95, Math.max(15, Math.round(rp * 0.9 + 15))),
+          uvIndex: uv,
+        };
+      });
+    });
+
+    const hourly = hourlyByDay[0];
 
     return {
       id: meta.id,
@@ -1163,15 +1413,19 @@ export function buildFallbackPayload(): FahSaiPayload {
         minMorningC,
         maxAfternoonC,
         humidity,
+        dewPointC: intel.dewPointC,
         pressureHpa: intel.pressureHpa,
         visibilityKm: intel.visibilityKm,
         cloudCoverPct: intel.cloudCoverPct,
         skyStateLabel: intel.skyStateLabel,
         rainProb,
         rain24hMm,
+        tmdRainCoverageLabel: intel.tmdRainCoverageLabel,
+        tmdRainIntensityLabel: intel.tmdRainIntensityLabel,
         radarDbz: intel.radarDbz,
         pm25,
         aqi,
+        thaiAqi: intel.thaiAqi,
         uvIndex,
         windKmh,
         windGustKmh,
@@ -1187,6 +1441,7 @@ export function buildFallbackPayload(): FahSaiPayload {
         lowTideTime: tide.lowTideTime,
         tideStatusLabel: intel.tideStatusLabel,
         waveHeightM,
+        wavePeriodS,
         seaStateLabel: intel.seaStateLabel,
         marineSafetyLabel: intel.marineSafetyLabel,
         tourismScore: intel.tourismScore,
@@ -1199,6 +1454,7 @@ export function buildFallbackPayload(): FahSaiPayload {
         lifestyle: intel.lifestyle,
       },
       hourly,
+      hourlyByDay,
       daily,
     };
   });
@@ -1208,35 +1464,4 @@ export function buildFallbackPayload(): FahSaiPayload {
     sourceMode: "hybrid-fallback",
     areas,
   };
-}
-
-/** Always compute Bangkok (UTC+7) hour (0..23) regardless of server/cloud timezone (Vercel UTC). */
-export function getBangkokHour(date = new Date()): number {
-  try {
-    const formatter = new Intl.DateTimeFormat("en-GB", {
-      timeZone: "Asia/Bangkok",
-      hour: "2-digit",
-      hour12: false,
-    });
-    return parseInt(formatter.format(date), 10) % 24;
-  } catch {
-    return (date.getUTCHours() + 7) % 24;
-  }
-}
-
-/** Always compute Bangkok (UTC+7) clock string "HH:MM" regardless of server/cloud timezone. */
-export function getBangkokClockText(date = new Date()): string {
-  try {
-    const formatter = new Intl.DateTimeFormat("en-GB", {
-      timeZone: "Asia/Bangkok",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
-    return formatter.format(date);
-  } catch {
-    const h = String((date.getUTCHours() + 7) % 24).padStart(2, "0");
-    const m = String(date.getUTCMinutes()).padStart(2, "0");
-    return `${h}:${m}`;
-  }
 }

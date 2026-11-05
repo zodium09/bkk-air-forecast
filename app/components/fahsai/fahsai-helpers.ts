@@ -1,4 +1,17 @@
-import type { AreaForecast, DailyPoint, HourlyPoint, RegionId, TopicId } from "../../lib/fahsai-data";
+import {
+  calculateHeatIndexC,
+  calculateMarshallPalmerDbz,
+  calculateThaiAqiFromPm25,
+  calculateUsAqiFromPm25,
+  getTmdRainCoverageLabel,
+  getTmdRainIntensityLabel,
+  toTmdRainAreaPercent,
+  type AreaForecast,
+  type DailyPoint,
+  type HourlyPoint,
+  type RegionId,
+  type TopicId,
+} from "../../lib/fahsai-data.ts";
 
 export interface TopicCardConfig {
   id: TopicId;
@@ -18,13 +31,13 @@ export const TOPICS: TopicCardConfig[] = [
     id: "rain",
     icon: "🌧️",
     label: "ฝน & พายุฟ้าคะนอง",
-    tagline: "เรดาร์เมฆฝน · โอกาสตก · ปริมาณสะสม",
-    shortDesc: "เช็กโอกาสฝนตก เรดาร์ dBZ ทิศทางพายุฝน และเวลาพกร่ม",
+    tagline: "% ฝนของพื้นที่ (กรมอุตุฯ) · เรดาร์ dBZ · ฝนสะสม",
+    shortDesc: "เช็ก % ฝนของพื้นที่ตามเกณฑ์กรมอุตุนิยมวิทยา (ฝนบางแห่ง–ฝนกระจาย–ฝนเกือบทั่วไป) และเรดาร์ dBZ",
     color: "#0284c7",
     gradient: "linear-gradient(135deg, #0284c7 0%, #38bdf8 100%)",
     accentLight: "rgba(14, 165, 233, 0.14)",
-    unit: "%",
-    badgeText: "เรดาร์สด & โอกาสฝน",
+    unit: "% พื้นที่",
+    badgeText: "% ฝนของพื้นที่ (กรมอุตุฯ)",
   },
   {
     id: "sky",
@@ -146,11 +159,11 @@ export interface RiskBandInfo {
 export function getTopicRiskBands(topic: TopicId): RiskBandInfo[] {
   if (topic === "rain") {
     return [
-      { tier: 5, label: "ระดับ 5 · ฝนตกหนักมาก/เสี่ยงน้ำท่วมขัง", rangeText: "โอกาส > 75% หรือฝน > 35 มม.", color: "#ef4444" },
-      { tier: 4, label: "ระดับ 4 · ฝนฟ้าคะนองกระจาย", rangeText: "โอกาส 55–75% หรือฝน 15–35 มม.", color: "#f97316" },
-      { tier: 3, label: "ระดับ 3 · มีฝนบางแห่ง (ควรพกร่ม)", rangeText: "โอกาส 35–54%", color: "#eab308" },
-      { tier: 2, label: "ระดับ 2 · เมฆบางส่วน ฝนเล็กน้อย", rangeText: "โอกาส 15–34%", color: "#38bdf8" },
-      { tier: 1, label: "ระดับ 1 · ฟ้าใสโปร่ง ไร้ฝน", rangeText: "โอกาส < 15%", color: "#10b981" },
+      { tier: 5, label: "ระดับ 5 · ฝนเกือบทั่วไป–ทั่วไป / ฝนตกหนักมาก", rangeText: "ฝน > 70% ของพื้นที่ หรือฝน > 35 มม.", color: "#ef4444" },
+      { tier: 4, label: "ระดับ 4 · ฝนกระจาย (กรมอุตุฯ)", rangeText: "ฝน 40–70% ของพื้นที่ หรือฝน 15–35 มม.", color: "#f97316" },
+      { tier: 3, label: "ระดับ 3 · ฝนเป็นแห่งๆ (ควรพกร่ม)", rangeText: "ฝน 30% ของพื้นที่", color: "#eab308" },
+      { tier: 2, label: "ระดับ 2 · ฝนบางแห่ง (เล็กน้อย)", rangeText: "ฝน 10–20% ของพื้นที่", color: "#38bdf8" },
+      { tier: 1, label: "ระดับ 1 · ฟ้าใสโปร่ง ไม่มีฝน", rangeText: "ฝน < 10% ของพื้นที่", color: "#10b981" },
     ];
   }
   if (topic === "sky") {
@@ -311,26 +324,29 @@ export function getFriendlyAdvice(area: AreaForecast, topic: TopicId): {
 } {
   const c = area.current;
   if (topic === "rain") {
-    if (c.rainProb >= 55 || c.rain24hMm >= 15) {
+    const tmdPct = toTmdRainAreaPercent(c.rainProb);
+    const tmdCov = c.tmdRainCoverageLabel ?? getTmdRainCoverageLabel(tmdPct);
+    const tmdInt = c.tmdRainIntensityLabel ?? getTmdRainIntensityLabel(c.rain24hMm);
+    if (tmdPct >= 60 || c.rain24hMm >= 15) {
       return {
-        badge: "☔ โอกาสฝนตกสูง",
+        badge: `☔ ${tmdCov} (${tmdPct}% ของพื้นที่)`,
         tone: "alert",
-        headline: `โอกาสเกิดฝน ${c.rainProb}% · สะสมคาดการณ์ ~${c.rain24hMm} มม. (เรดาร์ ${c.radarDbz} dBZ)`,
+        headline: `มีฝนฟ้าคะนอง ${tmdPct}% ของพื้นที่ (${tmdCov} · ${tmdInt} ~${c.rain24hMm} มม. · เรดาร์ ${c.radarDbz} dBZ)`,
         action: "ควรพกร่มหรือเสื้อกันฝนติดตัว หลีกเลี่ยงจุดลุ่มต่ำน้ำขัง และเผื่อเวลาเดินทางช่วงบ่าย–ค่ำ",
       };
     }
-    if (c.rainProb >= 35) {
+    if (tmdPct >= 30) {
       return {
-        badge: "🌦️ มีเมฆและฝนบางแห่ง",
+        badge: `🌦️ ${tmdCov} (${tmdPct}% ของพื้นที่)`,
         tone: "warn",
-        headline: `มีโอกาสเจอฝนโปรยปราย ${c.rainProb}% ช่วงบ่ายถึงค่ำ`,
+        headline: `มี${tmdCov} ร้อยละ ${tmdPct} ของพื้นที่ ช่วงบ่ายถึงค่ำ (ปริมาณ ~${c.rain24hMm} มม.)`,
         action: "พกร่มพับติดกระเป๋าไว้จะอุ่นใจกว่า โดยเฉพาะพื้นที่รับลมมรสุมและชายฝั่งทะเล",
       };
     }
     return {
-      badge: "🌤️ ฟ้าใส ฝนน้อย",
+      badge: `🌤️ ${tmdPct >= 10 ? `${tmdCov} (${tmdPct}% ของพื้นที่)` : "ฟ้าใส ไม่มีฝน"}`,
       tone: "good",
-      headline: `โอกาสฝนตกต่ำเพียง ${c.rainProb}% ตลอดวัน ท้องฟ้าโปร่ง`,
+      headline: tmdPct >= 10 ? `มี${tmdCov}เพียงร้อยละ ${tmdPct} ของพื้นที่ ท้องฟ้าโปร่งเป็นส่วนมาก` : `ไม่มีฝน (0% ของพื้นที่) ตลอดวัน ท้องฟ้าโปร่งใส`,
       action: "เหมาะสำหรับซักตากผ้า เดินทางท่องเที่ยว และทำกิจกรรมกลางแจ้งได้สบายใจ",
     };
   }
@@ -487,20 +503,20 @@ export function getScienceExplainer(topic: TopicId): {
 } {
   if (topic === "rain") {
     return {
-      title: "🔬 ความรู้เข้าใจง่าย: เรดาร์ฝน dBZ, โอกาสเกิดฝน (%) และร่องมรสุมทั่วไทย",
-      subtitle: "อ่านค่าเรดาร์และเปอร์เซ็นต์ฝนอย่างไรให้วางแผนเดินทางและพกร่มได้แม่นยำ?",
+      title: "🔬 ความรู้เข้าใจง่าย: % ฝนของพื้นที่ตามเกณฑ์กรมอุตุนิยมวิทยา (TMD) & เรดาร์ dBZ",
+      subtitle: "อ่านค่า % ฝนของพื้นที่ (ฝนบางแห่ง–ฝนกระจาย–ฝนเกือบทั่วไป) และเรดาร์ dBZ อย่างไรให้แม่นยำ?",
       cards: [
         {
-          head: "📡 1. ค่าการสะท้อนเรดาร์ (dBZ) บอกความแรงฝนอย่างไร?",
-          body: "20–30 dBZ (สีเขียว) คือฝนโปรยปราย, 35–44 dBZ (สีเหลือง–ส้ม) คือฝนปานกลางถึงหนัก และ ≥ 45 dBZ (สีแดง) คือพายุฝนฟ้าคะนองตกหนักมากที่อาจเกิดน้ำท่วมขังรอระบาย",
+          head: "📡 1. ค่าการสะท้อนเรดาร์ (dBZ) สมการ Marshall-Palmer (Z = 200·R¹·⁶)",
+          body: "20–30 dBZ (สีเขียว) คือฝนเล็กน้อย, 35–44 dBZ (สีเหลือง–ส้ม) คือฝนปานกลางถึงหนัก และ ≥ 45 dBZ (สีแดง) คือพายุฝนฟ้าคะนองตกหนักมากที่อาจเกิดน้ำท่วมขังรอระบาย",
         },
         {
-          head: "🧭 2. ทิศทางลมมรสุมกำหนดเส้นทางฝนทั่วไทย",
-          body: "กลุ่มฝนเคลื่อนที่ตามกระแสลม เช่น มรสุมตะวันตกเฉียงใต้พัดฝนจากอันดามันเข้าฝั่ง หรือมรสุมตะวันออกเฉียงเหนือพัดฝนเข้าสู่อ่าวไทยและภาคใต้",
+          head: "☔ 2. เกณฑ์การกระจายของฝน (% ของพื้นที่) แบบกรมอุตุนิยมวิทยา",
+          body: "10–20% ของพื้นที่ = ฝนบางแห่ง (Isolated), 30–40% = ฝนเป็นแห่งๆ (Widely Scattered), 40–60% = ฝนกระจาย (Scattered), 60–80% = ฝนเกือบทั่วไป (Almost Widespread) และ > 80% = ฝนทั่วไป (Widespread)",
         },
         {
-          head: "☔ 3. โอกาสเกิดฝน 60% แปลว่าอะไร?",
-          body: "หมายถึง ณ พิกัดที่คุณอยู่ มีโอกาส 6 ใน 10 ที่จะมีฝนตกลงมาวัดปริมาณได้ (ตั้งแต่ 0.1 มม. ขึ้นไป) ในช่วงเวลานั้น ช่วยให้ตัดสินใจพกร่มหรือเลื่อนเวลาซักผ้าได้ง่ายขึ้น",
+          head: "📏 3. เกณฑ์ปริมาณฝนสะสม 24 ชั่วโมง (มม.) ของกรมอุตุฯ",
+          body: "ฝนเล็กน้อย 0.1–10.0 มม., ฝนปานกลาง 10.1–35.0 มม., ฝนหนัก 35.1–90.0 มม. และฝนหนักมากตั้งแต่ 90.1 มม. ขึ้นไป ช่วยประเมินความเสี่ยงน้ำท่วมขังควบคู่กับ % พื้นที่ฝน",
         },
       ],
     };
@@ -863,9 +879,9 @@ export function getTopicScopeConfig(topic: TopicId): TopicScopeConfig {
     default:
       return {
         topic: "rain",
-        scopeBadge: "🌧️ เครือข่ายเรดาร์ฝนและโอกาสเกิดฝนครบทั้ง 77 จังหวัด",
-        scopeTitle: "เรดาร์ตรวจอากาศ โอกาสเกิดฝน และปริมาณฝนสะสมครบ 77 จังหวัด",
-        scopeDescription: "ติดตามกลุ่มเมฆฝนตามแนวร่องมรสุมและลมทะเลครบทุกจังหวัดทั่วประเทศไทย",
+        scopeBadge: "🌧️ เกณฑ์การกระจายของฝน (% ของพื้นที่ · กรมอุตุฯ) ครบทั้ง 77 จังหวัด",
+        scopeTitle: "% ฝนของพื้นที่ตามเกณฑ์กรมอุตุนิยมวิทยา เรดาร์ dBZ และปริมาณฝนสะสมครบ 77 จังหวัด",
+        scopeDescription: "ติดตามการกระจายตัวของฝน (ฝนบางแห่ง–ฝนเป็นแห่งๆ–ฝนกระจาย–ฝนเกือบทั่วไป) และร่องมรสุมทั่วไทย",
         presentationStyle: "Radar Storm Tracker & Rain Schedule",
         defaultBounds: [[5.6, 97.3], [20.5, 105.6]],
       };
@@ -1104,7 +1120,7 @@ export interface SeverityInfo {
 }
 
 const SHORT_SEVERITY_TAGS: Record<TopicId, Record<1 | 2 | 3 | 4 | 5, string>> = {
-  rain: { 1: "ไร้ฝน", 2: "ฝนเล็กน้อย", 3: "มีฝนบางแห่ง", 4: "ฝนฟ้าคะนอง", 5: "ฝนตกหนักมาก" },
+  rain: { 1: "ไม่มีฝน", 2: "ฝนบางแห่ง", 3: "ฝนเป็นแห่งๆ", 4: "ฝนกระจาย", 5: "ฝนเกือบทั่วไป" },
   sky: { 1: "ฟ้าใสมาก", 2: "ฟ้าโปร่ง", 3: "เมฆบางส่วน", 4: "เมฆครึ้ม", 5: "พายุเมฆทึบ" },
   tide: { 1: "พ้นน้ำหนุน", 2: "น้ำปกติ", 3: "น้ำขึ้นปานกลาง", 4: "น้ำหนุนสูง", 5: "หนุนวิกฤต" },
   wave: { 1: "ทะเลเรียบ", 2: "คลื่นเล็กน้อย", 3: "คลื่นปานกลาง", 4: "คลื่นแรง", 5: "งดเดินเรือ" },
@@ -1237,7 +1253,7 @@ export function classifyDailyPointRisk(
     else if (d.pm25Avg > 15) tier = 2;
     else tier = 1;
   } else if (topic === "heat") {
-    const feels = d.maxTempC + (area.isCoastal ? 3.5 : 3.0);
+    const feels = calculateHeatIndexC(d.maxTempC, area.current.humidity);
     if (feels > 42) tier = 5;
     else if (feels >= 38) tier = 4;
     else if (feels >= 34) tier = 3;
@@ -1256,9 +1272,10 @@ export function classifyDailyPointRisk(
     else if (d.tourismScore >= 50) tier = 2;
     else tier = 1;
   } else {
+    const feels = calculateHeatIndexC(d.maxTempC, area.current.humidity);
     const rT = d.rainProb > 75 ? 5 : d.rainProb >= 55 ? 4 : d.rainProb >= 35 ? 3 : d.rainProb >= 20 ? 2 : 1;
     const aT = d.pm25Avg > 75 ? 5 : d.pm25Avg > 37.5 ? 4 : d.pm25Avg > 25 ? 3 : d.pm25Avg > 15 ? 2 : 1;
-    const hT = d.maxTempC + 3 > 42 ? 5 : d.maxTempC + 3 >= 38 ? 4 : d.maxTempC + 3 >= 34 ? 3 : 2;
+    const hT = feels > 42 ? 5 : feels >= 38 ? 4 : feels >= 34 ? 3 : 2;
     const sT = area.isCoastal ? (d.waveMaxM > 2.0 ? 5 : d.waveMaxM >= 1.3 ? 4 : d.waveMaxM >= 0.85 ? 3 : 2) : 1;
     tier = Math.max(rT, aT, hT, sT) as 1 | 2 | 3 | 4 | 5;
   }
@@ -1292,40 +1309,47 @@ export function projectAreaAtDayHour(
   };
   const targetDay = area.daily[dayIdx] ?? baseDay;
 
-  const dTempDelta = Number((targetDay.maxTempC - baseDay.maxTempC).toFixed(1));
-  const dMinDelta = Number((targetDay.minTempC - baseDay.minTempC).toFixed(1));
-  const dRainDelta = targetDay.rainProb - baseDay.rainProb;
-  const dPmDelta = Number((targetDay.pm25Avg - baseDay.pm25Avg).toFixed(1));
-  const dWaveDelta = area.isCoastal ? Number((targetDay.waveMaxM - baseDay.waveMaxM).toFixed(2)) : 0;
+  const modelDayHourly = area.hourlyByDay?.[dayIdx];
 
-  // Shift hourly series for the chosen day (including lunar tidal shift ~1 hour per day)
-  const projectedHourly: HourlyPoint[] = area.hourly.map((h, idx) => {
-    const shiftedTideHour = (idx - dayIdx + 24) % 24;
-    const baseTide = area.hourly[shiftedTideHour]?.tideMsl ?? h.tideMsl;
-    const springMod = 1 + Math.sin(dayIdx * 0.65) * 0.08;
-    const tideMsl =
-      area.isCoastal || area.current.highTideMsl > 0
-        ? Number((baseTide * springMod).toFixed(2))
-        : 0;
-    const tempC = Number((h.tempC + (idx <= 8 ? dMinDelta : dTempDelta)).toFixed(1));
-    const feelsLikeC = Number((h.feelsLikeC + dTempDelta).toFixed(1));
-    const rainProb = Math.max(4, Math.min(96, Math.round(h.rainProb + dRainDelta)));
-    const rainMm = rainProb >= 40 ? Number(Math.max(0.2, ((rainProb - 30) * 0.16)).toFixed(1)) : 0;
-    const pm25 = Number(Math.max(6, h.pm25 + dPmDelta).toFixed(1));
-    const waveM = area.isCoastal ? Number(Math.max(0.15, h.waveM + dWaveDelta).toFixed(2)) : 0;
-    const cloudPct = Math.min(98, Math.max(10, Math.round(rainProb * 0.88 + 14)));
-    return {
-      ...h,
-      tempC,
-      feelsLikeC,
-      rainProb,
-      rainMm,
-      pm25,
-      tideMsl,
-      waveM,
-      cloudPct,
-    };
-  });
+  // Use real model 24-hour series when available; otherwise project from day 0
+  const projectedHourly: HourlyPoint[] =
+    Array.isArray(modelDayHourly) && modelDayHourly.length === 24
+      ? modelDayHourly
+      : (() => {
+          const dTempDelta = Number((targetDay.maxTempC - baseDay.maxTempC).toFixed(1));
+          const dMinDelta = Number((targetDay.minTempC - baseDay.minTempC).toFixed(1));
+          const dRainDelta = targetDay.rainProb - baseDay.rainProb;
+          const dPmDelta = Number((targetDay.pm25Avg - baseDay.pm25Avg).toFixed(1));
+          const dWaveDelta = area.isCoastal ? Number((targetDay.waveMaxM - baseDay.waveMaxM).toFixed(2)) : 0;
+
+          return area.hourly.map((h, idx) => {
+            const shiftedTideHour = (idx - dayIdx + 24) % 24;
+            const baseTide = area.hourly[shiftedTideHour]?.tideMsl ?? h.tideMsl;
+            const springMod = 1 + Math.sin(dayIdx * 0.65) * 0.08;
+            const tideMsl =
+              area.isCoastal || area.current.highTideMsl > 0
+                ? Number((baseTide * springMod).toFixed(2))
+                : 0;
+            const tempC = Number((h.tempC + (idx <= 8 ? dMinDelta : dTempDelta)).toFixed(1));
+            const feelsLikeC = calculateHeatIndexC(tempC, area.current.humidity);
+            const rainProb = toTmdRainAreaPercent(Math.max(0, Math.min(90, Math.round(h.rainProb + dRainDelta))));
+            const rainMm = rainProb >= 40 ? Number(Math.max(0.2, (rainProb - 30) * 0.16).toFixed(1)) : 0;
+            const pm25 = Number(Math.max(6, h.pm25 + dPmDelta).toFixed(1));
+            const waveM = area.isCoastal ? Number(Math.max(0.15, h.waveM + dWaveDelta).toFixed(2)) : 0;
+            const cloudPct = Math.min(98, Math.max(10, Math.round(rainProb * 0.88 + 14)));
+            return {
+              ...h,
+              tempC,
+              feelsLikeC,
+              rainProb,
+              rainMm,
+              pm25,
+              tideMsl,
+              waveM,
+              cloudPct,
+            };
+          });
+        })();
 
   const activeH = projectedHourly[hourIdx] ?? projectedHourly[0];
   const nextH = projectedHourly[(hourIdx + 1) % 24] ?? activeH;
@@ -1408,6 +1432,8 @@ export function projectAreaAtDayHour(
     )
   );
 
+  const tmdRainPct = toTmdRainAreaPercent(activeH.rainProb);
+
   return {
     ...area,
     current: {
@@ -1419,9 +1445,12 @@ export function projectAreaAtDayHour(
       cloudCoverPct: activeH.cloudPct,
       rainProb: activeH.rainProb,
       rain24hMm: targetDay.rainMm,
-      radarDbz: activeH.rainProb >= 65 ? 46 : activeH.rainProb >= 45 ? 37 : activeH.rainProb >= 30 ? 28 : 14,
+      tmdRainCoverageLabel: getTmdRainCoverageLabel(tmdRainPct),
+      tmdRainIntensityLabel: getTmdRainIntensityLabel(targetDay.rainMm),
+      radarDbz: calculateMarshallPalmerDbz(activeH.rainMm, tmdRainPct),
       pm25: activeH.pm25,
-      aqi: Math.round(activeH.pm25 * 2.55),
+      aqi: calculateUsAqiFromPm25(activeH.pm25),
+      thaiAqi: calculateThaiAqiFromPm25(activeH.pm25),
       uvIndex: activeH.uvIndex,
       windKmh: activeH.windKmh,
       windGustKmh: Number((activeH.windKmh * 1.4).toFixed(1)),

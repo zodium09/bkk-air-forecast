@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import upstreamBasinsGeo from "../../data/chao-phraya-upstream-basins.json";
-import coreGeographyGeo from "../../data/chao-phraya-geography.json";
+
+
 import type { HydroBasin } from "../../lib/hydro/model";
 import { formatWaterValue, waterBankDifference, waterRisk, type WaterStation } from "../../lib/water-levels";
 import { thaiObservationTime, getBangkokHour, getBangkokClockText } from "../../lib/observation-time";
@@ -343,6 +343,80 @@ const BASIN_CENTROIDS: Record<string, { lat: number; lng: number }> = {
   "chao-phraya": { lat: 14.35, lng: 100.56 },
 };
 
+interface ProjectedBasinPath {
+  code: string;
+  d: string;
+  stroke: string;
+  fill: string;
+}
+
+let cachedProjectedBasinPaths: ProjectedBasinPath[] | null = null;
+let pendingProjectedBasinPromise: Promise<ProjectedBasinPath[]> | null = null;
+
+function loadProjectedBasinBoundaryPaths(): Promise<ProjectedBasinPath[]> {
+  if (cachedProjectedBasinPaths) return Promise.resolve(cachedProjectedBasinPaths);
+  if (pendingProjectedBasinPromise) return pendingProjectedBasinPromise;
+
+  pendingProjectedBasinPromise = Promise.all([
+    import("../../data/chao-phraya-upstream-basins.json"),
+    import("../../data/chao-phraya-geography.json"),
+  ]).then(([upstreamMod, coreMod]) => {
+    const upstreamBasinsGeo = (upstreamMod.default ?? upstreamMod) as {
+      features: Array<{ properties?: { MB_CODE?: string | number }; geometry: { type: string; coordinates: unknown } }>;
+    };
+    const coreGeographyGeo = (coreMod.default ?? coreMod) as {
+      core: { features: Array<{ geometry: { type: string; coordinates: unknown } }> };
+    };
+    const results: ProjectedBasinPath[] = [];
+    for (const feat of upstreamBasinsGeo.features) {
+      const code = String(feat.properties?.MB_CODE ?? "");
+      if (!["06", "07", "08", "09", "11", "12"].includes(code)) continue;
+      const style = BASIN_POLYGON_COLORS[code];
+      const geom = feat.geometry;
+      const polygons =
+        geom.type === "Polygon"
+          ? [geom.coordinates as number[][][]]
+          : geom.type === "MultiPolygon"
+            ? (geom.coordinates as number[][][][])
+            : [];
+      for (const poly of polygons) {
+        if (poly[0]) {
+          results.push({
+            code,
+            d: projectGeoJsonRing(poly[0], 10),
+            stroke: style.stroke,
+            fill: style.fill,
+          });
+        }
+      }
+    }
+    const chaoStyle = BASIN_POLYGON_COLORS["chao-phraya"];
+    for (const feat of coreGeographyGeo.core.features) {
+      const geom = feat.geometry;
+      const polygons =
+        geom.type === "Polygon"
+          ? [geom.coordinates as number[][][]]
+          : geom.type === "MultiPolygon"
+            ? (geom.coordinates as number[][][][])
+            : [];
+      for (const poly of polygons) {
+        if (poly[0]) {
+          results.push({
+            code: "chao-phraya",
+            d: projectGeoJsonRing(poly[0], 10),
+            stroke: chaoStyle.stroke,
+            fill: chaoStyle.fill,
+          });
+        }
+      }
+    }
+    cachedProjectedBasinPaths = results;
+    return results;
+  });
+
+  return pendingProjectedBasinPromise;
+}
+
 export default function HydroQgisLayout({
   basins,
   activeBasinId,
@@ -457,56 +531,27 @@ export default function HydroQgisLayout({
     return counts;
   }, [items]);
 
-  // Pre-compute official GeoJSON basin boundary SVG paths from DWR 22-Basin data
+  const [allProjectedBasinPaths, setAllProjectedBasinPaths] = useState<ProjectedBasinPath[] | null>(
+    cachedProjectedBasinPaths
+  );
+
+  useEffect(() => {
+    if (!showBasinBounds || allProjectedBasinPaths) return;
+    let cancelled = false;
+    void loadProjectedBasinBoundaryPaths().then(paths => {
+      if (!cancelled) setAllProjectedBasinPaths(paths);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [showBasinBounds, allProjectedBasinPaths]);
+
+  // Filter pre-computed official GeoJSON basin boundary SVG paths from DWR 22-Basin data
   const officialBasinBoundaryPaths = useMemo(() => {
-    const results: { code: string; d: string; stroke: string; fill: string }[] = [];
-    for (const feat of upstreamBasinsGeo.features) {
-      const code = String(feat.properties?.MB_CODE ?? "");
-      if (!["06", "07", "08", "09", "11", "12"].includes(code)) continue;
-      if (activeBasinId !== "all" && activeBasinId !== code) continue;
-      const style = BASIN_POLYGON_COLORS[code];
-      const geom = feat.geometry as { type: string; coordinates: unknown };
-      const polygons =
-        geom.type === "Polygon"
-          ? [geom.coordinates as number[][][]]
-          : geom.type === "MultiPolygon"
-            ? (geom.coordinates as number[][][][])
-            : [];
-      for (const poly of polygons) {
-        if (poly[0]) {
-          results.push({
-            code,
-            d: projectGeoJsonRing(poly[0], 10),
-            stroke: style.stroke,
-            fill: style.fill,
-          });
-        }
-      }
-    }
-    if (activeBasinId === "all" || activeBasinId === "chao-phraya") {
-      const style = BASIN_POLYGON_COLORS["chao-phraya"];
-      for (const feat of coreGeographyGeo.core.features) {
-        const geom = feat.geometry as { type: string; coordinates: unknown };
-        const polygons =
-          geom.type === "Polygon"
-            ? [geom.coordinates as number[][][]]
-            : geom.type === "MultiPolygon"
-              ? (geom.coordinates as number[][][][])
-              : [];
-        for (const poly of polygons) {
-          if (poly[0]) {
-            results.push({
-              code: "chao-phraya",
-              d: projectGeoJsonRing(poly[0], 10),
-              stroke: style.stroke,
-              fill: style.fill,
-            });
-          }
-        }
-      }
-    }
-    return results;
-  }, [activeBasinId]);
+    if (!allProjectedBasinPaths) return [];
+    if (activeBasinId === "all") return allProjectedBasinPaths;
+    return allProjectedBasinPaths.filter(p => p.code === activeBasinId);
+  }, [activeBasinId, allProjectedBasinPaths]);
 
   // Select top priority stations to label and run a deterministic Collision-Avoidance Layout Solver
   const stationLabelBoxes = useMemo(() => {
